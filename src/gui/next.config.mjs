@@ -7,14 +7,19 @@ const nextConfig = (envo === 'prod') ? {
     basePath: "/extensions/comfyui_queue_manager/.gui",
     assetPrefix: "/extensions/comfyui_queue_manager/.gui",
     async generateBuildId() {
-      // any deterministic string you like
-      return "prod";          // will output _next/static/prod/…
+      return "prod";          // remove manifest folder hash
+    },
+    experimental: {
+      legacyBrowsers: false,
     },
     webpack: (config, { isServer }) => {
       if (!isServer) {
-        //  main runtime <buildId>.js  →  runtime.js
+        // Disable chunking for client-side bundles
+        config.optimization.splitChunks = false;
+        config.optimization.runtimeChunk = false;
+
+        // Disable file name hashing for client-side bundles
         config.output.filename      = 'static/chunks/[name].js';
-        //  split chunks <name>.<hash>.js → <name>.js
         config.output.chunkFilename = 'static/chunks/[name].js';
       }
       return config;
