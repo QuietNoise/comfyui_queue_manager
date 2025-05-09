@@ -102,3 +102,6 @@ cookiecutter-pypackage-env/
 
 # Jetbrains IDEs
 .idea/
+
+# outputs
+/queue.json
