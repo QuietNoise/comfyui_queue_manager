@@ -1,7 +1,13 @@
+const QM_ENVIRONMENT = "development"; // Any other value will be treated as production
+const QM_DEV_URL = "http://localhost:3001"; // The URL of the development server for nextjs project. Check front end README for Cross-Origin issues
+const QM_PROD_URL = "/extensions/comfyui_queue_manager/.gui"; // The path where the build sits in the comfyui frontend
+
 import { app } from '../../scripts/app.js'
 import { api } from '../../scripts/api.js'
+// import { ui } from '../../scripts/ui.js'
 
-console.log("Queue Manager JS loaded", app);
+
+
 
 /**
  * Main function wrapping plugin's core functionality
@@ -9,6 +15,9 @@ console.log("Queue Manager JS loaded", app);
 app.registerExtension({
 	name: "ComfyUIQueueManager",
   async setup() {
+    // Envo dependant values
+    const QueueManagerURL = QM_ENVIRONMENT === "development" ? QM_DEV_URL : QM_PROD_URL;
+
     function onQueueStatusUpdate(event) {
       // api.fetchApi(`/queue_manager/queue`); // save the queue
       console.log("ComfyUI Queue Manager status:", event);
@@ -18,8 +27,8 @@ app.registerExtension({
       if (iframe && iframe.contentWindow) {
         console.log("Sending QM_queueStatusUpdated message to iframe");
         iframe.contentWindow.postMessage({
-          type: "QM_queueStatusUpdated",
-        });
+          type: "QM_queueStatusUpdated"
+        }, QueueManagerURL);
       }
     }
     app.api.addEventListener("status", onQueueStatusUpdate);
@@ -32,10 +41,11 @@ app.registerExtension({
       type: "custom",
       render: (el) => {
         el.innerHTML = `
+          <style>.p-splitter[data-p-resizing="true"] .comfyui-queue-manager {pointer-events: none}</style>
           <div class='comfyui-queue-manager flex flex-col p-1' style="height: calc(100vh - var(--comfy-topbar-height) - 4px);">
             <header class="p-1">Queue Manager</header>
             <section class='app-iframe flex-1 p-2' style="background-color: var(--p-form-field-background);">
-              <iframe src="/extensions/comfyui_queue_manager/.gui/index.html" class="w-full h-full border-0"></iframe>
+              <iframe src="${QueueManagerURL}" class="w-full h-full border-0"></iframe>
             </section>
           </div>
         `;

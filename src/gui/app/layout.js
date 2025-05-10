@@ -25,19 +25,19 @@ export default function RootLayout({ children }) {
 
   // on mount get the queue items from the server
   useEffect(() => {
-    // in dev we cross origin to localhost:8188
-    const baseURL = (process.env.NODE_ENV === "development") ? "http://127.0.0.1:8188/" : "/";
+    const baseURL = process.env.NODE_ENV === "development"
+    ? "http://127.0.0.1:8188/"
+    : "/";
 
     const fetchQueueItems = async () => {
-      setStatus({ loading: true, error: null, data: null });
+      setStatus(prev => ({ ...prev, loading: true, error: null }));
       try {
         const response = await fetch(`${baseURL}queue_manager/queue`);
         if (!response.ok) {
           throw new Error("Network response was not ok");
         }
         const data = await response.json();
-        setStatus({ loading: false, error: null, data });
-        console.log("Queue items:", data);
+        setStatus(prev => ({ ...prev, loading: false, error: null, data }));
       } catch (error) {
         setStatus({ loading: false, error: error.message, data: null });
         console.error("Error fetching queue items:", error);
@@ -46,15 +46,13 @@ export default function RootLayout({ children }) {
 
     fetchQueueItems();
 
-    // listen for postMessage from the parent window
     const handleMessage = (event) => {
       if (event.data.type === "QM_queueStatusUpdated") {
-        console.log("QM_queueStatusUpdated", event.data);
         fetchQueueItems();
       }
     };
     window.addEventListener("message", handleMessage);
-
+    return () => window.removeEventListener("message", handleMessage);
   }, []);
 
   return (
