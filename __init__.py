@@ -61,7 +61,7 @@ async def restore_queue(request):
                 logging.info("[Queue Manager] Shadow queue is empty.")
                 return web.json_response({"status": "success", "message": "Queue Manage shadow queue is empty."})
 
-            # TODO: Check if all prompts in the queue are valid
+            # SIML: Check if all prompts in the queue are valid
             theServer = PromptServer.instance
             theQueue = theServer.prompt_queue
             with theQueue.mutex:
@@ -87,6 +87,7 @@ async def get_version(request):
 
 # When the server is fully started, restore the queue from the shadow copy
 async def on_ready(app):
+    # TODO: Add a setting to enable/disable this feature
     await restore_queue(None)
 
 

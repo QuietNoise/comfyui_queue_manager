@@ -42,6 +42,17 @@ app.registerExtension({
       },
     });
 
+
+    const _apiQueuePrompt = app.api.queuePrompt;
+
+    app.api.queuePrompt = function(n, data) {
+      // Inject workflow name
+      // SIML: Perhaps add a setting to enable/disable this behaviour (privacy concern? the workflow name will travel all the way to the generated PNG)
+      data.workflow.workflow_name = app.extensionManager.workflow.activeWorkflow.filename;
+
+      return _apiQueuePrompt(n, data);
+    };
+
     //// Load front end UI into iframe
     // const el = document.createElement("iframe");
     // el.src = "/extensions/comfyui_queue_manager/.gui/index.html";
