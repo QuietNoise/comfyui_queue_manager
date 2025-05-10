@@ -44,7 +44,7 @@ async def get_queue(request):
         json.dump(queue, f, indent=4)
 
     # Return the queue object as JSON
-    return web.json_response(queue)
+    return web.json_response({"running": running, "pending": pending})
 
 
 # Restore the queue from the shadow copy if queue.json is not empty
@@ -78,17 +78,19 @@ async def restore_queue(request):
         return web.json_response({"status": "success", "message": "No shadow copy found."})
 
 
+# Endpoint to expose __version__ information
+@PromptServer.instance.routes.get("/queue_manager/version")
+async def get_version(request):
+    # Return the version as JSON
+    return web.json_response({"version": __version__})
+
+
 # When the server is fully started, restore the queue from the shadow copy
 async def on_ready(app):
     await restore_queue(None)
 
 
 PromptServer.instance.app.on_startup.append(on_ready)
-
-# @events.subscribe("server_started")
-# def on_boot():
-#     when = datetime.datetime.now().isoformat(timespec="seconds")
-#     logging.info("[your_pack] ComfyUI fully ready at %s", when)
 
 
 # v 1 Attempt

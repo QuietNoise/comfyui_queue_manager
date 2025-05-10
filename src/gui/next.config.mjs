@@ -9,9 +9,6 @@ const nextConfig = (envo === 'prod') ? {
     async generateBuildId() {
       return "prod";          // remove manifest folder hash
     },
-    experimental: {
-      legacyBrowsers: false,
-    },
     webpack: (config, { isServer }) => {
       if (!isServer) {
         // Disable chunking for client-side bundles
