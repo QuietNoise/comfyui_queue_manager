@@ -25,13 +25,11 @@ export default function RootLayout({ children }) {
 
   // on mount get the queue items from the server
   useEffect(() => {
-    const baseURL = process.env.NODE_ENV === "development"
-    ? "http://127.0.0.1:8188/"
-    : "/";
-
     const fetchQueueItems = async () => {
       setStatus(prev => ({ ...prev, loading: true, error: null }));
       try {
+        // console.log("Fetching queue items from", baseURL);
+
         const response = await fetch(`${baseURL}queue_manager/queue`);
         if (!response.ok) {
           throw new Error("Network response was not ok");
@@ -62,7 +60,7 @@ export default function RootLayout({ children }) {
         <title>Queue Manager</title>
         <meta name="description" content="ComfyUI Queue Manager frontend" />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} p-2`}>
         {/*{children}*/}
         <Queue data={status.data} error={status.error} isLoading={status.isLoading} />
       </body>
