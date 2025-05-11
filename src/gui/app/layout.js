@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.scss";
 import {useEffect, useState} from "react";
 import Queue from "@/components/Queue";
+import {baseURL} from "@/internals/config";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -19,7 +20,7 @@ export default function RootLayout({ children }) {
   const [ status, setStatus ] = useState({
     loading: false,
     error: null,
-    data: null,
+    data: null
   });
 
 
@@ -37,19 +38,20 @@ export default function RootLayout({ children }) {
         const data = await response.json();
         setStatus(prev => ({ ...prev, loading: false, error: null, data }));
       } catch (error) {
-        setStatus({ loading: false, error: error.message, data: null });
+        setStatus(prev => ({...prev,  loading: false, error: error.message, data: null }));
         console.error("Error fetching queue items:", error);
       }
     };
 
     fetchQueueItems();
 
-    const handleMessage = (event) => {
+    window.addEventListener("message", function(event) {
+      // SIML: check if event.origin is the same as baseURL
       if (event.data.type === "QM_queueStatusUpdated") {
         fetchQueueItems();
       }
-    };
-    window.addEventListener("message", handleMessage);
+    });
+
     return () => window.removeEventListener("message", handleMessage);
   }, []);
 

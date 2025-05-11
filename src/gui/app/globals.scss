@@ -44,3 +44,55 @@ button:hover {
     color-scheme: dark;
   }
 }
+
+.queue-table {
+  .running {
+    background: linear-gradient(
+        to right,
+        #afa 0%,
+        #efe 25%,
+        #afa 50%,
+        #efe 75%,
+        #afa 100%
+    ) -200% 0;
+    background-size: 400% 100%;
+    animation: slide 8s linear infinite;
+
+    // dark mode
+    @media (prefers-color-scheme: dark) {
+      background: linear-gradient(
+          to right,
+          #000000 0%,
+          #222222 25%,
+          #000000 50%,
+          #222222 75%,
+          #000000 100%
+      ) -200% 0;
+      background-size: 400% 100%;
+    }
+
+
+    @keyframes slide {
+      to {
+        background-position: 0 0;
+      }
+    }
+
+    td.actions {
+      .loader {
+        display: inline-block;
+        vertical-align: middle;
+
+        svg {
+          animation: spin 2s linear infinite;
+        }
+      }
+    }
+  }
+
+  .pending {
+    td:not(.actions) {
+      opacity: 0.6;
+    }
+  }
+}

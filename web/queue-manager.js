@@ -1,4 +1,5 @@
 const QM_ENVIRONMENT = "development"; // Any other value will be treated as production
+
 const QM_DEV_URL = "http://localhost:3001"; // The URL of the development server for nextjs project. Check front end README for Cross-Origin issues
 const QM_PROD_URL = "/extensions/comfyui_queue_manager/.gui"; // The path where the build sits in the comfyui frontend
 
@@ -18,14 +19,19 @@ app.registerExtension({
     // Envo dependant manager URL
     const QueueManagerURL = QM_ENVIRONMENT === "development" ? QM_DEV_URL : QM_PROD_URL;
 
+    function theIframe() {
+      return document.querySelector(".comfyui-queue-manager iframe");
+    }
+
+    /**
+     * When the queue status is updated tell iframe to refresh queue items
+     * @param event
+     */
     function onQueueStatusUpdate(event) {
-      // api.fetchApi(`/queue_manager/queue`); // save the queue
-      console.log("ComfyUI Queue Manager status:", event);
 
       // if frame is loaded, send message to iframe
-      const iframe = document.querySelector(".comfyui-queue-manager iframe");
+      const iframe = theIframe();
       if (iframe && iframe.contentWindow) {
-        console.log("Sending QM_queueStatusUpdated message to iframe");
         iframe.contentWindow.postMessage({
           type: "QM_queueStatusUpdated"
         }, QueueManagerURL);
@@ -45,59 +51,6 @@ app.registerExtension({
       }
     }, false);
 
-    // /**
-    //  * Observe mutation of the [data-pc-section="root"]
-    //  */
-    // const observer = new MutationObserver((mutations) => {
-    //   console.log('mutations');
-    //
-    //   mutations.forEach((mutation) => {
-    //     if (mutation.type === "attributes" && mutation.attributeName === "data-pc-section") {
-    //       const target = mutation.target;
-    //       if (target.getAttribute("data-pc-section") === "root") {
-    //         console.log("Mutation observed on root section");
-    //         // Send message to iframe with parent origin
-    //         const iframe = theIframe();
-    //         if (iframe && iframe.contentWindow) {
-    //           // console.log("Sending QM_queueStatusUpdated message to iframe");
-    //           iframe.contentWindow.postMessage({
-    //             type: "QM_QueueManager_Hello",
-    //             origin: window.location.origin,
-    //           }, QueueManagerURL);
-    //         }
-    //       }
-    //     }
-    //   });
-    // });
-    //
-    // // const targetNode = document.querySelector('[data-pc-section="root"]');
-    // const targetNode = document.querySelector('.splitter-overlay-root');
-    // const config = { attributes: true, childList: true, subtree: true };
-    // observer.observe(targetNode, config);
-    //
-    // // on event when front end is fully loaded
-    // app.api.addEventListener("ready", function (e) {
-    //   console.log("ComfyUI Queue Manager ready", e);
-    //   // Send message to iframe with parent origin
-    //   const iframe = theIframe();
-    //   if (iframe && iframe.contentWindow) {
-    //     // console.log("Sending QM_queueStatusUpdated message to iframe");
-    //     iframe.contentWindow.postMessage({
-    //       type: "QM_QueueManager_Hello",
-    //       origin: window.location.origin,
-    //     }, QueueManagerURL);
-    //   }
-    // });
-
-
-
-
-    // await app.loadGraphData(
-    //       JSON.parse(pngInfo.workflow),
-    //       true,
-    //       true,
-    //       fileName
-    // )
 
     app.extensionManager.registerSidebarTab({
       id: "comfyui-queue-manager",
@@ -109,12 +62,31 @@ app.registerExtension({
         el.innerHTML = `
           <style>.p-splitter[data-p-resizing="true"] .comfyui-queue-manager {pointer-events: none}</style>
           <div class='comfyui-queue-manager flex flex-col' style="height: calc(100vh - var(--comfy-topbar-height) - 4px);">
-            <header class="p-2 font-bold">Queue Manager</header>
+            <header class="px-2 py-1 text-sm header">QUEUE MANAGER</header>
             <section class='app-iframe flex-1' style="background-color: var(--p-form-field-background);">
               <iframe src="${QueueManagerURL}" class="w-full h-full border-0"></iframe>
             </section>
+            <footer>
+              <header class="p-2 text-sm">Current Worflow</header>
+              <div class="p-2">
+                <button onclick={onQueueStatusUpdate} class="hover:bg-neutral-700 text-neutral-200 font-bold py-1 px-2 rounded mr-1 border-0 bg-green-900">Add to archive</button>
+              </div>
+            </footer>
           </div>
         `;
+
+        // append stylesheet to this document
+        if (!document.getElementById("comfyui-queue-manager-stylesheet")) {
+          const style = document.createElement("link");
+          style.rel = "stylesheet";
+          style.href = `/extensions/comfyui_queue_manager/styles/manager.css`;
+          style.type = "text/css";
+          style.id = "comfyui-queue-manager-stylesheet";
+          style.onload = function() {
+            console.log("Queue Manager stylesheet loaded");
+          };
+          document.head.appendChild(style);
+        }
       },
     });
 
@@ -126,16 +98,9 @@ app.registerExtension({
       // SIML: Perhaps add a setting to enable/disable this behaviour (privacy concern? the workflow name will travel all the way to the generated PNG)
       data.workflow.workflow_name = app.extensionManager.workflow.activeWorkflow.filename;
 
-      return _apiQueuePrompt(n, data);
+
+      return _apiQueuePrompt.call(app, n, data);
     };
-
-    //// Load front end UI into iframe
-    // const el = document.createElement("iframe");
-    // el.src = "/extensions/comfyui_queue_manager/.gui/index.html";
-    // el.style.cssText =
-    //   "position:fixed;right:0;top:0;height:100%;width:380px;z-index:3000;border:none;";
-    // document.body.appendChild(el);
-
 
     // app.api.addEventListener("promptQueued", function (e) {
     //   console.log("PromptQueued app.api", e);

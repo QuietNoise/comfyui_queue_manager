@@ -1,0 +1,8 @@
+.comfyui-queue-manager header.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  min-height: 2.875rem;
+  border-bottom: 1px solid var(--p-toolbar-border-color);
+}
