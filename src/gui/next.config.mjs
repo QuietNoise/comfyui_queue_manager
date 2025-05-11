@@ -21,8 +21,16 @@ const nextConfig = (envo === 'prod') ? {
       }
       return config;
     },
+    sassOptions: {
+      // suppress deprecation warnings from any dependency
+      quietDeps: true,
+    },
 } : {
     distDir: 'dist-dev',
+    sassOptions: {
+      // suppress deprecation warnings from any dependency
+      quietDeps: true,
+    },
 };
 
 export default nextConfig;
