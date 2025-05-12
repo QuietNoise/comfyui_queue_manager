@@ -57,6 +57,7 @@ button:hover {
     ) -200% 0;
     background-size: 400% 100%;
     animation: slide 8s linear infinite;
+    position: relative;
 
     // dark mode
     @media (prefers-color-scheme: dark) {
@@ -78,7 +79,39 @@ button:hover {
       }
     }
 
+    td.serial {
+      span {
+        position: relative;
+      }
+      &:before {
+        // progress bar
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: var(--job-progress);
+        height: 100%;
+        // gradient background green to light green
+        background: linear-gradient(
+          to right,
+          #44aaff 0%,
+          #44ffaa 100%,
+        );
+        opacity: 0.3;
+
+
+        // blend with the background
+        mix-blend-mode: exclusion;
+        display: block;
+      }
+    }
+
+    td.name {
+      position: relative;
+    }
+
     td.actions {
+      position: relative;
       .loader {
         display: inline-block;
         vertical-align: middle;

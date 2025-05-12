@@ -30,6 +30,7 @@ export default function RootLayout({ children }) {
       // [node_id]: string|boolean - true executed, node id - not executed
     },
     integrity: true, // false if events about workflow execution are received before the workflow data is loaded
+    progress: 0.0,
   });
 
   const fetchQueueItems = async () => {
@@ -165,7 +166,7 @@ export default function RootLayout({ children }) {
     }
   });
 
-  // when progress is updated
+  // when progress data is updated
   useEffect(() => {
     const progress =
       Object.values(currentJob.nodes).length > 0 ?
@@ -183,7 +184,13 @@ export default function RootLayout({ children }) {
       progress,
       Object.values(currentJob.nodes).filter(v => typeof v === 'boolean').length,
       Object.values(currentJob.nodes).length);
-  }, [currentJob]);
+
+    setProgress(prev => ({
+      ...prev,
+      progress: progress
+    }));
+
+  }, [currentJob.nodes]);
 
   // when new queue items are added to the queue
   useEffect(() => {
@@ -230,7 +237,7 @@ export default function RootLayout({ children }) {
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} p-2`}>
         {/*{children}*/}
-        <Queue data={status.queue} error={status.error} isLoading={status.isLoading} />
+        <Queue data={status.queue} error={status.error} isLoading={status.isLoading} progress={currentJob.progress} />
       </body>
     </html>
   );

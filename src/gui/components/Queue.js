@@ -5,7 +5,7 @@ import {baseURL} from "@/internals/config";
 
 
 // take items from parent component
-export default function Queue( { data, isLoading, error }) {
+export default function Queue( { data, isLoading, error, progress } ) {
   const [state, setState] = useState({
     pending:[],
     running:[],
@@ -64,8 +64,8 @@ export default function Queue( { data, isLoading, error }) {
 
     return (
       <tr className={"dark:odd:bg-neutral-900 odd:bg-neutral-100" + (className ? ' ' + className : '')}>
-        <td className="px-3 py-1">{item[0]}</td>
-        <td className="px-3 py-1 text-left">{item[3].extra_pnginfo.workflow.workflow_name ? item[3].extra_pnginfo.workflow.workflow_name : ""}</td>
+        <td className="px-3 py-1 serial"><span>{item[0]}</span></td>
+        <td className="px-3 py-1 text-left name">{item[3].extra_pnginfo.workflow.workflow_name ? item[3].extra_pnginfo.workflow.workflow_name : ""}</td>
         <td className={'px-3 py-1 text-right actions'}>
           {loader &&
             <span className="loader px-3 py-1 ">
@@ -91,7 +91,7 @@ export default function Queue( { data, isLoading, error }) {
   if (error)       return <p className="text-red-500 text-center">Queue load failed: {error.message}</p>;
   if (!data || (!data.running.length && !data.pending.length)) return <p className="italic text-center">Queue is empty.</p>;
   return (
-    <div className={"queue-table overflow-x-auto" + (isLoading ? ' loading' : '')}>
+    <div className={"queue-table overflow-x-auto" + (isLoading ? ' loading' : '')} style={{"--job-progress": progress + "%"}}>
       <table className="min-w-full border border-0">
         <thead className="dark:bg-neutral-800 bg-neutral-200 text-xs uppercase">
           <tr>
