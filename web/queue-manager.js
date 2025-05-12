@@ -1,11 +1,9 @@
 const QM_ENVIRONMENT = "development"; // Any other value will be treated as production
 
-const QM_DEV_URL = "http://localhost:3001"; // The URL of the development server for nextjs project. Check front end README for Cross-Origin issues
+const QM_DEV_URL = "http://localhost:3000"; // The URL of the development server for nextjs project. Check front end README for Cross-Origin issues
 const QM_PROD_URL = "/extensions/comfyui_queue_manager/.gui"; // The path where the build sits in the comfyui frontend
 
 import { app } from '../../scripts/app.js'
-import { api } from '../../scripts/api.js'
-// import { ui } from '../../scripts/ui.js'
 
 
 
@@ -23,21 +21,42 @@ app.registerExtension({
       return document.querySelector(".comfyui-queue-manager iframe");
     }
 
-    /**
-     * When the queue status is updated tell iframe to refresh queue items
-     * @param event
-     */
-    function onQueueStatusUpdate(event) {
-
-      // if frame is loaded, send message to iframe
+    function postStatusMessageToIframe(event) {
+      // console.log("Queue status updated", event);
       const iframe = theIframe();
       if (iframe && iframe.contentWindow) {
+        // console.log("Posting message to iframe", event, QueueManagerURL);
         iframe.contentWindow.postMessage({
-          type: "QM_queueStatusUpdated"
+          type: "QM_queueStatusUpdated",
+          message: {
+            name: event.type,
+            detail: event.detail
+          }
         }, QueueManagerURL);
       }
     }
-    app.api.addEventListener("status", onQueueStatusUpdate);
+
+    /**
+     * When the queue status or workflow progress is updated then tell the iframe
+     * @param event
+     */
+    app.api.addEventListener("status", function (e) {
+      postStatusMessageToIframe(e)
+    });
+
+    app.api.addEventListener("execution_start", function (e) {
+      postStatusMessageToIframe(e)
+    });
+
+    app.api.addEventListener("execution_cached", function (e) {
+      postStatusMessageToIframe(e)
+    });
+
+    app.api.addEventListener("executing", function (e) {
+      postStatusMessageToIframe(e)
+    })
+
+
 
     /**
      * When workflow is received from iframe then load it into ComfyUI
@@ -83,7 +102,7 @@ app.registerExtension({
           style.type = "text/css";
           style.id = "comfyui-queue-manager-stylesheet";
           style.onload = function() {
-            console.log("Queue Manager stylesheet loaded");
+            // console.log("Queue Manager stylesheet loaded");
           };
           document.head.appendChild(style);
         }
@@ -106,9 +125,8 @@ app.registerExtension({
     //   console.log("PromptQueued app.api", e);
     // })
     //
-    // app.api.addEventListener("executing", function (e) {
-    //   console.log("Executing app.api", e);
-    // })
+
+
 
     // console.log("Attempt to restore queue.");
     // api.fetchApi(`/queue_manager/restore`);
