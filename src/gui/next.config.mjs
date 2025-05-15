@@ -19,6 +19,14 @@ const nextConfig = (envo === 'prod') ? {
         config.output.filename      = 'static/chunks/[name].js';
         config.output.chunkFilename = 'static/chunks/[name].js';
       }
+
+      config.plugins.forEach((plugin) => {
+        if (plugin.constructor?.name === 'NextMiniCssExtractPlugin') {
+          // patch the existing instance in-place
+          plugin.options.filename      = 'static/css/[name].css';
+          plugin.options.chunkFilename = 'static/css/[name].css';
+        }
+      });
       return config;
     },
     sassOptions: {
