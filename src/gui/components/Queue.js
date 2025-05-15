@@ -54,7 +54,7 @@ export default function Queue( { data, isLoading, error, progress } ) {
      * Post message to parent window to load workflow stored in pnginfo
      */
     async function loadQueueItem() {
-      console.log("Loading queue item", item);
+      // console.log("Loading queue item", item);
       window.parent.postMessage(
         { type: "QM_LoadWorkflow", workflow: item[3].extra_pnginfo.workflow, number: item[0] },
         "*"
@@ -91,12 +91,12 @@ export default function Queue( { data, isLoading, error, progress } ) {
   if (error)       return <p className="text-red-500 text-center">Queue load failed: {error.message}</p>;
   if (!data || (!data.running.length && !data.pending.length)) return <p className="italic text-center">Queue is empty.</p>;
   return (
-    <div className={"queue-table overflow-x-auto" + (isLoading ? ' loading' : '')} style={{"--job-progress": progress + "%"}}>
+    <div className={"overflow-x-auto" + (isLoading ? ' loading' : '')} style={{"--job-progress": progress + "%"}}>
       <table className="min-w-full border border-0">
         <thead className="dark:bg-neutral-800 bg-neutral-200 text-xs uppercase">
           <tr>
             <th className="px-3 py-2 text-left">#</th>
-            <th className="px-3 py-2 text-left">Name</th>
+            <th className="px-3 py-2 text-left">Workflow</th>
             <th className="px-3 py-2 text-right">Actions</th>
           </tr>
         </thead>

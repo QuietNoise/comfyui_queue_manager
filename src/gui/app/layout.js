@@ -65,7 +65,7 @@ export default function RootLayout({ children }) {
 
   function getTheJob(jobID, queue) {
     if (!queue) {
-      console.log("No queue data yet, skipping");
+      // console.log("No queue data yet, skipping");
       return null;
     }
 
@@ -236,8 +236,21 @@ export default function RootLayout({ children }) {
         <meta name="description" content="ComfyUI Queue Manager frontend" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} p-2`}>
-        {/*{children}*/}
-        <Queue data={status.queue} error={status.error} isLoading={status.isLoading} progress={currentJob.progress} />
+      {/*{children}*/}
+      <div className={'queue-table '}>
+        <Queue data={status.queue} error={status.error} isLoading={status.isLoading} progress={currentJob.progress}/>
+      </div>
+      <footer className={"footer"}>
+        <div className="p-2">
+          {status.queue && status.queue.length > 0 &&
+            <button onClick={archiveAll}
+                    className="hover:bg-neutral-700 text-neutral-200 font-bold py-1 px-2 rounded mr-1 border-0 bg-green-900">Archive
+              All
+            </button>
+          }
+
+        </div>
+      </footer>
       </body>
     </html>
   );

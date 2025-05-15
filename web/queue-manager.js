@@ -86,10 +86,6 @@ app.registerExtension({
               <iframe src="${QueueManagerURL}" class="w-full h-full border-0"></iframe>
             </section>
             <footer>
-              <header class="p-2 text-sm">Current Worflow</header>
-              <div class="p-2">
-                <button onclick={onQueueStatusUpdate} class="hover:bg-neutral-700 text-neutral-200 font-bold py-1 px-2 rounded mr-1 border-0 bg-green-900">Add to archive</button>
-              </div>
             </footer>
           </div>
         `;
