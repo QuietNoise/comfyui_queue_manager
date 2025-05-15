@@ -7,6 +7,9 @@ import os
 import heapq
 import sqlite3, threading
 
+# import traceback
+import types
+
 # import json
 # import uuid
 
@@ -94,9 +97,46 @@ async def on_ready(app):
 
 PromptServer.instance.app.on_startup.append(on_ready)
 
+# Hijack queue.get() to get the queue running item
+# At this state item should be saved in the database
+# Mark the item as running
+oldqueue_get = PromptServer.instance.prompt_queue.get
+
+
+def newqueue_get(self, timeout=None):
+    #     test, just print to console
+    print("================ GET ================")
+    # traceback.print_stack()
+
+    return oldqueue_get(timeout)
+
+
+PromptServer.instance.prompt_queue.get = types.MethodType(newqueue_get, PromptServer.instance.prompt_queue)
+
+
+# Hijack queue.put() to get the queue newly added pending item
+# Add the item to the database
+oldqueue_put = PromptServer.instance.prompt_queue.put
+
+
+def newqueue_put(self, item):
+    #     test, just print to console
+    print("================ PUT ================")
+    # traceback.print_stack()
+
+    # Add the item to the database
+    # conn = get_conn()
+    # cursor = conn.cursor()
+    # cursor.execute("INSERT INTO queue (item) VALUES (?)", (item,))
+    # conn.commit()
+
+    return oldqueue_put(item)
+
+
+PromptServer.instance.prompt_queue.put = types.MethodType(newqueue_put, PromptServer.instance.prompt_queue)
 
 # Archive SQLite database
-DB_PATH = os.path.dirname(os.path.abspath(__file__)) + "data/qm-archivShadow queue is empty.e.db"
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "qm-queue.db")
 _local = threading.local()
 
 
@@ -108,5 +148,33 @@ def get_conn() -> sqlite3.Connection:
         _local.conn.row_factory = sqlite3.Row
     return _local.conn
 
+
+def init_schema():
+    conn = get_conn()
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS queue (
+            prompt_id  VARCHAR(255) PRIMARY KEY,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            number     INTEGER,
+            name       TEXT,
+            workflow_id   VARCHAR(255),
+            status     INTEGER DEFAULT 0 -- 0: pending, 1: running, 2: finished, -1: error
+        );
+
+        -- Create a trigger to update the updated_at column
+        CREATE TRIGGER IF NOT EXISTS queue_set_updated_at
+        AFTER UPDATE ON queue
+        FOR EACH ROW
+        WHEN NEW.updated_at = OLD.updated_at         -- only if caller didn't change it
+        BEGIN
+          UPDATE queue
+          SET    updated_at = CURRENT_TIMESTAMP
+          WHERE  rowid = NEW.rowid;
+        END;
+    """)
+
+
+init_schema()
 
 WEB_DIRECTORY = "./web"
