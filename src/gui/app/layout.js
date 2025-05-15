@@ -86,6 +86,10 @@ export default function RootLayout({ children }) {
     return null;
   }
 
+  function archiveAll() {
+
+  }
+
   const handleMessage = useEvent((event) => {
     // console.log("Received message from parent", event,event.data.type, event.data.message);
     // SIML: check if event.origin is the same as baseURL
@@ -147,7 +151,7 @@ export default function RootLayout({ children }) {
             break;
 
         case "executing":
-          // console.log("Executing: ", event.data.message);
+          console.log("Executing: ", event.data.message);
           // set executed node id as executed
           const  node_id  = event.data.message.detail;
           if (!node_id) {
@@ -179,11 +183,11 @@ export default function RootLayout({ children }) {
         )
         :
         0;
-    console.log("Job progress updated: ",
-      currentJob,
-      progress,
-      Object.values(currentJob.nodes).filter(v => typeof v === 'boolean').length,
-      Object.values(currentJob.nodes).length);
+    // console.log("Job progress updated: ",
+    //   currentJob,
+    //   progress,
+    //   Object.values(currentJob.nodes).filter(v => typeof v === 'boolean').length,
+    //   Object.values(currentJob.nodes).length);
 
     setProgress(prev => ({
       ...prev,

@@ -1,7 +1,5 @@
-const QM_ENVIRONMENT = "development"; // Any other value will be treated as production
-
-const QM_DEV_URL = "http://localhost:3000"; // The URL of the development server for nextjs project. Check front end README for Cross-Origin issues
-const QM_PROD_URL = "/extensions/comfyui_queue_manager/.gui"; // The path where the build sits in the comfyui frontend
+import { QM_ENVIRONMENT, QM_DEV_URL, QM_PROD_URL, QueueManagerURL } from './js/config.js';
+import { postStatusMessageToIframe } from './js/functions.js';
 
 import { app } from '../../scripts/app.js'
 
@@ -14,27 +12,7 @@ import { app } from '../../scripts/app.js'
 app.registerExtension({
 	name: "ComfyUIQueueManager",
   async setup() {
-    // Envo dependant manager URL
-    const QueueManagerURL = QM_ENVIRONMENT === "development" ? QM_DEV_URL : QM_PROD_URL;
 
-    function theIframe() {
-      return document.querySelector(".comfyui-queue-manager iframe");
-    }
-
-    function postStatusMessageToIframe(event) {
-      // console.log("Queue status updated", event);
-      const iframe = theIframe();
-      if (iframe && iframe.contentWindow) {
-        // console.log("Posting message to iframe", event, QueueManagerURL);
-        iframe.contentWindow.postMessage({
-          type: "QM_queueStatusUpdated",
-          message: {
-            name: event.type,
-            detail: event.detail
-          }
-        }, QueueManagerURL);
-      }
-    }
 
     /**
      * When the queue status or workflow progress is updated then tell the iframe
@@ -55,6 +33,10 @@ app.registerExtension({
     app.api.addEventListener("executing", function (e) {
       postStatusMessageToIframe(e)
     })
+
+    // app.api.addEventListener("progress", function (e) {
+    //   console.log("Progress event: ", e.detail);
+    // })
 
 
 

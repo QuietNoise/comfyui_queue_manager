@@ -105,3 +105,4 @@ cookiecutter-pypackage-env/
 
 # outputs
 /queue.json
+/data/queue.json
