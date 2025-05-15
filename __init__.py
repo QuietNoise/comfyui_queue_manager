@@ -1,5 +1,6 @@
 # Add custom API routes, using router
 from aiohttp import web
+
 from server import PromptServer
 import logging
 import json
@@ -97,43 +98,115 @@ async def on_ready(app):
 
 PromptServer.instance.app.on_startup.append(on_ready)
 
-# Hijack queue.get() to get the queue running item
-# At this state item should be saved in the database
-# Mark the item as running
+
+# ===================================================================
+# ================ Hijack Native Queue ==============================
+# ===================================================================
+#
+# While we hijack most crucial methods of the native queue, we retain
+# most of the original mechanisms, events and processes to avoid a
+# as many compatibility issues as possible.
+#
+# ===================================================================
+# ===================================================================
+
+
+# Hijack PromptQueue.get() to get the item marked for execution
+# and mark the item as running in the database
 oldqueue_get = PromptServer.instance.prompt_queue.get
 
 
-def newqueue_get(self, timeout=None):
-    #     test, just print to console
-    print("================ GET ================")
-    # traceback.print_stack()
+def hijack_queue_get(self, timeout=None):
+    conn = get_conn()
+    cursor = conn.cursor()
 
-    return oldqueue_get(timeout)
+    with self.mutex:
+        # if no pending item in the native queue then we get the one from the database
+        if len(self.queue) == 0:
+            # Get the item with highest priority from the queue in database
+            cursor.execute("""
+                SELECT number, prompt
+                FROM queue
+                WHERE status = 0
+                ORDER BY number ASC
+                LIMIT 1
+            """)
+            item = cursor.fetchone()
+            if item is not None:
+                # Convert the item to a tuple
+                item = tuple(json.loads(item[1]))  # Convert the json's list to a tuple
+                heapq.heappush(PromptServer.instance.prompt_queue.queue, item)
+
+    queue_item = oldqueue_get(
+        timeout
+    )  # Wait for an item to be available in the queue (either one from the database (above) or wait for put())
+    if queue_item is not None:
+        # Mark the item as running in the database
+        cursor.execute(
+            """
+            UPDATE queue
+            SET status = 1
+            WHERE prompt_id = ?
+        """,
+            (queue_item[0][1],),
+        )
+        conn.commit()
+        logging.info("[Queue Manager] Workflow running: %s at %s", queue_item[0][1], queue_item[0][0])
+        return queue_item  # (item, task_counter)
+    else:
+        # No item in the queue
+        return None
 
 
-PromptServer.instance.prompt_queue.get = types.MethodType(newqueue_get, PromptServer.instance.prompt_queue)
+PromptServer.instance.prompt_queue.get = types.MethodType(hijack_queue_get, PromptServer.instance.prompt_queue)
 
 
-# Hijack queue.put() to get the queue newly added pending item
+# Hijack PromptQueue.put() to get the queue newly added pending item
 # Add the item to the database
 oldqueue_put = PromptServer.instance.prompt_queue.put
 
 
-def newqueue_put(self, item):
-    #     test, just print to console
+def hijack_queue_put(self, item):
     print("================ PUT ================")
     # traceback.print_stack()
 
     # Add the item to the database
-    # conn = get_conn()
-    # cursor = conn.cursor()
-    # cursor.execute("INSERT INTO queue (item) VALUES (?)", (item,))
-    # conn.commit()
+    conn = get_conn()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT OR REPLACE INTO queue (prompt_id, number, name, workflow_id, prompt)
+        VALUES (?, ?, ?, ?, ?)
+    """,
+        (
+            item[1],
+            item[0],
+            item[3]["extra_pnginfo"]["workflow"]["workflow_name"],
+            item[3]["extra_pnginfo"]["workflow"]["id"],
+            json.dumps(item),
+        ),
+    )
+    conn.commit()
 
-    return oldqueue_put(item)
+    logging.info("[Queue Manager] Workflow queued: %s at %s", item[1], item[0])
+
+    # Is there's no pending item in the native heap the we add this one
+    if len(self.queue) == 0 and self.queue[0][0] < item[0]:
+        # If no pending items we add this one so it can be pulled for execution straight away
+        oldqueue_put(item)
+
+    # NOTE: We keep only up to one item in native "pending" queue (to avoid bottleneck for large queues).
+
+    # else:
+    #     # If there is already pending item we just lost race with another thread perhaps.
+    #     # Just notify the front end and unlock if needed
+    #     with self.mutex:
+    #         self.server.queue_updated()
+    #         self.not_empty.notify()
 
 
-PromptServer.instance.prompt_queue.put = types.MethodType(newqueue_put, PromptServer.instance.prompt_queue)
+PromptServer.instance.prompt_queue.put = types.MethodType(hijack_queue_put, PromptServer.instance.prompt_queue)
+
 
 # Archive SQLite database
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "qm-queue.db")
@@ -159,6 +232,7 @@ def init_schema():
             number     INTEGER,
             name       TEXT,
             workflow_id   VARCHAR(255),
+            prompt    TEXT,
             status     INTEGER DEFAULT 0 -- 0: pending, 1: running, 2: finished, -1: error
         );
 
