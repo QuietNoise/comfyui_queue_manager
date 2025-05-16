@@ -38,9 +38,59 @@ async def get_queue(request):
     return web.json_response({"running": queue[0], "pending": queue[1]})
 
 
-# Restore the queue from the shadow copy if queue.json is not empty
-@PromptServer.instance.routes.get("/queue_manager/restore")
-async def restore_queue(request):
+# If there are any items in the queue with status 1 (running), restore them to status 0 (pending) with highest priority
+# TODO: Add a setting to enable/disable this feature
+def restore_queue():
+    # Get running items from the database
+    conn = get_conn()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT prompt_id, number, name, workflow_id, prompt
+        FROM queue
+        WHERE status = 1
+        ORDER BY number
+    """)
+    rows = cursor.fetchall()
+    if len(rows) > 0:
+        logging.info("Restoring unfinished jobs: %d item(s)", len(rows))
+        # Get current highest priority (lowest number for pending task) in the database
+        cursor.execute("""
+            SELECT number
+            FROM queue
+            WHERE status = 0
+            ORDER BY number
+            LIMIT 1
+        """)
+        lowest = cursor.fetchone()
+
+        if lowest:
+            min_number = lowest[0] - 1
+        else:
+            min_number = 0
+
+        # Set the priority of the running items to the current highest priority
+        for row in rows:
+            cursor.execute(
+                """
+                UPDATE queue
+                SET status = 0, number = ?
+                WHERE prompt_id = ?
+            """,
+                (
+                    min_number,
+                    row[0],
+                ),
+            )
+            min_number -= 1
+        conn.commit()
+
+        # Start queue processing
+        # TODO: Add a setting to enable/disable auto-start
+        PromptServer.instance.prompt_queue.get(1000)
+
+
+# WIP - import queue from uploaded json file
+def import_queue(request):
     # Get this script's directory
     current_directory = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(current_directory, "data/queue.json")
@@ -79,7 +129,7 @@ async def get_version(request):
 # When the server is fully started, restore the queue from the shadow copy
 async def on_ready(app):
     # TODO: Add a setting to enable/disable this feature
-    await restore_queue(None)
+    restore_queue()
 
 
 PromptServer.instance.app.on_startup.append(on_ready)
@@ -294,7 +344,7 @@ def hijack_queue_task_done(self, item_id, history_result, status: Optional["Prom
                 (item[1],),
             )
             conn.commit()
-            logging.info("[Queue Manager] Workflow finished: %s at %s", item[1], item[0])
+            # logging.info("[Queue Manager] Workflow finished: %s at %s", item[1], item[0])
 
             # Call the original task_done method
             oldqueue_task_done(item_id, history_result, status)
