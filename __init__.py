@@ -1,6 +1,8 @@
 # Add custom API routes, using router
 from aiohttp import web
+from typing import Optional
 
+from execution import PromptQueue
 from server import PromptServer
 import logging
 import json
@@ -29,27 +31,11 @@ from .src.comfyui_queue_manager.nodes import NODE_DISPLAY_NAME_MAPPINGS
 # Save shadow copy of the queue and return it to the client
 @PromptServer.instance.routes.get("/queue_manager/queue")
 async def get_queue(request):
-    theServer = PromptServer.instance
-    theQueue = theServer.prompt_queue
-
     # pending items
-    pending = theQueue.queue
-
-    with theQueue.mutex:
-        running = []
-        for x in theQueue.currently_running.values():
-            running += [x]
-
-        queue = running + pending
-
-    # Get this script's directory
-    current_directory = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(current_directory, "data/queue.json")
-    with open(file_path, "w") as f:
-        json.dump(queue, f, indent=4)
+    queue = PromptServer.instance.prompt_queue.get_current_queue(0, 100)
 
     # Return the queue object as JSON
-    return web.json_response({"running": running, "pending": pending})
+    return web.json_response({"running": queue[0], "pending": queue[1]})
 
 
 # Restore the queue from the shadow copy if queue.json is not empty
@@ -128,7 +114,7 @@ def hijack_queue_get(self, timeout=None):
                 SELECT number, prompt
                 FROM queue
                 WHERE status = 0
-                ORDER BY number ASC
+                ORDER BY number
                 LIMIT 1
             """)
             item = cursor.fetchone()
@@ -151,7 +137,7 @@ def hijack_queue_get(self, timeout=None):
             (queue_item[0][1],),
         )
         conn.commit()
-        logging.info("[Queue Manager] Workflow running: %s at %s", queue_item[0][1], queue_item[0][0])
+        logging.info("[Queue Manager] Executing workflow: %s at %s", queue_item[0][1], queue_item[0][0])
         return queue_item  # (item, task_counter)
     else:
         # No item in the queue
@@ -167,9 +153,6 @@ oldqueue_put = PromptServer.instance.prompt_queue.put
 
 
 def hijack_queue_put(self, item):
-    print("================ PUT ================")
-    # traceback.print_stack()
-
     # Add the item to the database
     conn = get_conn()
     cursor = conn.cursor()
@@ -188,24 +171,136 @@ def hijack_queue_put(self, item):
     )
     conn.commit()
 
-    logging.info("[Queue Manager] Workflow queued: %s at %s", item[1], item[0])
+    # logging.info("[Queue Manager] Workflow queued: %s at %s", item[1], item[0])
 
-    # Is there's no pending item in the native heap the we add this one
-    if len(self.queue) == 0 and self.queue[0][0] < item[0]:
-        # If no pending items we add this one so it can be pulled for execution straight away
-        oldqueue_put(item)
+    # Is there's no pending item in the native heap then we add item with highest priority (could be this one)
+    if len(self.queue) == 0:
+        # get item from database which has highest priority and higher than this
+        cursor.execute(
+            """
+            SELECT number, prompt
+            FROM queue
+            WHERE status = 0 AND number <= ?
+            ORDER BY number
+            LIMIT 1
+        """,
+            (item[0],),
+        )
+        item = cursor.fetchone()
+        if item is not None:
+            # Convert the item to a tuple
+            item = tuple(json.loads(item[1]))
+            oldqueue_put(item)
 
     # NOTE: We keep only up to one item in native "pending" queue (to avoid bottleneck for large queues).
 
-    # else:
-    #     # If there is already pending item we just lost race with another thread perhaps.
-    #     # Just notify the front end and unlock if needed
-    #     with self.mutex:
-    #         self.server.queue_updated()
-    #         self.not_empty.notify()
-
 
 PromptServer.instance.prompt_queue.put = types.MethodType(hijack_queue_put, PromptServer.instance.prompt_queue)
+
+
+# Hijack PromptQueue.get_current_queue() to get first page of the current queue
+# NOTE: This hijack will make native queue API endpoint to return only one pending item so at least it shows the
+# running item and that items are pending. We do this to avoid bottleneck in the native queue when it goes massive
+# and to avoid duplicate bandwidth for requesting queue by execution store and queue manager.
+oldqueue_get_current_queue = PromptServer.instance.prompt_queue.get_current_queue
+
+
+def hijack_queue_get_current_queue(self, page=0, page_size=1):
+    # logging.info('get_current_queue: %d, %d', page, page_size)
+    # Get the first page of the current queue
+    conn = get_conn()
+    cursor = conn.cursor()
+
+    with self.mutex:
+        # Get the first page of the current queue from the database (pending only)
+        cursor.execute(
+            """
+            SELECT prompt
+            FROM queue
+            WHERE status = 0
+            ORDER BY number
+            LIMIT ?, ?
+        """,
+            (page * page_size, page_size),
+        )
+        rows = cursor.fetchall()
+
+        # Split running and pending jobs ito tuple of running and pending tuples
+        running = []
+        for x in self.currently_running.values():
+            running += [x]
+
+        # array of prompts
+        pending = [json.loads(row[0]) for row in rows]
+
+    return running, pending
+
+
+PromptServer.instance.prompt_queue.get_current_queue = types.MethodType(hijack_queue_get_current_queue, PromptServer.instance.prompt_queue)
+
+
+# Hijack PromptQueue.get_tasks_remaining() to get true number of tasks remaining
+oldqueue_get_tasks_remaining = PromptServer.instance.prompt_queue.get_tasks_remaining
+
+
+def hijack_queue_get_tasks_remaining(self):
+    # Get the number of tasks remaining in the database
+    conn = get_conn()
+    cursor = conn.cursor()
+
+    with self.mutex:
+        # Get the number of tasks remaining in the database (pending only)
+        cursor.execute(
+            """
+            SELECT COUNT(*)
+            FROM queue
+            WHERE status = 0
+        """
+        )
+        rows = cursor.fetchone()
+        pending_count = rows[0]
+
+    # Get the number of tasks remaining in the native queue
+    native_count = len(self.currently_running)
+
+    return pending_count + native_count
+
+
+PromptServer.instance.prompt_queue.get_tasks_remaining = types.MethodType(
+    hijack_queue_get_tasks_remaining, PromptServer.instance.prompt_queue
+)
+
+
+# Hijack PromptQueue.task_done() to mark the task as finished in the database
+oldqueue_task_done = PromptServer.instance.prompt_queue.task_done
+
+
+def hijack_queue_task_done(self, item_id, history_result, status: Optional["PromptQueue.ExecutionStatus"]):
+    # Mark the task as finished in the database
+    conn = get_conn()
+    cursor = conn.cursor()
+
+    with self.mutex:
+        # Get the running item from the native queue dictionary
+        item = self.currently_running.get(item_id, None)
+        if item is not None:
+            # Mark the item as finished in the database
+            cursor.execute(
+                """
+                UPDATE queue
+                SET status = 2
+                WHERE prompt_id = ?
+            """,
+                (item[1],),
+            )
+            conn.commit()
+            logging.info("[Queue Manager] Workflow finished: %s at %s", item[1], item[0])
+
+            # Call the original task_done method
+            oldqueue_task_done(item_id, history_result, status)
+
+
+PromptServer.instance.prompt_queue.task_done = types.MethodType(hijack_queue_task_done, PromptServer.instance.prompt_queue)
 
 
 # Archive SQLite database
