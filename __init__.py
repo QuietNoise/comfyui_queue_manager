@@ -371,7 +371,8 @@ def init_schema():
     conn = get_conn()
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS queue (
-            prompt_id  VARCHAR(255) PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            prompt_id  VARCHAR(255) NOT NULL UNIQUE,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             number     INTEGER,
@@ -379,6 +380,12 @@ def init_schema():
             workflow_id   VARCHAR(255),
             prompt    TEXT,
             status     INTEGER DEFAULT 0 -- 0: pending, 1: running, 2: finished, -1: error
+        );
+
+        CREATE TABLE IF NOT EXISTS options (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            key TEXT NOT NULL UNIQUE,
+            value TEXT
         );
 
         -- Create a trigger to update the updated_at column
