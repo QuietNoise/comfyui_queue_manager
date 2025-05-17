@@ -16,6 +16,8 @@ import types
 # import json
 # import uuid
 
+# SIML: Enable option to toggle logging
+
 __all__ = [
     "NODE_CLASS_MAPPINGS",
     "NODE_DISPLAY_NAME_MAPPINGS",
@@ -40,53 +42,81 @@ async def get_queue(request):
 
 # If there are any items in the queue with status 1 (running), restore them to status 0 (pending) with highest priority
 # TODO: Add a setting to enable/disable this feature
-def restore_queue():
-    # Get running items from the database
-    conn = get_conn()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT prompt_id, number, name, workflow_id, prompt
-        FROM queue
-        WHERE status = 1
-        ORDER BY number
-    """)
-    rows = cursor.fetchall()
-    if len(rows) > 0:
-        logging.info("Restoring unfinished jobs: %d item(s)", len(rows))
-        # Get current highest priority (lowest number for pending task) in the database
+def restore_queue(calledByQueue_get=False):
+    with PromptServer.instance.prompt_queue.mutex:
+        if not hasattr(restore_queue, "queueRestored"):
+            restore_queue.queueRestored = False
+
+        if restore_queue.queueRestored:
+            return
+        # Get running items from the database
+        conn = get_conn()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT prompt_id, number, name, workflow_id, prompt
+            FROM queue
+            WHERE status = 1
+            ORDER BY number
+        """)
+        rows = cursor.fetchall()
+        if len(rows) > 0:
+            logging.info("Restoring unfinished jobs: %d item(s)", len(rows))
+            # Get current highest priority (lowest number for pending task) in the database
+            cursor.execute("""
+                SELECT number
+                FROM queue
+                WHERE status = 0
+                ORDER BY number
+                LIMIT 1
+            """)
+            lowest = cursor.fetchone()
+
+            if lowest:
+                min_number = lowest[0] - 1
+            else:
+                min_number = 0
+
+            # Set the priority of the running items to the current highest priority
+            for row in rows:
+                cursor.execute(
+                    """
+                    UPDATE queue
+                    SET status = 0, number = ?
+                    WHERE prompt_id = ?
+                """,
+                    (
+                        min_number,
+                        row[0],
+                    ),
+                )
+                conn.commit()
+                min_number -= 1
+
+        # Get task counter (highest task number) from the database
         cursor.execute("""
             SELECT number
             FROM queue
-            WHERE status = 0
-            ORDER BY number
+            WHERE status = 1 OR status = 0 -- pending or running
+            ORDER BY number DESC
             LIMIT 1
         """)
-        lowest = cursor.fetchone()
-
-        if lowest:
-            min_number = lowest[0] - 1
+        rows = cursor.fetchone()
+        if rows:
+            task_counter = rows[0] + 1
         else:
-            min_number = 0
+            task_counter = 1
 
-        # Set the priority of the running items to the current highest priority
-        for row in rows:
-            cursor.execute(
-                """
-                UPDATE queue
-                SET status = 0, number = ?
-                WHERE prompt_id = ?
-            """,
-                (
-                    min_number,
-                    row[0],
-                ),
-            )
-            min_number -= 1
-        conn.commit()
+        # Set the task counter in the queue
+        PromptServer.instance.prompt_queue.task_counter = task_counter
+        # Set the number in server
+        PromptServer.instance.number = task_counter
 
         # Start queue processing
         # TODO: Add a setting to enable/disable auto-start
-        PromptServer.instance.prompt_queue.get(1000)
+        if not calledByQueue_get:  # prevent circular call
+            PromptServer.instance.prompt_queue.get(1000)
+
+        restore_queue.queueRestored = True  # we restore the queue only once per server start
 
 
 # WIP - import queue from uploaded json file
@@ -132,7 +162,7 @@ async def on_ready(app):
     restore_queue()
 
 
-PromptServer.instance.app.on_startup.append(on_ready)
+# PromptServer.instance.app.on_startup.append(on_ready)
 
 
 # ===================================================================
@@ -153,12 +183,16 @@ oldqueue_get = PromptServer.instance.prompt_queue.get
 
 
 def hijack_queue_get(self, timeout=None):
-    conn = get_conn()
-    cursor = conn.cursor()
-
     with self.mutex:
+        conn = get_conn()
+        cursor = conn.cursor()
+
         # if no pending item in the native queue then we get the one from the database
         if len(self.queue) == 0:
+            # if we are on the first iteration and there's no item running then check if there is anything that need to be restored
+            if self.task_counter == 0 and len(self.currently_running) == 0:
+                restore_queue(True)
+
             # Get the item with highest priority from the queue in database
             cursor.execute("""
                 SELECT number, prompt
@@ -173,25 +207,26 @@ def hijack_queue_get(self, timeout=None):
                 item = tuple(json.loads(item[1]))  # Convert the json's list to a tuple
                 heapq.heappush(PromptServer.instance.prompt_queue.queue, item)
 
-    queue_item = oldqueue_get(
-        timeout
-    )  # Wait for an item to be available in the queue (either one from the database (above) or wait for put())
-    if queue_item is not None:
-        # Mark the item as running in the database
-        cursor.execute(
-            """
-            UPDATE queue
-            SET status = 1
-            WHERE prompt_id = ?
-        """,
-            (queue_item[0][1],),
-        )
-        conn.commit()
-        logging.info("[Queue Manager] Executing workflow: %s at %s", queue_item[0][1], queue_item[0][0])
-        return queue_item  # (item, task_counter)
-    else:
-        # No item in the queue
-        return None
+        queue_item = oldqueue_get(
+            timeout
+        )  # Wait for an item to be available in the queue (either one from the database (above) or wait for put())
+
+        if queue_item is not None:
+            # Mark the item as running in the database
+            cursor.execute(
+                """
+                UPDATE queue
+                SET status = 1
+                WHERE prompt_id = ?
+            """,
+                (queue_item[0][1],),
+            )
+            conn.commit()
+            logging.info("[Queue Manager] Executing workflow: %s at %s", queue_item[0][1], queue_item[0][0])
+            return queue_item  # (item, task_counter)
+        else:
+            # No item in the queue
+            return None
 
 
 PromptServer.instance.prompt_queue.get = types.MethodType(hijack_queue_get, PromptServer.instance.prompt_queue)
@@ -203,44 +238,45 @@ oldqueue_put = PromptServer.instance.prompt_queue.put
 
 
 def hijack_queue_put(self, item):
-    # Add the item to the database
-    conn = get_conn()
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        INSERT OR REPLACE INTO queue (prompt_id, number, name, workflow_id, prompt)
-        VALUES (?, ?, ?, ?, ?)
-    """,
-        (
-            item[1],
-            item[0],
-            item[3]["extra_pnginfo"]["workflow"]["workflow_name"],
-            item[3]["extra_pnginfo"]["workflow"]["id"],
-            json.dumps(item),
-        ),
-    )
-    conn.commit()
-
-    # logging.info("[Queue Manager] Workflow queued: %s at %s", item[1], item[0])
-
-    # Is there's no pending item in the native heap then we add item with highest priority (could be this one)
-    if len(self.queue) == 0:
-        # get item from database which has highest priority and higher than this
+    with self.mutex:
+        # Add the item to the database
+        conn = get_conn()
+        cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT number, prompt
-            FROM queue
-            WHERE status = 0 AND number <= ?
-            ORDER BY number
-            LIMIT 1
+            INSERT OR REPLACE INTO queue (prompt_id, number, name, workflow_id, prompt)
+            VALUES (?, ?, ?, ?, ?)
         """,
-            (item[0],),
+            (
+                item[1],
+                item[0],
+                item[3]["extra_pnginfo"]["workflow"]["workflow_name"],
+                item[3]["extra_pnginfo"]["workflow"]["id"],
+                json.dumps(item),
+            ),
         )
-        item = cursor.fetchone()
-        if item is not None:
-            # Convert the item to a tuple
-            item = tuple(json.loads(item[1]))
-            oldqueue_put(item)
+        conn.commit()
+
+        # logging.info("[Queue Manager] Workflow queued: %s at %s", item[1], item[0])
+
+        # Is there's no pending item in the native heap then we add item with highest priority (could be this one)
+        if len(self.queue) == 0:
+            # get item from database which has highest priority and higher than this
+            cursor.execute(
+                """
+                SELECT number, prompt
+                FROM queue
+                WHERE status = 0 AND number <= ?
+                ORDER BY number
+                LIMIT 1
+            """,
+                (item[0],),
+            )
+            item = cursor.fetchone()
+            if item is not None:
+                # Convert the item to a tuple
+                item = tuple(json.loads(item[1]))
+                oldqueue_put(item)
 
     # NOTE: We keep only up to one item in native "pending" queue (to avoid bottleneck for large queues).
 
@@ -258,10 +294,10 @@ oldqueue_get_current_queue = PromptServer.instance.prompt_queue.get_current_queu
 def hijack_queue_get_current_queue(self, page=0, page_size=1):
     # logging.info('get_current_queue: %d, %d', page, page_size)
     # Get the first page of the current queue
-    conn = get_conn()
-    cursor = conn.cursor()
 
     with self.mutex:
+        conn = get_conn()
+        cursor = conn.cursor()
         # Get the first page of the current queue from the database (pending only)
         cursor.execute(
             """
@@ -283,7 +319,7 @@ def hijack_queue_get_current_queue(self, page=0, page_size=1):
         # array of prompts
         pending = [json.loads(row[0]) for row in rows]
 
-    return running, pending
+        return running, pending
 
 
 PromptServer.instance.prompt_queue.get_current_queue = types.MethodType(hijack_queue_get_current_queue, PromptServer.instance.prompt_queue)
@@ -294,11 +330,10 @@ oldqueue_get_tasks_remaining = PromptServer.instance.prompt_queue.get_tasks_rema
 
 
 def hijack_queue_get_tasks_remaining(self):
-    # Get the number of tasks remaining in the database
-    conn = get_conn()
-    cursor = conn.cursor()
-
     with self.mutex:
+        # Get the number of tasks remaining in the database
+        conn = get_conn()
+        cursor = conn.cursor()
         # Get the number of tasks remaining in the database (pending only)
         cursor.execute(
             """
@@ -310,10 +345,10 @@ def hijack_queue_get_tasks_remaining(self):
         rows = cursor.fetchone()
         pending_count = rows[0]
 
-    # Get the number of tasks remaining in the native queue
-    native_count = len(self.currently_running)
+        # Get the number of tasks remaining in the native queue
+        native_count = len(self.currently_running)
 
-    return pending_count + native_count
+        return pending_count + native_count
 
 
 PromptServer.instance.prompt_queue.get_tasks_remaining = types.MethodType(
@@ -326,11 +361,11 @@ oldqueue_task_done = PromptServer.instance.prompt_queue.task_done
 
 
 def hijack_queue_task_done(self, item_id, history_result, status: Optional["PromptQueue.ExecutionStatus"]):
-    # Mark the task as finished in the database
-    conn = get_conn()
-    cursor = conn.cursor()
-
     with self.mutex:
+        # Mark the task as finished in the database
+        conn = get_conn()
+        cursor = conn.cursor()
+
         # Get the running item from the native queue dictionary
         item = self.currently_running.get(item_id, None)
         if item is not None:
