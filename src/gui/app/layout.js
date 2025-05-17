@@ -239,14 +239,14 @@ export default function RootLayout({ children }) {
         <title>Queue Manager</title>
         <meta name="description" content="ComfyUI Queue Manager frontend" />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} p-2`}>
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>
       {/*{children}*/}
       <div className={'queue-table '}>
         <Queue data={status.queue} error={status.error} isLoading={status.isLoading} progress={currentJob.progress}/>
       </div>
       <footer className={"footer"}>
         <div className="p-2">
-          {status.queue && status.queue.length > 0 &&
+          {status.queue && (status.queue.running.length > 0 || status.queue.pending.length > 0) &&
             <button onClick={archiveAll}
                     className="hover:bg-neutral-700 text-neutral-200 font-bold py-1 px-2 rounded mr-1 border-0 bg-green-900">Archive
               All
