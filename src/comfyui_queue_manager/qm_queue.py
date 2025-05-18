@@ -1,3 +1,4 @@
+import threading
 from typing import Optional
 from execution import PromptQueue
 from server import PromptServer
@@ -7,22 +8,24 @@ import heapq
 
 from .qm_db import get_conn
 
-# ===================================================================
-# ================ Hijack Native Queue ==============================
-# ===================================================================
-#
-# While we hijack most crucial methods of the native queue, we retain
-# most of the original mechanisms, events and processes to avoid a
-# as many compatibility issues as possible.
-#
-# ===================================================================
-# ===================================================================
 
-
-class QM_Queue_Hijack:
+class QM_Queue:
     def __init__(self, queue_manager):
+        self.paused = False  # TODO: restore state from DB
         self.queue_manager = queue_manager
+
+        # ===================================================================
+        # ================ Hijack Native Queue ==============================
+        # ===================================================================
+        #
+        # While we hijack most crucial methods of the native queue, we retain
+        # most of the original mechanisms, events and processes to avoid a
+        # as many compatibility issues as possible.
+        #
+        # ===================================================================
+        # ===================================================================
         self.native_queue = PromptServer.instance.prompt_queue
+        self.pause_lock = threading.Condition(self.native_queue.mutex)
 
         # Hijack PromptQueue.get() to get the item marked for execution and mark the item as running in the database
         self.original_get = self.native_queue.get
@@ -44,36 +47,62 @@ class QM_Queue_Hijack:
         self.original_task_done = self.native_queue.task_done
         self.native_queue.task_done = self.queue_task_done
 
-    # NOTE: This hijack will make native queue API endpoint to return only one pending item so at least it shows the
-    # running item and that items are pending. We do this to avoid bottleneck in the native queue when it goes massive
+    def toggle_playback(self):
+        with self.pause_lock:
+            # Toggle the playback of the queue
+            self.paused = not self.paused
+            logging.info("[Queue Manager] Queue " + ("paused." if self.paused else "play."))
+            PromptServer.instance.send_sync(
+                "queue-manager-toggle-queue",
+                {
+                    "paused": self.paused,
+                },
+            )
+
+            # unlock the pause lock if we are playing
+            if not self.paused:
+                self.pause_lock.notify()
+            else:
+                # remove the pending item from the native queue if we are paused
+                self.native_queue.queue = []
+                PromptServer.instance.queue_updated()
+                # native queue might also be locked waiting for an item to be available
+                # we need to notify it to wake up so it can move on, and so we can reach the pause lock
+                # and avoid executing a new item while we are paused
+                self.native_queue.not_empty.notify()
+
+    # NOTE: This hijack will make native queue API endpoint to not return pending items.
+    # We do this to avoid bottleneck in the native queue when it goes massive
     # and to avoid duplicate bandwidth for requesting queue by execution store and queue manager.
-    def queue_get_current_queue(self, page=0, page_size=1):
+    def queue_get_current_queue(self, page=0, page_size=0):
         # logging.info('get_current_queue: %d, %d', page, page_size)
         # Get the first page of the current queue
 
         with self.native_queue.mutex:
-            conn = get_conn()
-            cursor = conn.cursor()
-            # Get the first page of the current queue from the database (pending only)
-            cursor.execute(
-                """
-                SELECT prompt
-                FROM queue
-                WHERE status = 0
-                ORDER BY number
-                LIMIT ?, ?
-            """,
-                (page * page_size, page_size),
-            )
-            rows = cursor.fetchall()
-
-            # Split running and pending jobs ito tuple of running and pending tuples
+            # Split running and pending jobs into tuple of running and pending tuples
             running = []
             for x in self.native_queue.currently_running.values():
                 running += [x]
 
-            # array of prompts
-            pending = [json.loads(row[0]) for row in rows]
+            if page_size > 0:
+                conn = get_conn()
+                cursor = conn.cursor()
+                # Get the first page of the current queue from the database (pending only)
+                cursor.execute(
+                    """
+                    SELECT prompt
+                    FROM queue
+                    WHERE status = 0
+                    ORDER BY number
+                    LIMIT ?, ?
+                """,
+                    (page * page_size, page_size),
+                )
+                rows = cursor.fetchall()
+                # array of prompts
+                pending = [json.loads(row[0]) for row in rows]
+            else:
+                pending = []
 
             return running, pending
 
@@ -145,8 +174,8 @@ class QM_Queue_Hijack:
 
             # logging.info("[Queue Manager] Workflow queued: %s at %s", item[1], item[0])
 
-            # Is there's no pending item in the native heap then we add item with highest priority (could be this one)
-            if len(self.native_queue.queue) == 0:
+            # Is there's no pending item in the native heap nd we are not paused then add item with highest priority (could be this one)
+            if len(self.native_queue.queue) == 0 and not self.paused:
                 # get item from database which has highest priority and higher than this
                 cursor.execute(
                     """
@@ -163,9 +192,16 @@ class QM_Queue_Hijack:
                     # Convert the item to a tuple
                     item = tuple(json.loads(item[1]))
                     self.original_put(item)
+            else:  # just notify frontend that we have a new item
+                PromptServer.instance.queue_updated()
 
     def queue_get(self, timeout=None):
-        with self.native_queue.mutex:
+        with self.pause_lock:
+            while self.paused:
+                self.pause_lock.wait(timeout=timeout)
+                if timeout is not None and self.paused:  # if timed out and we are still paused
+                    return None  # give up
+
             conn = get_conn()
             cursor = conn.cursor()
 

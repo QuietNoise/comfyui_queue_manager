@@ -9,7 +9,7 @@ import heapq
 
 # import traceback
 
-from .qm_queue_hijack import QM_Queue_Hijack
+from .qm_queue import QM_Queue
 from .qm_server import QM_Server
 from .qm_db import init_schema, get_conn
 
@@ -18,8 +18,8 @@ class QueueManager:
     def __init__(self, __version__):
         init_schema()
 
-        self.server = QM_Server(__version__)
-        self.queue = QM_Queue_Hijack(self)
+        self.server = QM_Server(self, __version__)
+        self.queue = QM_Queue(self)
         self.queueRestored = False
         return
 

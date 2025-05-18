@@ -2,8 +2,6 @@ import { QM_ENVIRONMENT, QM_DEV_URL, QM_PROD_URL, QueueManagerURL } from './js/c
 import { postStatusMessageToIframe } from './js/functions.js';
 
 import { app } from '../../scripts/app.js'
-import {baseURL} from "../src/gui/internals/config";
-
 
 
 
@@ -23,30 +21,40 @@ app.registerExtension({
 
     // when window fully loaded
     let pauseButton = null;
-    setTimeout(function () {
-      console.log('buttons',  document.querySelector('.execution-actions'));
-
+    let buttonIcon = null;
+    setTimeout(async function () {
       const actionsContainer = document.querySelector('.execution-actions');
         // Add pause button if not already present
         if (!actionsContainer.querySelector('.pause-button')) {
           actionsContainer.insertAdjacentHTML('beforeend', pauseButtonHTML);
           pauseButton = actionsContainer.querySelector('.pause-button');
-          pauseButton.addEventListener('click', function () {
+          buttonIcon = actionsContainer.querySelector('.pause-button .p-button-icon');
+          pauseButton.addEventListener('click', async function () {
             try {
               // POST item[1] as json
-              const response = fetch(`${baseURL}queue-manager/toggle`);
-              if (!response.ok) {
-                throw new Error("Network response was not ok");
-              }
+              const response = await fetch(`/queue_manager/toggle`);
             } catch (error) {
               console.error("Error fetching queue items:", error);
             }
           });
         }
 
-        app.api.addEventListener("queue-manager-toggle", function (event) {
-          console.log('queue-manager-toggle', event);
+        app.api.addEventListener("queue-manager-toggle-queue", function (event) {
+          if (event.detail.paused) { // remove pi-play and add pi-pause to buttonIcon
+            buttonIcon.classList.remove('pi-pause');
+            buttonIcon.classList.add('pi-play');
+          } else {
+            buttonIcon.classList.remove('pi-play');
+            buttonIcon.classList.add('pi-pause');
+          }
         });
+
+        // Check if queue is paused (will trigger the event to update the button icon)
+        try {
+          const response = await fetch(`/queue_manager/playback`);
+        } catch (error) {
+          console.error("Error fetching queue items:", error);
+        }
     });
 
 
