@@ -26,35 +26,9 @@ __all__ = [
 
 __version__ = "0.0.1"
 
+from .src.comfyui_queue_manager.queue_manager import QueueManager
 from .src.comfyui_queue_manager.nodes import NODE_CLASS_MAPPINGS
 from .src.comfyui_queue_manager.nodes import NODE_DISPLAY_NAME_MAPPINGS
-
-
-# Save shadow copy of the queue and return it to the client
-@PromptServer.instance.routes.get("/queue_manager/queue")
-async def get_queue(request):
-    # pending items
-    queue = PromptServer.instance.prompt_queue.get_current_queue(0, 100)
-
-    # Return the queue object as JSON
-    return web.json_response({"running": queue[0], "pending": queue[1]})
-
-
-# Toggle Play/Pause of the queue
-@PromptServer.instance.routes.post("/queue_manager/toggle")
-async def toggle_queue(request):
-    # Get the current status of the queue
-    queue = PromptServer.instance.prompt_queue
-
-    # Toggle the status of the queue
-    if queue.is_paused:
-        queue.resume()
-        logging.info("[Queue Manager] Queue resumed.")
-        return web.json_response({"status": "success", "message": "Queue resumed."})
-    else:
-        queue.pause()
-        logging.info("[Queue Manager] Queue paused.")
-        return web.json_response({"status": "success", "message": "Queue paused."})
 
 
 # If there are any items in the queue with status 1 (running), restore them to status 0 (pending) with highest priority
@@ -164,13 +138,6 @@ def import_queue(request):
     else:
         logging.info("[Queue Manager] No shadow copy of the queue found.")
         return web.json_response({"status": "success", "message": "No shadow copy found."})
-
-
-# Endpoint to expose __version__ information
-@PromptServer.instance.routes.get("/queue_manager/version")
-async def get_version(request):
-    # Return the version as JSON
-    return web.json_response({"version": __version__})
 
 
 # When the server is fully started, restore the queue from the shadow copy
@@ -454,5 +421,7 @@ def init_schema():
 
 
 init_schema()
+
+queueManager = QueueManager(__version__)
 
 WEB_DIRECTORY = "./web"
