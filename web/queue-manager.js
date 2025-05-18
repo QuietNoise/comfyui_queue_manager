@@ -2,6 +2,7 @@ import { QM_ENVIRONMENT, QM_DEV_URL, QM_PROD_URL, QueueManagerURL } from './js/c
 import { postStatusMessageToIframe } from './js/functions.js';
 
 import { app } from '../../scripts/app.js'
+import {baseURL} from "../src/gui/internals/config";
 
 
 
@@ -14,6 +15,42 @@ app.registerExtension({
   // async init() {
   // },
   async setup() {
+    const pauseButtonHTML = `
+      <button data-v-43776fb9="" class="pause-button p-button p-component p-button-icon-only p-button-danger p-button-text" type="button" aria-label="Pause queue" data-pc-name="button" data-pd-tooltip="true">
+        <span class="p-button-icon pi pi-pause" data-pc-section="icon"></span>
+        <span class="p-button-label" data-pc-section="label">&nbsp;</span>
+      </button>`
+
+    // when window fully loaded
+    let pauseButton = null;
+    setTimeout(function () {
+      console.log('buttons',  document.querySelector('.execution-actions'));
+
+      const actionsContainer = document.querySelector('.execution-actions');
+        // Add pause button if not already present
+        if (!actionsContainer.querySelector('.pause-button')) {
+          actionsContainer.insertAdjacentHTML('beforeend', pauseButtonHTML);
+          pauseButton = actionsContainer.querySelector('.pause-button');
+          pauseButton.addEventListener('click', function () {
+            try {
+              // POST item[1] as json
+              const response = fetch(`${baseURL}queue-manager/toggle`);
+              if (!response.ok) {
+                throw new Error("Network response was not ok");
+              }
+            } catch (error) {
+              console.error("Error fetching queue items:", error);
+            }
+          });
+        }
+
+        app.api.addEventListener("queue-manager-toggle", function (event) {
+          console.log('queue-manager-toggle', event);
+        });
+    });
+
+
+
 
 
     /**

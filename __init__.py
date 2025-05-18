@@ -40,6 +40,23 @@ async def get_queue(request):
     return web.json_response({"running": queue[0], "pending": queue[1]})
 
 
+# Toggle Play/Pause of the queue
+@PromptServer.instance.routes.post("/queue_manager/toggle")
+async def toggle_queue(request):
+    # Get the current status of the queue
+    queue = PromptServer.instance.prompt_queue
+
+    # Toggle the status of the queue
+    if queue.is_paused:
+        queue.resume()
+        logging.info("[Queue Manager] Queue resumed.")
+        return web.json_response({"status": "success", "message": "Queue resumed."})
+    else:
+        queue.pause()
+        logging.info("[Queue Manager] Queue paused.")
+        return web.json_response({"status": "success", "message": "Queue paused."})
+
+
 # If there are any items in the queue with status 1 (running), restore them to status 0 (pending) with highest priority
 # TODO: Add a setting to enable/disable this feature
 def restore_queue(calledByQueue_get=False):
