@@ -1,7 +1,7 @@
 from pathlib import Path
 import sqlite3, threading
 
-DB_PATH = Path(__file__).resolve().parents[1] / "data" / "qm-queue.db"
+DB_PATH = Path(__file__).resolve().parents[2] / "data" / "qm-queue.db"
 _local = threading.local()
 
 
