@@ -11,6 +11,8 @@ import { app } from '../../scripts/app.js'
  */
 app.registerExtension({
 	name: "ComfyUIQueueManager",
+  // async init() {
+  // },
   async setup() {
 
 
@@ -18,6 +20,7 @@ app.registerExtension({
      * When the queue status or workflow progress is updated then tell the iframe
      * @param event
      */
+
     app.api.addEventListener("status", function (e) {
       postStatusMessageToIframe(e)
     });
@@ -103,10 +106,5 @@ app.registerExtension({
     //   console.log("PromptQueued app.api", e);
     // })
     //
-
-
-
-    // console.log("Attempt to restore queue.");
-    // api.fetchApi(`/queue_manager/restore`);
   }
 })
