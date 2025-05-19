@@ -19,7 +19,7 @@ class QM_Queue:
         # ===================================================================
         #
         # While we hijack most crucial methods of the native queue, we retain
-        # most of the original mechanisms, events and processes to avoid a
+        # most of the original mechanisms, events and processes to avoid
         # as many compatibility issues as possible.
         #
         # ===================================================================
@@ -37,44 +37,20 @@ class QM_Queue:
 
         # Hijack PromptQueue.get_current_queue() to get first page of the current queue
         self.original_get_current_queue = self.native_queue.get_current_queue
-        self.native_queue.get_current_queue = self.queue_get_current_queue
+        self.native_queue.get_current_queue = self.get_current_queue
 
         # Hijack PromptQueue.get_tasks_remaining() to get true number of tasks remaining
         self.original_get_tasks_remaining = self.native_queue.get_tasks_remaining
-        self.native_queue.get_tasks_remaining = self.queue_get_tasks_remaining
+        self.native_queue.get_tasks_remaining = self.get_tasks_remaining
 
         # Hijack PromptQueue.task_done() to mark the task as finished in the database
         self.original_task_done = self.native_queue.task_done
-        self.native_queue.task_done = self.queue_task_done
-
-    def toggle_playback(self):
-        with self.pause_lock:
-            # Toggle the playback of the queue
-            self.paused = not self.paused
-            logging.info("[Queue Manager] Queue " + ("paused." if self.paused else "play."))
-            PromptServer.instance.send_sync(
-                "queue-manager-toggle-queue",
-                {
-                    "paused": self.paused,
-                },
-            )
-
-            # unlock the pause lock if we are playing
-            if not self.paused:
-                self.pause_lock.notify()
-            else:
-                # remove the pending item from the native queue if we are paused
-                self.native_queue.queue = []
-                PromptServer.instance.queue_updated()
-                # native queue might also be locked waiting for an item to be available
-                # we need to notify it to wake up so it can move on, and so we can reach the pause lock
-                # and avoid executing a new item while we are paused
-                self.native_queue.not_empty.notify()
+        self.native_queue.task_done = self.task_done
 
     # NOTE: This hijack will make native queue API endpoint to not return pending items.
     # We do this to avoid bottleneck in the native queue when it goes massive
     # and to avoid duplicate bandwidth for requesting queue by execution store and queue manager.
-    def queue_get_current_queue(self, page=0, page_size=0):
+    def get_current_queue(self, page=0, page_size=0):
         # logging.info('get_current_queue: %d, %d', page, page_size)
         # Get the first page of the current queue
 
@@ -106,7 +82,7 @@ class QM_Queue:
 
             return running, pending
 
-    def queue_get_tasks_remaining(self):
+    def get_tasks_remaining(self):
         with self.native_queue.mutex:
             # Get the number of tasks remaining in the database
             conn = get_conn()
@@ -127,7 +103,7 @@ class QM_Queue:
 
             return pending_count + native_count
 
-    def queue_task_done(self, item_id, history_result, status: Optional["PromptQueue.ExecutionStatus"]):
+    def task_done(self, item_id, history_result, status: Optional["PromptQueue.ExecutionStatus"]):
         with self.native_queue.mutex:
             # Mark the task as finished in the database
             conn = get_conn()
@@ -245,3 +221,71 @@ class QM_Queue:
             else:
                 # No item in the queue
                 return None
+
+    # ===========================================================
+    # ================== NON-HIJACK METHODS =====================
+    # ===========================================================
+
+    def toggle_playback(self):
+        with self.pause_lock:
+            # Toggle the playback of the queue
+            self.paused = not self.paused
+            logging.info("[Queue Manager] Queue " + ("paused." if self.paused else "play."))
+            PromptServer.instance.send_sync(
+                "queue-manager-toggle-queue",
+                {
+                    "paused": self.paused,
+                },
+            )
+
+            # unlock the pause lock if we are playing
+            if not self.paused:
+                self.pause_lock.notify()
+            else:
+                # remove the pending item from the native queue if we are paused
+                self.native_queue.queue = []
+                PromptServer.instance.queue_updated()
+                # native queue might also be locked waiting for an item to be available
+                # we need to notify it to wake up so it can move on, and so we can reach the pause lock
+                # and avoid executing a new item while we are paused
+                self.native_queue.not_empty.notify()
+
+    def delete_items(self, items):
+        """
+        Delete items from the database
+        """
+
+        logging.info("[Queue Manager] Deleting items from queue: %s", items)
+        with self.native_queue.mutex:
+            # Delete the item from the database
+            conn = get_conn()
+            cursor = conn.cursor()
+
+            deleted = 0
+            for item in items:
+                cursor.execute(
+                    """
+                    DELETE FROM queue
+                    WHERE prompt_id = ?
+                """,
+                    (item,),
+                )
+                deleted += cursor.rowcount
+
+            conn.commit()
+
+            if deleted > 0:
+                PromptServer.instance.queue_updated()
+
+    def wipe_queue(self):
+        with self.native_queue.mutex:
+            # Wipe the queue from the database
+            conn = get_conn()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                DELETE FROM queue
+                WHERE status = 0
+            """
+            )
+            conn.commit()

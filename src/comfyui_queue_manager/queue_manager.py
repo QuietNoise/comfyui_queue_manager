@@ -18,8 +18,8 @@ class QueueManager:
     def __init__(self, __version__):
         init_schema()
 
-        self.server = QM_Server(self, __version__)
         self.queue = QM_Queue(self)
+        self.server = QM_Server(self, __version__)
         self.queueRestored = False
         return
 
