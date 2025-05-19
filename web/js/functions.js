@@ -5,16 +5,23 @@ function theIframe() {
 }
 
 export function postStatusMessageToIframe(event) {
-  // console.log("Queue status updated", event);
+  postMessageToIframe({
+      name: event.type,
+      detail: event.detail
+  }, 'QM_queueStatusUpdated');
+}
+
+export function postMessageToIframe(message, type) {
+  if (!type) {
+    type = 'QM_ParentMessage';
+  }
+
   const iframe = theIframe();
   if (iframe && iframe.contentWindow) {
     // console.log("Posting message to iframe", event, QueueManagerURL);
     iframe.contentWindow.postMessage({
-      type: "QM_queueStatusUpdated",
-      message: {
-        name: event.type,
-        detail: event.detail
-      }
+      type: type,
+      message: message
     }, QueueManagerURL);
   }
 }

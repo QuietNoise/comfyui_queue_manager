@@ -1,5 +1,5 @@
 import { QM_ENVIRONMENT, QM_DEV_URL, QM_PROD_URL, QueueManagerURL } from './js/config.js';
-import { postStatusMessageToIframe } from './js/functions.js';
+import {postMessageToIframe, postStatusMessageToIframe} from './js/functions.js';
 
 import { app } from '../../scripts/app.js'
 
@@ -42,9 +42,9 @@ app.registerExtension({
         app.api.addEventListener("queue-manager-toggle-queue", function (event) {
           if (event.detail.paused) { // remove pi-play and add pi-pause to buttonIcon
             buttonIcon.classList.remove('pi-pause');
-            buttonIcon.classList.add('pi-play');
+            buttonIcon.classList.add('pi-caret-right');
           } else {
-            buttonIcon.classList.remove('pi-play');
+            buttonIcon.classList.remove('pi-caret-right');
             buttonIcon.classList.add('pi-pause');
           }
         });
@@ -82,9 +82,13 @@ app.registerExtension({
       postStatusMessageToIframe(e)
     })
 
-    // app.api.addEventListener("progress", function (e) {
-    //   console.log("Progress event: ", e.detail);
-    // })
+    // Pass parent's key events to iframe
+    window.addEventListener('keydown', e => {
+      postMessageToIframe({key: e.key, isDown: true}, 'QM_ParentKeypress')
+    });
+    window.addEventListener('keyup', e => {
+      postMessageToIframe({key: e.key, isDown: false}, 'QM_ParentKeypress')
+    });
 
 
 

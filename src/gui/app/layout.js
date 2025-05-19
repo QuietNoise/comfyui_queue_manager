@@ -21,7 +21,9 @@ export default function RootLayout({ children }) {
   const [ status, setStatus ] = useState({
     loading: true,
     error: null,
-    queue: null
+    queue: null,
+    route: 'queue', // queue, archive, bin
+    shiftDown: false,
   });
 
   const [ currentJob, setProgress ] = useState({
@@ -90,83 +92,103 @@ export default function RootLayout({ children }) {
 
   }
 
-  const handleMessage = useEvent((event) => {
-    // console.log("Received message from parent", event,event.data.type, event.data.message);
-    // SIML: check if event.origin is the same as baseURL
-    if (event.data.type === "QM_queueStatusUpdated") {
-      // console.log("Queue progress: ", event.data.message);
-      switch (event.data.message.name) {
-        case "status":
-          fetchQueueItems();
-          break;
-        case "execution_start":
-          const { prompt_id } = event.data.message.detail;
-          // console.log("Execution started: ", status.queue, prompt_id);
+  const onQueueStatusUpdated = (event) => {
+    // console.log("Queue progress: ", event.data.message);
+    switch (event.data.message.name) {
+      case "status":
+        fetchQueueItems();
+        break;
+      case "execution_start":
+        const { prompt_id } = event.data.message.detail;
+        // console.log("Execution started: ", status.queue, prompt_id);
 
-          const theJob = getTheJob(prompt_id, status.queue);
+        const theJob = getTheJob(prompt_id, status.queue);
 
-          if (theJob) {
-            // console.log("Job found: ", theJob);
-            const nodeIDs = getNodeIDs(theJob[3].extra_pnginfo.workflow.nodes);
-            // set the current job
-            setProgress(prev => ({
-              ...prev,
-              id: prompt_id,
-              nodes: nodeIDs,
-              integrity: true
-            }));
-
-            break;
-          }
-
-          // set the current job with the prompt id and false integrity flag
-          // we don't have the workflow data yet, so set integrity to false so we can pick up progress later when we get the workflow data
-          setProgress(prev => ({ ...prev, id: prompt_id, integrity: false, nodes: {} }));
+        if (theJob) {
+          // console.log("Job found: ", theJob);
+          const nodeIDs = getNodeIDs(theJob[3].extra_pnginfo.workflow.nodes);
+          // set the current job
+          setProgress(prev => ({
+            ...prev,
+            id: prompt_id,
+            nodes: nodeIDs,
+            integrity: true
+          }));
 
           break;
+        }
 
-          case 'execution_cached':
-            // console.log("Execution cached: ", event.data.message);
-            // set cached node ids as executed
-            const { nodes } = event.data.message.detail; // array of node id strings
+        // set the current job with the prompt id and false integrity flag
+        // we don't have the workflow data yet, so set integrity to false so we can pick up progress later when we get the workflow data
+        setProgress(prev => ({ ...prev, id: prompt_id, integrity: false, nodes: {} }));
 
-            if (!nodes || nodes.length === 0) {
-              return;
-            }
+        break;
 
-            const newNodes = {};
-            for (const node of nodes) {
-              newNodes[node] = true;
-            }
+        case 'execution_cached':
+          // console.log("Execution cached: ", event.data.message);
+          // set cached node ids as executed
+          const { nodes } = event.data.message.detail; // array of node id strings
 
-            // console.log("newNodes: ", newNodes);
-
-            setProgress(prev => ({
-              ...prev,
-              nodes: {
-                ...prev.nodes,
-                ...newNodes
-              }
-            }));
-            break;
-
-        case "executing":
-          console.log("Executing: ", event.data.message);
-          // set executed node id as executed
-          const  node_id  = event.data.message.detail;
-          if (!node_id) {
+          if (!nodes || nodes.length === 0) {
             return;
           }
+
+          const newNodes = {};
+          for (const node of nodes) {
+            newNodes[node] = true;
+          }
+
+          // console.log("newNodes: ", newNodes);
 
           setProgress(prev => ({
             ...prev,
             nodes: {
               ...prev.nodes,
-              [node_id]: true
+              ...newNodes
             }
           }));
           break;
-      }
+
+      case "executing":
+        console.log("Executing: ", event.data.message);
+        // set executed node id as executed
+        const  node_id  = event.data.message.detail;
+        if (!node_id) {
+          return;
+        }
+
+        setProgress(prev => ({
+          ...prev,
+          nodes: {
+            ...prev.nodes,
+            [node_id]: true
+          }
+        }));
+        break;
+    }
+  }
+
+  const onParentKeypress = (keypress) => {
+    if (!keypress) {
+      return;
+    }
+
+    if (keypress.key === "Shift") {
+      console.log("Shift key pressed: ", keypress.isDown);
+      setStatus(prev => ({...prev, shiftDown: keypress.isDown}));
+    }
+  }
+
+  const handleMessage = useEvent((event) => {
+    // console.log("Received message from parent", event,event.data.type, event.data.message);
+    // SIML: check if event.origin is the same as baseURL
+    switch (event.data.type) {
+      case "QM_queueStatusUpdated":
+        onQueueStatusUpdated(event);
+        break;
+      case "QM_ParentKeypress":
+        onParentKeypress(event.data.message);
+        break;
     }
   });
 
@@ -241,12 +263,27 @@ export default function RootLayout({ children }) {
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
       {/*{children}*/}
-      <div className={'queue-table '}>
-        <Queue data={status.queue} error={status.error} isLoading={status.loading} progress={currentJob.progress}/>
+      <div className="tabs">
+        <button
+          className={"tab" + (status.route === 'queue' ? ' dark:bg-neutral-800 bg-neutral-200 active' : '')}
+          onClick={() => {
+            setStatus(prev => ({ ...prev, route: 'queue' }));
+          }}
+        >Queue</button>
+        <button
+          className={"tab" + (status.route === 'archive' ? ' dark:bg-neutral-800 bg-neutral-200 active' : '')}
+          onClick={() => {
+            setStatus(prev => ({ ...prev, route: 'archive' }));
+          }}
+        >Archive</button>
+      </div>
+      <div className={'queue-table' + (status.shiftDown ? ' shift-down' : '')}>
+        {/* Tabs for Queue and Archive */}
+        <Queue data={status.queue} error={status.error} isLoading={status.loading} progress={currentJob.progress} route={status.route} />
       </div>
       <footer className={"footer"}>
         <div className="p-2">
-          {status.queue && (status.queue.running.length > 0 || status.queue.pending.length > 0) &&
+          {status.queue && (status.queue.running.length > 0 || status.queue.pending.length > 0) && status.route === 'queue' &&
             <button onClick={archiveAll}
                     className="hover:bg-neutral-700 text-neutral-200 font-bold py-1 px-2 rounded mr-1 border-0 bg-green-900">Archive
               All

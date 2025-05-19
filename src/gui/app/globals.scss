@@ -3,12 +3,16 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --background-faded: #ffffffaa;
+  --foreground-faded: #272727;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --background-faded: #272727;
+    --foreground-faded: #ffffffaa;
   }
 }
 
@@ -57,6 +61,15 @@ footer.footer {
 .queue-table {
   flex: 1;
   overflow: auto;
+
+  tr {
+    transition: all 0.2s ease-in-out;
+    &:hover {
+      background: var(--background-faded);
+      color: var(--foreground-faded);
+    }
+  }
+
   .running {
     background: linear-gradient(
         to right,
@@ -124,6 +137,8 @@ footer.footer {
 
     td.actions {
       position: relative;
+      vertical-align: top;
+
       .loader {
         display: inline-block;
         vertical-align: middle;
@@ -141,3 +156,53 @@ footer.footer {
     }
   }
 }
+
+.tabs {
+  .tab {
+    padding: 0.4rem 0.8rem 0.2rem;
+    border: 1px solid transparent;
+    border-bottom: 0;
+    &.active {
+      border-top-left-radius: 0.5rem;
+      border-top-right-radius: 0.5rem;
+      padding: 0.4rem 0.8rem 0.2rem;
+      border-color: var(--background);
+    }
+  }
+}
+button {
+  padding: 0.2rem 0.6rem;
+  margin-right: 0.2rem;
+  font-size: 0.8rem;
+
+  &.run {
+    background-color: rgb(96, 165, 250);
+    color: var(--background);
+    position: relative;
+    padding-left: 1.2rem;
+
+    svg {
+      position: absolute;
+      left: 0.6rem;
+
+      .run-first {
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
+
+        .shift-down & {
+          opacity: 1;
+        }
+      }
+
+      .run {
+        opacity: 1;
+
+        .shift-down & {
+          opacity: 0;
+        }
+      }
+    }
+  }
+}
+
+

@@ -5,7 +5,7 @@ import {baseURL} from "@/internals/config";
 
 
 // take items from parent component
-export default function Queue( { data, isLoading, error, progress } ) {
+export default function Queue( { data, isLoading, error, progress, route } ) {
   const [state, setState] = useState({
     pending:[],
     running:[],
@@ -15,7 +15,7 @@ export default function Queue( { data, isLoading, error, progress } ) {
   function Button({children, className, onClick}) {
     return (
       <button
-        className={"hover:bg-neutral-700 text-neutral-200 font-bold py-1 px-2 rounded mr-1" + (className ? ' ' + className : '')}
+        className={"hover:bg-neutral-700 text-neutral-200 rounded inline-flex items-center justify-center" + (className ? ' ' + className : '')}
         onClick={onClick}
       >
         {children}
@@ -23,7 +23,7 @@ export default function Queue( { data, isLoading, error, progress } ) {
     );
   }
 
-  function QueueItemRow({item, className, loader}) {
+  function QueueItemRow({item, className, loader, mode}) {
     const [isLoading, setIsLoading] = useState(false);
 
 
@@ -74,7 +74,23 @@ export default function Queue( { data, isLoading, error, progress } ) {
           }
           <Button className={"bg-red-900"} onClick={cancelQueueItem}>Delete</Button>
           <Button className={"bg-green-900"} onClick={loadQueueItem}>Load</Button>
-          <Button className={"bg-orange-900"}>Archive</Button>
+          {mode !== 'archive' &&
+            <Button className={"bg-orange-900"}>Archive</Button>
+          }
+          {mode === 'archive' &&
+            <Button className={"run"} onClick={loadQueueItem}>
+              <svg viewBox="0 0 24 24" width="1.2em" height="1.2em">
+                <path className={'run'} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="m6 3l14 9l-14 9z"></path>
+                <g className={'run-first'} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
+                  <path d="M16 12H3m13 6H3m7-12H3m18 12V8a2 2 0 0 0-2-2h-5"></path>
+                  <path d="m16 8l-2-2l2-2"></path>
+                </g>
+              </svg>
+              &nbsp;&nbsp;Run
+            </Button>
+          }
         </td>
       </tr>
     );
@@ -83,8 +99,8 @@ export default function Queue( { data, isLoading, error, progress } ) {
   useEffect(function () {
     if (!data) return;
     setState({
-      pending:data.pending ? [...data.pending].sort((a, b) => a[0] - b[0]) : [],
-      running:data.running ? [...data.running].sort((a, b) => a[0] - b[0]) : [],
+      pending: data.pending ? [...data.pending].sort((a, b) => a[0] - b[0]) : [],
+      running: data.running ? [...data.running].sort((a, b) => a[0] - b[0]) : [],
     });
   }, [data]);
 
@@ -103,10 +119,10 @@ export default function Queue( { data, isLoading, error, progress } ) {
         </thead>
         <tbody>
           {state.running.map(item => (
-            <QueueItemRow item={item} key={item[0]} className={'running'} loader={true} />
+            <QueueItemRow item={item} key={item[0]} className={'running'} loader={true} mode={'running'} />
           ))}
           {state.pending.map(item => (
-            <QueueItemRow item={item} key={item[0]} className={'pending'} />
+            <QueueItemRow item={item} key={item[0]} className={'pending'} mode={route} />
           ))}
         </tbody>
       </table>
