@@ -89,7 +89,8 @@ export default function Queue( { data, isLoading, error, progress } ) {
   }, [data]);
 
   if (error)       return <p className="text-red-500 text-center">Queue load failed: {error.message}</p>;
-  if (!data || (!data.running.length && !data.pending.length)) return <p className="italic text-center">Queue is empty.</p>;
+  if (!isLoading && (!data || (!data.running.length && !data.pending.length))) return <p className="italic text-center">Queue is empty.</p>;
+  if (isLoading)  return <p className="italic text-center">Loading queue...</p>;
   return (
     <div className={"overflow-x-auto" + (isLoading ? ' loading' : '')} style={{"--job-progress": progress + "%"}}>
       <table className="min-w-full border border-0">

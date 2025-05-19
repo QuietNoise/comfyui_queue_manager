@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 
 export default function RootLayout({ children }) {
   const [ status, setStatus ] = useState({
-    loading: false,
+    loading: true,
     error: null,
     queue: null
   });
@@ -242,7 +242,7 @@ export default function RootLayout({ children }) {
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
       {/*{children}*/}
       <div className={'queue-table '}>
-        <Queue data={status.queue} error={status.error} isLoading={status.isLoading} progress={currentJob.progress}/>
+        <Queue data={status.queue} error={status.error} isLoading={status.loading} progress={currentJob.progress}/>
       </div>
       <footer className={"footer"}>
         <div className="p-2">
