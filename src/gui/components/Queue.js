@@ -29,9 +29,10 @@ export default function Queue( { data, isLoading, error, progress, route } ) {
 
     async function cancelQueueItem() {
       setIsLoading(true);
+      const route = mode === 'running' ? 'interrupt' : 'queue';
       try {
         // POST item[1] as json
-        const response = await fetch(`${baseURL}api/queue`, {
+        const response = await fetch(`${baseURL}api/` + route, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -46,7 +47,7 @@ export default function Queue( { data, isLoading, error, progress, route } ) {
         setIsLoading(false);
       } catch (error) {
         setIsLoading(false);
-        console.error("Error fetching queue items:", error);
+        console.error("Error cancelling items:", error);
       }
     }
 

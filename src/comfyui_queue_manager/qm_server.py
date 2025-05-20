@@ -1,6 +1,7 @@
 # Add custom API routes, using router
 from aiohttp import web
 from server import PromptServer
+import logging
 
 
 class QM_Server:
@@ -56,19 +57,25 @@ class QM_Server:
             # Return the version as JSON
             return web.json_response({"version": self.__version__})
 
-        # Hook us into the server's middleware so we can handle POST "/api/queue" requests
+        # Hook us into the server's middleware so we can listen to some native api requests
         @web.middleware
         async def post_queue(request, handler):
             """
             Handle the request to clear or delete items from the queue.
             """
-            if request.method == "POST" and request.path == "/api/queue":
-                json_data = await request.json()
-                if "clear" in json_data:
-                    if json_data["clear"]:
-                        self.queue_manager.queue.wipe_queue()
-                if "delete" in json_data:
-                    self.queue_manager.queue.delete_items(json_data["delete"])
+            if request.method == "POST":
+                match request.path:
+                    case "/api/queue":
+                        json_data = await request.json()
+                        if "clear" in json_data:
+                            if json_data["clear"]:
+                                self.queue_manager.queue.wipe_queue()
+                        if "delete" in json_data:
+                            self.queue_manager.queue.delete_items(json_data["delete"])
+                    case "/api/interrupt":
+                        # delete the currently running item
+                        total = self.queue_manager.queue.delete_running()
+                        logging.info(f"[Queue Manager] Deleted {total} items from the queue")
 
             return await handler(request)
 

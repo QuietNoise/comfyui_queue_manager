@@ -346,3 +346,18 @@ class QM_Queue:
                 archive.append(item)
 
             return archive
+
+    def delete_running(self):
+        with self.native_queue.mutex:
+            # Interrupt the queue
+            conn = get_conn()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                DELETE FROM queue
+                WHERE status = 1
+            """
+            )
+            conn.commit()
+
+            return cursor.rowcount
