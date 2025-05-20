@@ -35,6 +35,12 @@ class QM_Server:
             )
             return web.json_response({"paused": self.queue_manager.queue.paused})
 
+        @PromptServer.instance.routes.get("/queue_manager/archive-queue")
+        async def archive_queue(request):
+            # Archive the queue
+            total = self.queue_manager.queue.archive_queue()
+            return web.json_response({"archived": total})
+
         # Endpoint to expose __version__ information
         @PromptServer.instance.routes.get("/queue_manager/version")
         async def get_version(request):

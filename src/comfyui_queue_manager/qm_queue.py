@@ -66,7 +66,7 @@ class QM_Queue:
                 # Get the first page of the current queue from the database (pending only)
                 cursor.execute(
                     """
-                    SELECT prompt
+                    SELECT id, prompt
                     FROM queue
                     WHERE status = 0
                     ORDER BY number
@@ -76,7 +76,14 @@ class QM_Queue:
                 )
                 rows = cursor.fetchall()
                 # array of prompts
-                pending = [json.loads(row[0]) for row in rows]
+                pending = []
+                for row in rows:
+                    # Convert the item to a tuple
+                    item = tuple(json.loads(row[1]))
+                    # Add db_id to the item
+                    item[3]["db_id"] = row[0]
+                    # Add the item to the pending list
+                    pending.append(item)
             else:
                 pending = []
 
@@ -289,3 +296,29 @@ class QM_Queue:
             """
             )
             conn.commit()
+
+    # Set status of pending and running items to 3 (archived)
+    def archive_queue(self):
+        with self.native_queue.mutex:
+            # Archive the queue from the database
+            conn = get_conn()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE queue
+                SET status = 3
+                WHERE status = 0
+            """
+            )
+            conn.commit()
+            total = cursor.rowcount
+
+            # If affected any rows notify the frontend that the queue and archive have been archived
+            if total > 0:
+                logging.info("[Queue Manager] Queue Archived: %d item(s)", total)
+                PromptServer.instance.queue_updated()
+                PromptServer.instance.send_sync("queue-manager-archive-updated", {"total_moved": total})
+            else:
+                logging.info("[Queue Manager] No items to archive")
+
+            return total

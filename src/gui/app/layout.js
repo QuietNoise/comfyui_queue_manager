@@ -88,8 +88,12 @@ export default function RootLayout({ children }) {
     return null;
   }
 
-  function archiveAll() {
-
+  async function archiveAll() {
+    try {
+      const response = await fetch(`${baseURL}queue_manager/archive-queue`);
+    } catch (error) {
+      console.error("Error fetching queue items:", error);
+    }
   }
 
   const onQueueStatusUpdated = (event) => {
@@ -164,6 +168,11 @@ export default function RootLayout({ children }) {
             [node_id]: true
           }
         }));
+        break;
+
+      case "queue-manager-archive-updated":
+        console.log("Queue archive updated: ", event.data.message);
+        // TODO: update the archive view
         break;
     }
   }
@@ -286,7 +295,7 @@ export default function RootLayout({ children }) {
           {status.queue && (status.queue.running.length > 0 || status.queue.pending.length > 0) && status.route === 'queue' &&
             <button onClick={archiveAll}
                     className="hover:bg-neutral-700 text-neutral-200 font-bold py-1 px-2 rounded mr-1 border-0 bg-green-900">Archive
-              All
+              All Pending
             </button>
           }
 

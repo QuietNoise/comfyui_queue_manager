@@ -74,7 +74,7 @@ export default function Queue( { data, isLoading, error, progress, route } ) {
           }
           <Button className={"bg-red-900"} onClick={cancelQueueItem}>Delete</Button>
           <Button className={"bg-green-900"} onClick={loadQueueItem}>Load</Button>
-          {mode !== 'archive' &&
+          {mode === 'pending' &&
             <Button className={"bg-orange-900"}>Archive</Button>
           }
           {mode === 'archive' &&
@@ -105,8 +105,8 @@ export default function Queue( { data, isLoading, error, progress, route } ) {
   }, [data]);
 
   if (error)       return <p className="text-red-500 text-center">Queue load failed: {error.message}</p>;
-  if (!isLoading && (!data || (!data.running.length && !data.pending.length))) return <p className="italic text-center">Queue is empty.</p>;
-  if (isLoading)  return <p className="italic text-center">Loading queue...</p>;
+  if (!isLoading && (!data || (!data.running.length && !data.pending.length))) return <p className="italic text-center">No items.</p>;
+  if (isLoading)  return <p className="italic text-center">Loading...</p>;
   return (
     <div className={"overflow-x-auto" + (isLoading ? ' loading' : '')} style={{"--job-progress": progress + "%"}}>
       <table className="min-w-full border border-0">
@@ -119,10 +119,10 @@ export default function Queue( { data, isLoading, error, progress, route } ) {
         </thead>
         <tbody>
           {state.running.map(item => (
-            <QueueItemRow item={item} key={item[0]} className={'running'} loader={true} mode={'running'} />
+            <QueueItemRow item={item} key={item[1]} className={'running'} loader={true} mode={'running'} />
           ))}
           {state.pending.map(item => (
-            <QueueItemRow item={item} key={item[0]} className={'pending'} mode={route} />
+            <QueueItemRow item={item} key={item[3].db_id} className={'pending'} mode={route} />
           ))}
         </tbody>
       </table>

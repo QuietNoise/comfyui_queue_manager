@@ -26,7 +26,7 @@ def init_schema():
             name       TEXT,
             workflow_id   VARCHAR(255),
             prompt    TEXT,
-            status     INTEGER DEFAULT 0 -- 0: pending, 1: running, 2: finished, -1: error
+            status     INTEGER DEFAULT 0 -- 0: pending, 1: running, 2: finished, 3: archive, -1: error, -2: bin
         );
 
         CREATE TABLE IF NOT EXISTS options (

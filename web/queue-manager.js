@@ -82,6 +82,12 @@ app.registerExtension({
       postStatusMessageToIframe(e)
     })
 
+    app.api.addEventListener("queue-manager-archive-updated", function (e) {
+      postStatusMessageToIframe(e)
+    })
+
+
+
     // Pass parent's key events to iframe
     window.addEventListener('keydown', e => {
       postMessageToIframe({key: e.key, isDown: true}, 'QM_ParentKeypress')
