@@ -23,7 +23,7 @@ export default function Queue( { data, isLoading, error, progress, route } ) {
     );
   }
 
-  function QueueItemRow({item, className, loader, mode}) {
+  function QueueItemRow({item, className, loader, mode, index}) {
     const [isLoading, setIsLoading] = useState(false);
 
 
@@ -64,17 +64,19 @@ export default function Queue( { data, isLoading, error, progress, route } ) {
 
     return (
       <tr className={"dark:odd:bg-neutral-900 odd:bg-neutral-100" + (className ? ' ' + className : '')}>
-        <td className="px-3 py-1 serial"><span>{item[0]}</span></td>
-        <td className="px-3 py-1 text-left name">{item[3].extra_pnginfo.workflow.workflow_name ? item[3].extra_pnginfo.workflow.workflow_name : ""}</td>
-        <td className={'px-3 py-1 text-right actions'}>
+        <td className="px-3 py-1 serial">
+          <span>{index === undefined?'':index+1}</span>
           {loader &&
-            <span className="loader px-3 py-1 ">
+            <span className="loader py-1 ">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
             </span>
           }
+        </td>
+        <td className="px-3 py-1 text-left name">{item[3].extra_pnginfo.workflow.workflow_name ? item[3].extra_pnginfo.workflow.workflow_name : ""}</td>
+        <td className={'px-3 py-1 text-right actions'}>
           <Button className={"bg-red-900"} onClick={cancelQueueItem}>Delete</Button>
           <Button className={"bg-green-900"} onClick={loadQueueItem}>Load</Button>
-          {mode === 'pending' &&
+          {mode === 'queue' &&
             <Button className={"bg-orange-900"}>Archive</Button>
           }
           {mode === 'archive' &&
@@ -104,9 +106,9 @@ export default function Queue( { data, isLoading, error, progress, route } ) {
     });
   }, [data]);
 
-  if (error)       return <p className="text-red-500 text-center">Queue load failed: {error.message}</p>;
+  if (error)       return <p className="text-red-500 text-center">Loading failed: {error}</p>;
   if (!isLoading && (!data || (!data.running.length && !data.pending.length))) return <p className="italic text-center">No items.</p>;
-  if (isLoading)  return <p className="italic text-center">Loading...</p>;
+  if (isLoading && !data)  return <p className="italic text-center">Loading...</p>;
   return (
     <div className={"overflow-x-auto" + (isLoading ? ' loading' : '')} style={{"--job-progress": progress + "%"}}>
       <table className="min-w-full border border-0">
@@ -121,8 +123,8 @@ export default function Queue( { data, isLoading, error, progress, route } ) {
           {state.running.map(item => (
             <QueueItemRow item={item} key={item[1]} className={'running'} loader={true} mode={'running'} />
           ))}
-          {state.pending.map(item => (
-            <QueueItemRow item={item} key={item[3].db_id} className={'pending'} mode={route} />
+          {state.pending.map((item, index) => (
+            <QueueItemRow item={item} key={item[3].db_id} className={'pending'} mode={route} index={index} />
           ))}
         </tbody>
       </table>
