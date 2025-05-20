@@ -347,6 +347,35 @@ class QM_Queue:
 
             return archive
 
+    def archive_items(self, items):
+        """
+        Archive items from the database
+        """
+        with self.native_queue.mutex:
+            # Archive the item from the database
+            conn = get_conn()
+            cursor = conn.cursor()
+
+            archived = 0
+            for item in items:
+                cursor.execute(
+                    """
+                    UPDATE queue
+                    SET status = 3
+                    WHERE id = ?
+                """,
+                    (item,),
+                )
+                archived += cursor.rowcount
+
+            conn.commit()
+
+            if archived > 0:
+                logging.info("[Queue Manager] Queue Item Archived: %d item(s)", archived)
+                PromptServer.instance.send_sync("queue-manager-archive-updated", {"total_moved": archived})
+
+            return archived
+
     def delete_running(self):
         with self.native_queue.mutex:
             # Interrupt the queue

@@ -24,11 +24,9 @@ export default function Queue( { data, isLoading, error, progress, route } ) {
   }
 
   function QueueItemRow({item, className, loader, mode, index}) {
-    const [isLoading, setIsLoading] = useState(false);
 
 
     async function cancelQueueItem() {
-      setIsLoading(true);
       const route = mode === 'running' ? 'interrupt' : 'queue';
       try {
         // POST item[1] as json
@@ -44,9 +42,7 @@ export default function Queue( { data, isLoading, error, progress, route } ) {
         if (!response.ok) {
           throw new Error("Network response was not ok");
         }
-        setIsLoading(false);
       } catch (error) {
-        setIsLoading(false);
         console.error("Error cancelling items:", error);
       }
     }
@@ -60,6 +56,26 @@ export default function Queue( { data, isLoading, error, progress, route } ) {
         { type: "QM_LoadWorkflow", workflow: item[3].extra_pnginfo.workflow, number: item[0] },
         "*"
       );
+    }
+
+    // POST to /api/archive with array of item ids to archive
+    async function archiveQueueItem() {
+      try {
+        const response = await fetch(`${baseURL}queue-manager/archive`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            archive: [item[3].db_id],
+          }),
+        });
+        if (!response.ok) {
+          throw new Error("Network response was not ok");
+        }
+      } catch (error) {
+        console.error("Error archiving item:", error);
+      }
     }
 
 
@@ -78,7 +94,7 @@ export default function Queue( { data, isLoading, error, progress, route } ) {
           <Button className={"bg-red-900"} onClick={cancelQueueItem}>Delete</Button>
           <Button className={"bg-green-900"} onClick={loadQueueItem}>Load</Button>
           {mode === 'queue' &&
-            <Button className={"bg-orange-900"}>Archive</Button>
+            <Button className={"bg-orange-900"} onClick={archiveQueueItem}>Archive</Button>
           }
           {mode === 'archive' &&
             <Button className={"run"} onClick={loadQueueItem}>
