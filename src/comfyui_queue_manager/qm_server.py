@@ -8,7 +8,7 @@ class QM_Server:
         self.queue_manager = queue_manager
         self.__version__ = __version__
 
-        # Save shadow copy of the queue and return it to the client
+        # Get queue items
         @PromptServer.instance.routes.get("/queue_manager/queue")
         async def get_queue(request):
             # pending items
@@ -16,6 +16,15 @@ class QM_Server:
 
             # Return the queue object as JSON
             return web.json_response({"running": queue[0], "pending": queue[1]})
+
+        # Get archived items
+        @PromptServer.instance.routes.get("/queue_manager/archive")
+        async def get_archive(request):
+            # Get the archived items
+            archive = self.queue_manager.queue.get_archived_items()
+
+            # Return the archive object as JSON
+            return web.json_response({"running": [], "pending": archive})
 
         # Toggle Play/Pause of the queue
         @PromptServer.instance.routes.get("/queue_manager/toggle")

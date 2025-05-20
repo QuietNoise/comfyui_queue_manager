@@ -322,3 +322,27 @@ class QM_Queue:
                 logging.info("[Queue Manager] No items to archive")
 
             return total
+
+    def get_archived_items(self):
+        with self.native_queue.mutex:
+            # Get the archived items from the database
+            conn = get_conn()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT id, prompt
+                FROM queue
+                WHERE status = 3
+                ORDER BY created_at DESC
+            """
+            )
+            rows = cursor.fetchall()
+
+            # Convert the items to a list of tuples
+            archive = []
+            for row in rows:
+                item = tuple(json.loads(row[1]))
+                item[3]["db_id"] = row[0]
+                archive.append(item)
+
+            return archive

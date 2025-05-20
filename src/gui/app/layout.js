@@ -40,7 +40,7 @@ export default function RootLayout({ children }) {
     try {
       // console.log("Fetching queue items from", baseURL);
 
-      const response = await fetch(`${baseURL}queue_manager/queue`);
+      const response = await fetch(`${baseURL}queue_manager/` + status.route);
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
@@ -49,7 +49,7 @@ export default function RootLayout({ children }) {
 
     } catch (error) {
       setStatus(prev => ({...prev,  loading: false, error: error.message, queue: null }));
-      console.error("Error fetching queue items:", error);
+      console.error("Error fetching "+status.route+" items:", error);
     }
   };
 
@@ -100,7 +100,9 @@ export default function RootLayout({ children }) {
     // console.log("Queue progress: ", event.data.message);
     switch (event.data.message.name) {
       case "status":
-        fetchQueueItems();
+        if (status.route === 'queue') {
+          fetchQueueItems();
+        }
         break;
       case "execution_start":
         const { prompt_id } = event.data.message.detail;
@@ -172,7 +174,7 @@ export default function RootLayout({ children }) {
 
       case "queue-manager-archive-updated":
         console.log("Queue archive updated: ", event.data.message);
-        // TODO: update the archive view
+        fetchQueueItems()
         break;
     }
   }
@@ -253,6 +255,11 @@ export default function RootLayout({ children }) {
       }
     }
   }, [status.queue]);
+
+  useEffect(() => {
+    setStatus(prev => ({ ...prev, queue: null }));
+    fetchQueueItems();
+  }, [status.route]);
 
   // on mount get the queue items from the server
   useEffect(() => {

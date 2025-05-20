@@ -123,7 +123,9 @@ footer.footer {
         );
         opacity: 0.3;
         transition: width 0.15s ease-in-out;
-
+        border: 1px solid white;
+        border-right-color: black;
+        border-bottom-color: black;
 
         // blend with the background
         mix-blend-mode: exclusion;
@@ -137,15 +139,16 @@ footer.footer {
 
     td.actions {
       position: relative;
-      vertical-align: top;
+      vertical-align: middle;
+    }
 
-      .loader {
-        display: inline-block;
-        vertical-align: middle;
+    .loader {
+      display: inline-block;
+      vertical-align: middle;
 
-        svg {
-          animation: spin 2s linear infinite;
-        }
+      svg {
+        animation: spin 2s linear infinite;
+        width: 1rem;
       }
     }
   }
