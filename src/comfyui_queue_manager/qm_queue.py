@@ -66,7 +66,7 @@ class QM_Queue:
                 # Get the first page of the current queue from the database (pending only)
                 cursor.execute(
                     """
-                    SELECT id, prompt
+                    SELECT id, prompt, number
                     FROM queue
                     WHERE status = 0
                     ORDER BY number
@@ -78,10 +78,13 @@ class QM_Queue:
                 # array of prompts
                 pending = []
                 for row in rows:
-                    # Convert the item to a tuple
-                    item = tuple(json.loads(row[1]))
+                    item = json.loads(row[1])
                     # Add db_id to the item
                     item[3]["db_id"] = row[0]
+                    item[0] = row[2]  # set the number to the one from the database
+
+                    # Convert the item to a tuple
+                    item = tuple(item)
                     # Add the item to the pending list
                     pending.append(item)
             else:
@@ -135,7 +138,7 @@ class QM_Queue:
                 self.original_task_done(item_id, history_result, status)
 
     # NOTE: We keep only up to one item in native "pending" queue (to avoid bottleneck for large queues).
-    def queue_put(self, item):
+    def queue_put(self, item):  # comfy server calls this method
         with self.native_queue.mutex:
             # Add the item to the database
             conn = get_conn()
