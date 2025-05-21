@@ -185,7 +185,6 @@ export default function RootLayout({ children }) {
     }
 
     if (keypress.key === "Shift") {
-      console.log("Shift key pressed: ", keypress.isDown);
       setStatus(prev => ({...prev, shiftDown: keypress.isDown}));
     }
   }
@@ -266,6 +265,13 @@ export default function RootLayout({ children }) {
     fetchQueueItems();
 
     window.addEventListener("message", handleMessage);
+
+    window.addEventListener('keydown', e => {
+      setStatus(prev => ({...prev, shiftDown: true}));
+    });
+    window.addEventListener('keyup', e => {
+      setStatus(prev => ({...prev, shiftDown: false}));
+    });
 
     return () => window.removeEventListener("message", handleMessage);
   }, []);
