@@ -7,13 +7,14 @@ import logging
 class QM_Server:
     def __init__(self, queue_manager, __version__):
         self.queue_manager = queue_manager
+        self.queue = queue_manager.queue
         self.__version__ = __version__
 
         # Get queue items
         @PromptServer.instance.routes.get("/queue_manager/queue")
         async def get_queue(request):
             # pending items
-            queue = PromptServer.instance.prompt_queue.get_current_queue(0, 100)
+            queue = self.queue.get_current_queue(0, 100)
 
             # Return the queue object as JSON
             return web.json_response({"running": queue[0], "pending": queue[1]})
@@ -22,7 +23,7 @@ class QM_Server:
         @PromptServer.instance.routes.get("/queue_manager/archive")
         async def get_archive(request):
             # Get the archived items
-            archive = self.queue_manager.queue.get_archived_items()
+            archive = self.queue.get_archived_items()
 
             # Return the archive object as JSON
             return web.json_response({"running": [], "pending": archive})
@@ -33,7 +34,7 @@ class QM_Server:
             # Get the archived items
             json_data = await request.json()
             if "archive" in json_data:
-                archived = self.queue_manager.queue.archive_items(json_data["archive"])
+                archived = self.queue.archive_items(json_data["archive"])
                 return web.json_response({"archived": archived})
             else:
                 return web.json_response({"error": "No items to archive"}, status=400)
@@ -42,8 +43,8 @@ class QM_Server:
         @PromptServer.instance.routes.get("/queue_manager/toggle")
         async def toggle_queue(request):
             # Toggle the status of the queue
-            self.queue_manager.queue.toggle_playback()
-            return web.json_response({"paused": self.queue_manager.queue.paused})
+            self.queue.toggle_playback()
+            return web.json_response({"paused": self.queue.paused})
 
         # Return the status of the queue's playback
         @PromptServer.instance.routes.get("/queue_manager/playback")
@@ -51,15 +52,15 @@ class QM_Server:
             PromptServer.instance.send_sync(
                 "queue-manager-toggle-queue",
                 {
-                    "paused": self.queue_manager.queue.paused,
+                    "paused": self.queue.paused,
                 },
             )
-            return web.json_response({"paused": self.queue_manager.queue.paused})
+            return web.json_response({"paused": self.queue.paused})
 
         @PromptServer.instance.routes.get("/queue_manager/archive-queue")
         async def archive_queue(request):
             # Archive the queue
-            total = self.queue_manager.queue.archive_queue()
+            total = self.queue.archive_queue()
             return web.json_response({"archived": total})
 
         # Play item from archive
@@ -68,7 +69,7 @@ class QM_Server:
             # Get the item to play
             json_data = await request.json()
             if "items" in json_data:
-                total = self.queue_manager.queue.play_items(json_data["items"], json_data.get("front", False) == True)
+                total = self.queue.play_items(json_data["items"], json_data.get("front", False) == True)
                 return web.json_response({"moved": total})
             else:
                 return web.json_response({"error": "No item to play"}, status=400)
@@ -91,12 +92,12 @@ class QM_Server:
                         json_data = await request.json()
                         if "clear" in json_data:
                             if json_data["clear"]:
-                                self.queue_manager.queue.wipe_queue()
+                                self.queue.wipe_queue()
                         if "delete" in json_data:
-                            self.queue_manager.queue.delete_items(json_data["delete"])
+                            self.queue.delete_items(json_data["delete"])
                     case "/api/interrupt":
                         # delete the currently running item
-                        total = self.queue_manager.queue.delete_running()
+                        total = self.queue.delete_running()
                         logging.info(f"[Queue Manager] Deleted {total} items from the queue")
 
             return await handler(request)
