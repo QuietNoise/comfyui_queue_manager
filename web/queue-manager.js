@@ -55,6 +55,7 @@ app.registerExtension({
         } catch (error) {
           console.error("Error fetching queue items:", error);
         }
+
     });
 
 
@@ -107,6 +108,12 @@ app.registerExtension({
       if (type === "QM_LoadWorkflow" && workflow) {
         // e.g. forward into ComfyUI’s API
         app.loadGraphData(workflow, true, true, workflow.workflow_name + ' ' + number);
+      }
+      if (type === "QM_QueueManager_Hello") {
+        event.source.postMessage(
+          { type: "QM_QueueManager_Hello", clientId: app.api.clientId },
+          event.origin
+        );
       }
     }, false);
 

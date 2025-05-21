@@ -1,11 +1,8 @@
 # Add custom API routes, using router
-from aiohttp import web
 
 from server import PromptServer
 import logging
 import json
-import os
-import heapq
 
 # import traceback
 
@@ -99,30 +96,47 @@ class QueueManager:
             self.queueRestored = True  # we restore the queue only once per server start
 
     # WIP - import queue from uploaded json file
-    def import_queue(request):
-        # Get this script's directory
-        current_directory = os.path.dirname(os.path.abspath(__file__))
-        file_path = os.path.join(current_directory, "data/queue.json")
-        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-            with open(file_path, "r") as f:
-                queue = json.load(f)
-                # Check if the queue is empty
-                if len(queue) == 0:
-                    logging.info("[Queue Manager] Shadow queue is empty.")
-                    return web.json_response({"status": "success", "message": "Queue Manage shadow queue is empty."})
+    def import_queue(self, items, client_id=None):
+        theServer = PromptServer.instance
+        theQueue = theServer.prompt_queue
+        with theQueue.mutex:
+            # Add items to the queue in database
+            conn = get_conn()
+            cursor = conn.cursor()
 
+            before = conn.total_changes
+            query_params = []
+
+            for item in items:
+                # TODO: Check if the item is a list, has the correct length, and contains valid data format
                 # SIML: Check if all prompts in the queue are valid
-                theServer = PromptServer.instance
-                theQueue = theServer.prompt_queue
-                with theQueue.mutex:
-                    queue = [tuple(item) for item in queue]  # Convert to tuples - format expected by queue in PromptQueue
-                    theQueue.queue = queue
-                    heapq.heapify(theQueue.queue)
-                    theServer.queue_updated()
-                    theQueue.not_empty.notify()
 
-                logging.info("[Queue Manager] Queue restored from shadow copy. Queue size: %d", len(queue))
-                return web.json_response({"status": "success", "message": "Queue restored from shadow copy."})
-        else:
-            logging.info("[Queue Manager] No shadow copy of the queue found.")
-            return web.json_response({"status": "success", "message": "No shadow copy found."})
+                if client_id is not None:
+                    item[3]["client_id"] = client_id
+
+                PromptServer.instance.number += 1
+                query_params.append(
+                    (
+                        item[1],
+                        PromptServer.instance.number,
+                        item[3]["extra_pnginfo"]["workflow"]["workflow_name"],
+                        item[3]["extra_pnginfo"]["workflow"]["id"],
+                        json.dumps(item),
+                    )
+                )
+
+            cursor.executemany(
+                """
+                    INSERT OR IGNORE INTO queue (prompt_id, number, name, workflow_id, prompt)
+                    VALUES (?, ?, ?, ?, ?)
+                """,
+                query_params,
+            )
+            conn.commit()
+            total = conn.total_changes - before
+
+            if total > 0:
+                theQueue.not_empty.notify()
+                theServer.queue_updated()
+
+            return total, len(items)

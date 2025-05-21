@@ -1,7 +1,8 @@
 # Add custom API routes, using router
 from aiohttp import web
+
 from server import PromptServer
-import logging
+import logging, json
 
 
 class QM_Server:
@@ -79,6 +80,40 @@ class QM_Server:
         async def get_version(request):
             # Return the version as JSON
             return web.json_response({"version": self.__version__})
+
+        # Import the queue
+        @PromptServer.instance.routes.post("/queue_manager/import")
+        async def import_queue(request):
+            reader = await request.multipart()
+
+            field = await reader.next()
+            if field is None or field.name != "queue_json":
+                return web.Response(text="No file uploaded", status=400)
+
+            content = await field.read()
+
+            client_id = None
+
+            while True:
+                field = await reader.next()
+                if field is None:
+                    break
+                if field.name == "client_id":
+                    client_id = await field.read()
+
+            try:
+                json_data = json.loads(content)
+            except json.JSONDecodeError as e:
+                return web.Response(text=f"Invalid JSON: {e}", status=400)
+
+            if client_id is not None:
+                client_id = client_id.decode("ascii")
+
+            logging.info("[Queue Manager] Importing queue.")
+            imported, total = self.queue_manager.import_queue(json_data, client_id)
+            logging.info("[Queue Manager] Imported %d of %d total submitted entries.", imported, total)
+
+            return web.json_response({"imported": imported, "submitted": total})
 
         # Hook us into the server's middleware so we can listen to some native api requests
         @web.middleware

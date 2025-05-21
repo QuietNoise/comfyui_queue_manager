@@ -24,6 +24,7 @@ export default function RootLayout({ children }) {
     queue: null,
     route: 'queue', // queue, archive, bin
     shiftDown: false,
+    clientId: null,
   });
 
   const [ currentJob, setProgress ] = useState({
@@ -199,6 +200,34 @@ export default function RootLayout({ children }) {
       case "QM_ParentKeypress":
         onParentKeypress(event.data.message);
         break;
+      case "QM_QueueManager_Hello":
+        setStatus(prev => ({ ...prev, clientId: event.data.clientId }));
+        break;
+    }
+  });
+
+  const uploadQueue = useEvent( async (e) => {
+    const file = e.target.files[0];
+
+
+    const formData = new FormData();
+    formData.append("queue_json", file);
+    formData.append("client_id", status.clientId);
+
+    try {
+      const response = await fetch(`${baseURL}queue_manager/import`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+
+      const data = await response.json();
+      console.log("Queue imported successfully", data);
+    } catch (error) {
+      console.error("Error importing queue:", error);
     }
   });
 
@@ -273,6 +302,11 @@ export default function RootLayout({ children }) {
       setStatus(prev => ({...prev, shiftDown: false}));
     });
 
+    window.parent.postMessage(
+      { type: "QM_QueueManager_Hello" },
+      "*"
+    );
+
     return () => window.removeEventListener("message", handleMessage);
   }, []);
 
@@ -310,14 +344,31 @@ export default function RootLayout({ children }) {
         />
       </div>
       <footer className={"footer"}>
-        <div className="p-2">
+        <div className="p-2 flex">
           {status.queue && (status.queue.running.length > 0 || status.queue.pending.length > 0) && status.route === 'queue' &&
             <button onClick={archiveAll}
-                    className="hover:bg-neutral-700 text-neutral-200 font-bold py-1 px-2 rounded mr-1 border-0 bg-green-900">Archive
+                    className="hover:bg-neutral-700 text-neutral-200 font-bold py-1 px-2 rounded mr-1 border-0 bg-orange-900">Archive
               All Pending
             </button>
           }
 
+          <form
+            action="/queue_manager/import"
+            method="post"
+            encType="multipart/form-data"
+            className={"import-form"}
+          >
+            <input
+              id="uploadQueueForm"
+              type="file"
+              name="queue_json"
+              accept=".json"
+              required
+              hidden
+              onChange={uploadQueue}
+            />
+            <label htmlFor={"uploadQueueForm"} className={"hover:bg-neutral-700 text-neutral-200 font-bold py-1 px-2 rounded mr-1 border-0 bg-teal-900"}>📁 Import Queue</label>
+          </form>
         </div>
       </footer>
       </body>
