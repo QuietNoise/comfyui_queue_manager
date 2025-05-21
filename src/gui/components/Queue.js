@@ -2,10 +2,11 @@
 
 import React, {useEffect, useState} from "react";
 import {baseURL} from "@/internals/config";
+import {apiCall} from "@/internals/functions";
 
 
 // take items from parent component
-export default function Queue( { data, isLoading, error, progress, route } ) {
+export default function Queue( { data, isLoading, error, progress, route, shiftDown } ) {
   const [state, setState] = useState({
     pending:[],
     running:[],
@@ -23,28 +24,15 @@ export default function Queue( { data, isLoading, error, progress, route } ) {
     );
   }
 
-  function QueueItemRow({item, className, loader, mode, index}) {
+  function QueueItemRow({item, className, loader, mode, index, shiftDown}) {
 
 
     async function cancelQueueItem() {
       const route = mode === 'running' ? 'interrupt' : 'queue';
-      try {
-        // POST item[1] as json
-        const response = await fetch(`${baseURL}api/` + route, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            delete: [item[1]],
-          }),
-        });
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
-        }
-      } catch (error) {
-        console.error("Error cancelling items:", error);
-      }
+
+      await apiCall(`api/${route}`, {
+        delete: [item[1]],
+      })
     }
 
     /**
@@ -60,22 +48,13 @@ export default function Queue( { data, isLoading, error, progress, route } ) {
 
     // POST to /api/archive with array of item ids to archive
     async function archiveQueueItem() {
-      try {
-        const response = await fetch(`${baseURL}queue-manager/archive`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            archive: [item[3].db_id],
-          }),
-        });
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
-        }
-      } catch (error) {
-        console.error("Error archiving item:", error);
-      }
+      await apiCall(`queue_manager/archive`, {
+        archive: [item[3].db_id],
+      })
+    }
+
+    async function playItem() {
+      await apiCall(`queue_manager/play`, {items: [item[3].db_id], front: shiftDown === true})
     }
 
 
@@ -97,7 +76,7 @@ export default function Queue( { data, isLoading, error, progress, route } ) {
             <Button className={"bg-orange-900"} onClick={archiveQueueItem}>Archive</Button>
           }
           {mode === 'archive' &&
-            <Button className={"run"} onClick={loadQueueItem}>
+            <Button className={"run"} onClick={playItem}>
               <svg viewBox="0 0 24 24" width="1.2em" height="1.2em">
                 <path className={'run'} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"
                       strokeWidth="2"
@@ -118,8 +97,8 @@ export default function Queue( { data, isLoading, error, progress, route } ) {
   useEffect(function () {
     if (!data) return;
     setState({
-      pending: data.pending ? [...data.pending].sort((a, b) => a[0] - b[0]) : [],
-      running: data.running ? [...data.running].sort((a, b) => a[0] - b[0]) : [],
+      pending: data.pending ? data.pending : [],
+      running: data.running ? data.running : [],
     });
   }, [data]);
 
@@ -141,7 +120,7 @@ export default function Queue( { data, isLoading, error, progress, route } ) {
             <QueueItemRow item={item} key={item[1]} className={'running'} loader={true} mode={'running'} />
           ))}
           {state.pending.map((item, index) => (
-            <QueueItemRow item={item} key={item[3].db_id} className={'pending'} mode={route} index={index} />
+            <QueueItemRow item={item} key={item[3].db_id} className={'pending'} mode={route} index={index} shiftDown={shiftDown} />
           ))}
         </tbody>
       </table>

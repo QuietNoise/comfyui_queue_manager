@@ -390,3 +390,52 @@ class QM_Queue:
             conn.commit()
 
             return cursor.rowcount
+
+    def play_items(self, items, front):
+        """
+        Play items from the archive
+        """
+        with self.native_queue.mutex:
+            # Play the item from the database
+            conn = get_conn()
+            cursor = conn.cursor()
+
+            PromptServer.instance.number += 1
+
+            moved = 0
+            for item in items:
+                logging.info(
+                    "[Queue Manager] Playing item: %s, priority: %d, front: %s",
+                    item,
+                    PromptServer.instance.number * (-1 if front else 1),
+                    front,
+                )
+                cursor.execute(
+                    """
+                    UPDATE queue
+                    SET status = 0, number = ?
+                    WHERE id = ? AND status = 3
+                """,
+                    # Ensure correct priority
+                    (
+                        PromptServer.instance.number * (-1 if front else 1),
+                        item,
+                    ),
+                )
+                moved += cursor.rowcount
+
+            conn.commit()
+
+            if moved > 0:
+                # if moved to the front then remove the pending item from the native queue so next iteration will get the one
+                # with highest priority in the database
+                if front:
+                    self.native_queue.queue = []
+
+                # Notify native queue lock so if it's waiting it can move on and go for next iteration
+                PromptServer.instance.prompt_queue.not_empty.notify()
+
+                logging.info("[Queue Manager] %d item(s) scheduled for generation.", moved)
+                PromptServer.instance.send_sync("queue-manager-archive-updated", {"total_moved": moved})
+
+            return moved

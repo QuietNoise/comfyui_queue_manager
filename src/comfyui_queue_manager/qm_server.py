@@ -28,7 +28,7 @@ class QM_Server:
             return web.json_response({"running": [], "pending": archive})
 
         # Archive POSTed items
-        @PromptServer.instance.routes.post("/queue-manager/archive")
+        @PromptServer.instance.routes.post("/queue_manager/archive")
         async def post_archive(request):
             # Get the archived items
             json_data = await request.json()
@@ -61,6 +61,17 @@ class QM_Server:
             # Archive the queue
             total = self.queue_manager.queue.archive_queue()
             return web.json_response({"archived": total})
+
+        # Play item from archive
+        @PromptServer.instance.routes.post("/queue_manager/play")
+        async def play_item(request):
+            # Get the item to play
+            json_data = await request.json()
+            if "items" in json_data:
+                total = self.queue_manager.queue.play_items(json_data["items"], json_data.get("front", False) == True)
+                return web.json_response({"moved": total})
+            else:
+                return web.json_response({"error": "No item to play"}, status=400)
 
         # Endpoint to expose __version__ information
         @PromptServer.instance.routes.get("/queue_manager/version")

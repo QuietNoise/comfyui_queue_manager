@@ -295,7 +295,13 @@ export default function RootLayout({ children }) {
       </div>
       <div className={'queue-table' + (status.shiftDown ? ' shift-down' : '')}>
         {/* Tabs for Queue and Archive */}
-        <Queue data={status.queue} error={status.error} isLoading={status.loading} progress={currentJob.progress} route={status.route} />
+        <Queue data={status.queue}
+               error={status.error}
+               isLoading={status.loading}
+               progress={currentJob.progress}
+               route={status.route}
+               shiftDown={status.shiftDown}
+        />
       </div>
       <footer className={"footer"}>
         <div className="p-2">
