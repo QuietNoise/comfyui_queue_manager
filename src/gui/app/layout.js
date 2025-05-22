@@ -98,7 +98,8 @@ export default function RootLayout({ children }) {
   }
 
   const onQueueStatusUpdated = (event) => {
-    // console.log("Queue progress: ", event.data.message);
+    console.log("Queue progress: ", event.data.message);
+
     switch (event.data.message.name) {
       case "status":
         if (status.route === 'queue') {
@@ -207,6 +208,11 @@ export default function RootLayout({ children }) {
   });
 
   const uploadQueue = useEvent( async (e) => {
+    // if empty value then bounce
+    if (!e.target.files || !e.target.files.length === 0) {
+      return;
+    }
+
     const file = e.target.files[0];
 
 
@@ -226,6 +232,9 @@ export default function RootLayout({ children }) {
 
       const data = await response.json();
       console.log("Queue imported successfully", data);
+
+      e.target.value = "";
+
     } catch (error) {
       console.error("Error importing queue:", error);
     }
