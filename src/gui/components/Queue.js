@@ -1,12 +1,13 @@
 "use client";           // (keep for app-router; harmless in pages-router)
 
-import React, {useEffect, useState} from "react";
+import React, {useContext, useEffect, useState} from "react";
 import {baseURL} from "@/internals/config";
 import {apiCall} from "@/internals/functions";
+import {AppContext} from "@/internals/app-context";
 
 
 // take items from parent component
-export default function Queue( { data, isLoading, error, progress, route, shiftDown } ) {
+export default function Queue( { data, isLoading, error, progress } ) {
   const [state, setState] = useState({
     pending:[],
     running:[],
@@ -24,8 +25,8 @@ export default function Queue( { data, isLoading, error, progress, route, shiftD
     );
   }
 
-  function QueueItemRow({item, className, loader, mode, index, shiftDown}) {
-
+  function QueueItemRow({item, className, loader, index, mode}) {
+    const {appStatus} = useContext(AppContext)
 
     async function cancelQueueItem() {
       const route = mode === 'running' ? 'interrupt' : 'queue';
@@ -54,7 +55,8 @@ export default function Queue( { data, isLoading, error, progress, route, shiftD
     }
 
     async function playItem() {
-      await apiCall(`queue_manager/play`, {items: [item[3].db_id], front: shiftDown === true})
+      console.log("Playing item from client: " + appStatus.clientId);
+      await apiCall(`queue_manager/play`, {items: [item[3].db_id], front: appStatus.shiftDown === true, clientId: appStatus.clientId})
     }
 
 
@@ -72,10 +74,10 @@ export default function Queue( { data, isLoading, error, progress, route, shiftD
         <td className={'px-3 py-1 text-right actions'}>
           <Button className={"bg-red-900"} onClick={cancelQueueItem}>Delete</Button>
           <Button className={"bg-green-900"} onClick={loadQueueItem}>Load</Button>
-          {mode === 'queue' &&
+          {appStatus.route === 'queue' &&
             <Button className={"bg-orange-900"} onClick={archiveQueueItem}>Archive</Button>
           }
-          {mode === 'archive' &&
+          {appStatus.route === 'archive' &&
             <Button className={"run"} onClick={playItem}>
               <svg viewBox="0 0 24 24" width="1.2em" height="1.2em">
                 <path className={'run'} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"
@@ -120,7 +122,7 @@ export default function Queue( { data, isLoading, error, progress, route, shiftD
             <QueueItemRow item={item} key={item[1]} className={'running'} loader={true} mode={'running'} />
           ))}
           {state.pending.map((item, index) => (
-            <QueueItemRow item={item} key={item[3].db_id} className={'pending'} mode={route} index={index} shiftDown={shiftDown} />
+            <QueueItemRow item={item} key={item[3].db_id} className={'pending'} index={index} />
           ))}
         </tbody>
       </table>

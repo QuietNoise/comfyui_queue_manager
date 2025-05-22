@@ -5,6 +5,7 @@ import {useEffect, useState} from "react";
 import Queue from "@/components/Queue";
 import {baseURL} from "@/internals/config";
 import useEvent from "react-use-event-hook";
+import {AppContext} from "@/internals/app-context";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,7 +19,7 @@ const geistMono = Geist_Mono({
 
 
 export default function RootLayout({ children }) {
-  const [ status, setStatus ] = useState({
+  const [ appStatus, setAppStatus ] = useState({
     loading: true,
     error: null,
     queue: null,
@@ -36,21 +37,23 @@ export default function RootLayout({ children }) {
     progress: 0.0,
   });
 
+
+
   const fetchQueueItems = async () => {
-    setStatus(prev => ({ ...prev, loading: true, error: null }));
+    setAppStatus(prev => ({ ...prev, loading: true, error: null }));
     try {
       // console.log("Fetching queue items from", baseURL);
 
-      const response = await fetch(`${baseURL}queue_manager/` + status.route);
+      const response = await fetch(`${baseURL}queue_manager/` + appStatus.route);
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
       const queue = await response.json();
-      setStatus(prev => ({ ...prev, loading: false, error: null, queue }));
+      setAppStatus(prev => ({ ...prev, loading: false, error: null, queue }));
 
     } catch (error) {
-      setStatus(prev => ({...prev,  loading: false, error: error.message, queue: null }));
-      console.error("Error fetching "+status.route+" items:", error);
+      setAppStatus(prev => ({...prev,  loading: false, error: error.message, queue: null }));
+      console.error("Error fetching "+appStatus.route+" items:", error);
     }
   };
 
@@ -102,7 +105,7 @@ export default function RootLayout({ children }) {
 
     switch (event.data.message.name) {
       case "status":
-        if (status.route === 'queue') {
+        if (appStatus.route === 'queue') {
           fetchQueueItems();
         }
         break;
@@ -110,7 +113,7 @@ export default function RootLayout({ children }) {
         const { prompt_id } = event.data.message.detail;
         // console.log("Execution started: ", status.queue, prompt_id);
 
-        const theJob = getTheJob(prompt_id, status.queue);
+        const theJob = getTheJob(prompt_id, appStatus.queue);
 
         if (theJob) {
           // console.log("Job found: ", theJob);
@@ -187,7 +190,7 @@ export default function RootLayout({ children }) {
     }
 
     if (keypress.key === "Shift") {
-      setStatus(prev => ({...prev, shiftDown: keypress.isDown}));
+      setAppStatus(prev => ({...prev, shiftDown: keypress.isDown}));
     }
   }
 
@@ -202,7 +205,7 @@ export default function RootLayout({ children }) {
         onParentKeypress(event.data.message);
         break;
       case "QM_QueueManager_Hello":
-        setStatus(prev => ({ ...prev, clientId: event.data.clientId }));
+        setAppStatus(prev => ({ ...prev, clientId: event.data.clientId }));
         break;
     }
   });
@@ -218,7 +221,7 @@ export default function RootLayout({ children }) {
 
     const formData = new FormData();
     formData.append("queue_json", file);
-    formData.append("client_id", status.clientId);
+    formData.append("client_id", appStatus.clientId);
 
     try {
       const response = await fetch(`${baseURL}queue_manager/import`, {
@@ -271,7 +274,7 @@ export default function RootLayout({ children }) {
     // Are we already tracking a job but have not saved the workflow data yet?
     if (currentJob.id && currentJob.integrity === false) {
       // console.log("New Queue loaded. Already tracking a job. Checking for workflow data...");
-      const theJob = getTheJob(currentJob.id, status.queue);
+      const theJob = getTheJob(currentJob.id, appStatus.queue);
       if (theJob) {
         // console.log("Job found: ", theJob);
         const nodeIDs = getNodeIDs(theJob[3].extra_pnginfo.workflow.nodes);
@@ -291,12 +294,12 @@ export default function RootLayout({ children }) {
         }));
       }
     }
-  }, [status.queue]);
+  }, [appStatus.queue]);
 
   useEffect(() => {
-    setStatus(prev => ({ ...prev, queue: null }));
+    setAppStatus(prev => ({ ...prev, queue: null }));
     fetchQueueItems();
-  }, [status.route]);
+  }, [appStatus.route]);
 
   // on mount get the queue items from the server
   useEffect(() => {
@@ -305,10 +308,10 @@ export default function RootLayout({ children }) {
     window.addEventListener("message", handleMessage);
 
     window.addEventListener('keydown', e => {
-      setStatus(prev => ({...prev, shiftDown: true}));
+      setAppStatus(prev => ({...prev, shiftDown: true}));
     });
     window.addEventListener('keyup', e => {
-      setStatus(prev => ({...prev, shiftDown: false}));
+      setAppStatus(prev => ({...prev, shiftDown: false}));
     });
 
     window.parent.postMessage(
@@ -320,41 +323,44 @@ export default function RootLayout({ children }) {
   }, []);
 
   return (
-    <html lang="en">
+    <AppContext.Provider value={{appStatus, setAppStatus}}>
+      <html lang="en">
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1"/>
         <title>Queue Manager</title>
-        <meta name="description" content="ComfyUI Queue Manager frontend" />
+        <meta name="description" content="ComfyUI Queue Manager frontend"/>
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
       {/*{children}*/}
       <div className="tabs">
         <button
-          className={"tab" + (status.route === 'queue' ? ' dark:bg-neutral-800 bg-neutral-200 active' : '')}
+          className={"tab" + (appStatus.route === 'queue' ? ' dark:bg-neutral-800 bg-neutral-200 active' : '')}
           onClick={() => {
-            setStatus(prev => ({ ...prev, route: 'queue' }));
+            setAppStatus(prev => ({...prev, route: 'queue'}));
           }}
-        >Queue</button>
+        >Queue
+        </button>
         <button
-          className={"tab" + (status.route === 'archive' ? ' dark:bg-neutral-800 bg-neutral-200 active' : '')}
+          className={"tab" + (appStatus.route === 'archive' ? ' dark:bg-neutral-800 bg-neutral-200 active' : '')}
           onClick={() => {
-            setStatus(prev => ({ ...prev, route: 'archive' }));
+            setAppStatus(prev => ({...prev, route: 'archive'}));
           }}
-        >Archive</button>
+        >Archive
+        </button>
       </div>
-      <div className={'queue-table' + (status.shiftDown ? ' shift-down' : '')}>
+      <div className={'queue-table' + (appStatus.shiftDown ? ' shift-down' : '')}>
         {/* Tabs for Queue and Archive */}
-        <Queue data={status.queue}
-               error={status.error}
-               isLoading={status.loading}
+        <Queue data={appStatus.queue}
+               error={appStatus.error}
+               isLoading={appStatus.loading}
                progress={currentJob.progress}
-               route={status.route}
-               shiftDown={status.shiftDown}
+               route={appStatus.route}
+               shiftDown={appStatus.shiftDown}
         />
       </div>
       <footer className={"footer"}>
         <div className="p-2 flex">
-          {status.queue && (status.queue.running.length > 0 || status.queue.pending.length > 0) && status.route === 'queue' &&
+          {appStatus.queue && (appStatus.queue.running.length > 0 || appStatus.queue.pending.length > 0) && appStatus.route === 'queue' &&
             <button onClick={archiveAll}
                     className="hover:bg-neutral-700 text-neutral-200 font-bold py-1 px-2 rounded mr-1 border-0 bg-orange-900">Archive
               All Pending
@@ -376,11 +382,14 @@ export default function RootLayout({ children }) {
               hidden
               onChange={uploadQueue}
             />
-            <label htmlFor={"uploadQueueForm"} className={"hover:bg-neutral-700 text-neutral-200 font-bold py-1 px-2 rounded mr-1 border-0 bg-teal-900"}>📁 Import Queue</label>
+            <label htmlFor={"uploadQueueForm"}
+                   className={"hover:bg-neutral-700 text-neutral-200 font-bold py-1 px-2 rounded mr-1 border-0 bg-teal-900"}>📁
+              Import Queue</label>
           </form>
         </div>
       </footer>
       </body>
-    </html>
+      </html>
+    </AppContext.Provider>
   );
 }

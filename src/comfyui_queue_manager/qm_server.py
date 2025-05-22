@@ -70,7 +70,7 @@ class QM_Server:
             # Get the item to play
             json_data = await request.json()
             if "items" in json_data:
-                total = self.queue.play_items(json_data["items"], json_data.get("front", False) == True)
+                total = self.queue.play_items(json_data["items"], json_data.get("front", False) == True, json_data.get("clientId", None))
                 return web.json_response({"moved": total})
             else:
                 return web.json_response({"error": "No item to play"}, status=400)

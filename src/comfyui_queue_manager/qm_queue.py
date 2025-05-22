@@ -394,7 +394,7 @@ class QM_Queue:
 
             return cursor.rowcount
 
-    def play_items(self, items, front):
+    def play_items(self, items, front, client_id=None):
         """
         Play items from the archive
         """
@@ -406,23 +406,41 @@ class QM_Queue:
             PromptServer.instance.number += 1
 
             moved = 0
-            for item in items:
+            for db_id in items:
                 logging.info(
                     "[Queue Manager] Playing item: %s, priority: %d, front: %s",
-                    item,
+                    db_id,
                     PromptServer.instance.number * (-1 if front else 1),
                     front,
                 )
+
+                # Get the item and update the client id in prompt json
+                cursor.execute(
+                    """
+                    SELECT prompt
+                    FROM queue
+                    WHERE id = ?
+                """,
+                    (db_id,),
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    continue
+
+                prompt = json.loads(row[0])
+                prompt[3]["client_id"] = client_id
+
                 cursor.execute(
                     """
                     UPDATE queue
-                    SET status = 0, number = ?
-                    WHERE id = ? AND status = 3
+                    SET status = 0, number = ?, prompt = ?
+                    WHERE id = ?
                 """,
                     # Ensure correct priority
                     (
                         PromptServer.instance.number * (-1 if front else 1),
-                        item,
+                        json.dumps(prompt),
+                        db_id,
                     ),
                 )
                 moved += cursor.rowcount
