@@ -94,6 +94,7 @@ class QM_Server:
             content = await field.read()
 
             client_id = None
+            is_archive = False
 
             while True:
                 field = await reader.next()
@@ -101,6 +102,8 @@ class QM_Server:
                     break
                 if field.name == "client_id":
                     client_id = await field.read()
+                if field.name == "archive":
+                    is_archive = True
 
             try:
                 json_data = json.loads(content)
@@ -110,9 +113,14 @@ class QM_Server:
             if client_id is not None:
                 client_id = client_id.decode("ascii")
 
-            logging.info("[Queue Manager] Importing queue.")
-            imported, total = self.queue_manager.import_queue(json_data, client_id)
-            logging.info("[Queue Manager] Imported %d of %d total submitted entries.", imported, total)
+            logging.info("[Queue Manager] Importing %s", "to archive." if is_archive else "to queue.")
+            imported, total = self.queue_manager.import_queue(json_data, client_id, 3 if is_archive else 0)
+            logging.info(
+                "[Queue Manager] Imported %d of %d total submitted entries %s",
+                imported,
+                total,
+                "to archive." if is_archive else "to queue.",
+            )
 
             return web.json_response({"imported": imported, "submitted": total})
 

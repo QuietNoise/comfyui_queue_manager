@@ -96,7 +96,7 @@ class QueueManager:
             self.queueRestored = True  # we restore the queue only once per server start
 
     # WIP - import queue from uploaded json file
-    def import_queue(self, items, client_id=None):
+    def import_queue(self, items, client_id=None, status=0):
         theServer = PromptServer.instance
         theQueue = theServer.prompt_queue
         with theQueue.mutex:
@@ -122,13 +122,14 @@ class QueueManager:
                         item[3]["extra_pnginfo"]["workflow"]["workflow_name"],
                         item[3]["extra_pnginfo"]["workflow"]["id"],
                         json.dumps(item),
+                        status,
                     )
                 )
 
             cursor.executemany(
                 """
-                    INSERT OR IGNORE INTO queue (prompt_id, number, name, workflow_id, prompt)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT OR IGNORE INTO queue (prompt_id, number, name, workflow_id, prompt, status)
+                    VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 query_params,
             )

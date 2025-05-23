@@ -223,6 +223,11 @@ export default function RootLayout({ children }) {
     formData.append("queue_json", file);
     formData.append("client_id", appStatus.clientId);
 
+    if (appStatus.route === 'archive') {
+      formData.append("archive", true);
+    }
+
+
     try {
       const response = await fetch(`${baseURL}queue_manager/import`, {
         method: "POST",
@@ -373,27 +378,25 @@ export default function RootLayout({ children }) {
             </>
           }
 
-          {appStatus.route === 'queue' &&
-            <form
-              action="/queue_manager/import"
-              method="post"
-              encType="multipart/form-data"
-              className={"import-form"}
-            >
-              <input
-                id="uploadQueueForm"
-                type="file"
-                name="queue_json"
-                accept=".json"
-                required
-                hidden
-                onChange={uploadQueue}
-              />
-              <label htmlFor={"uploadQueueForm"}
-                     className={"hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-teal-900"}>📁
-                Import Queue</label>
-            </form>
-          }
+
+          <form
+            method="post"
+            encType="multipart/form-data"
+            className={"import-form"}
+          >
+            <input
+              id="uploadQueueForm"
+              type="file"
+              name="queue_json"
+              accept=".json"
+              required
+              hidden
+              onChange={uploadQueue}
+            />
+            <label htmlFor={"uploadQueueForm"}
+                   className={"hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-teal-900"}>📁
+              Import {appStatus.route === 'queue' ? 'Queue' : 'Archive'}</label>
+          </form>
         </div>
       </footer>
       </body>
