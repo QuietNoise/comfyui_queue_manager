@@ -386,7 +386,7 @@ export default function RootLayout({ children }) {
       </div>
       <footer className={"footer"}>
         <div className={"paging flex"}>
-          {appStatus.queue && (appStatus.queue.info.last_page > 0) &&
+          {appStatus.queue && appStatus.queue.info && (appStatus.queue.info.last_page > 0) &&
             <>
               {/* Previous page if needed */}
               <button

@@ -60,6 +60,7 @@ class QM_Queue:
             running = []
             pending = []
             total_rows = 0
+            last_page = 0
             for x in self.native_queue.currently_running.values():
                 running += [x]
 
@@ -70,9 +71,12 @@ class QM_Queue:
                 cursor.execute("SELECT COUNT(*) FROM queue WHERE status = 0")
                 total_rows = cursor.fetchone()[0]
 
+            if total_rows > 0:
+                last_page = (total_rows - 1) // (0 if page_size == 0 else page_size)
+
                 # If requesting page that doesn't exist then return next adjacent one
-                if page * page_size >= total_rows:
-                    page = (total_rows // page_size) - 1
+                if page > last_page:
+                    page = last_page
                 if page < 0:
                     page = 0
 
@@ -108,7 +112,7 @@ class QM_Queue:
                     "total": total_rows,
                     "page": page,
                     "page_size": page_size,
-                    "last_page": 0 if page_size == 0 else (total_rows // page_size),
+                    "last_page": last_page,
                 },
             )
 
@@ -653,7 +657,7 @@ class QM_Queue:
             """)
             rows = cursor.fetchall()
             if len(rows) > 0:
-                logging.info("Restoring unfinished jobs: %d item(s)", len(rows))
+                logging.info("[Queue Manager] Restoring unfinished jobs: %d item(s)", len(rows))
                 # Get current highest priority (lowest number for pending task) in the database
                 cursor.execute("""
                     SELECT number
