@@ -365,17 +365,39 @@ export default function RootLayout({ children }) {
       </div>
       <footer className={"footer"}>
         <div className="p-2 flex actions">
-          {appStatus.queue && (appStatus.queue.running.length > 0 || appStatus.queue.pending.length > 0) && appStatus.route === 'queue' &&
+          {appStatus.queue && (appStatus.queue.running.length > 0 || appStatus.queue.pending.length > 0)  &&
             <>
-              <button onClick={archiveAll}
-                      className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-orange-900">Archive
-                All Pending
-              </button>
-              <a href={baseURL + "queue_manager/export"}
-                 className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-teal-700">📤 Export
-                Queue
-              </a>
+              {appStatus.route === 'queue' &&
+                <>
+                  <button onClick={archiveAll}
+                          className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-orange-900">Archive All Pending
+                  </button>
+                  <a href={baseURL + "queue_manager/export"}
+                     className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-teal-700">📤
+                    Export Queue
+                  </a>
+                </>
+              }
+              {appStatus.route === 'archive' &&
+                <>
+                  <button onClick={archiveAll}
+                          className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 run run-all">
+                    <svg viewBox="0 0 24 24" width="1.2em" height="1.2em">
+                      <path className={'run'} fill="none" stroke="currentColor" strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="m6 3l14 9l-14 9z"></path>
+                    </svg>
+                    Run All
+                  </button>
+                  <a href={baseURL + "queue_manager/export?archive=true"}
+                     className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-teal-700">📤
+                    Export Archive
+                  </a>
+                </>
+              }
             </>
+
           }
 
 

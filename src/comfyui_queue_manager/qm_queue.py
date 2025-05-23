@@ -92,18 +92,31 @@ class QM_Queue:
 
             return running, pending
 
-    def get_full_queue(self):
-        # get all pending and running items
+    def get_full_queue(self, archive=False):
         conn = get_conn()
         cursor = conn.cursor()
-        cursor.execute(
+
+        if archive:
+            # Get the archived items from the database
+            cursor.execute(
+                """
+                SELECT id, prompt
+                FROM queue
+                WHERE status = 3
+                ORDER BY created_at DESC
             """
-            SELECT id, prompt, number
-            FROM queue
-            WHERE status = 0 OR status = 1
-            ORDER BY number
-        """
-        )
+            )
+        else:
+            # Get the pending / running items from the database
+            cursor.execute(
+                """
+                SELECT id, prompt
+                FROM queue
+                WHERE status = 0 OR status = 1
+                ORDER BY created_at DESC
+            """
+            )
+
         rows = cursor.fetchall()
 
         # array of prompts
