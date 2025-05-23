@@ -41,6 +41,18 @@ class QM_Server:
             else:
                 return web.json_response({"error": "No items to archive"}, status=400)
 
+        # Play entire archive
+        @PromptServer.instance.routes.post("/queue_manager/play-archive")
+        async def play_archive(request):
+            logging.info("[Queue Manager] Play archive")
+            json_data = await request.json()
+            client_id = None
+            if "client_id" in json_data:
+                client_id = json_data["client_id"]
+
+            moved = self.queue.play_archive(client_id)
+            return web.json_response({"archived": moved})
+
         # Toggle Play/Pause of the queue
         @PromptServer.instance.routes.get("/queue_manager/toggle")
         async def toggle_queue(request):

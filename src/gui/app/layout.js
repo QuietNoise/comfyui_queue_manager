@@ -6,6 +6,7 @@ import Queue from "@/components/Queue";
 import {baseURL} from "@/internals/config";
 import useEvent from "react-use-event-hook";
 import {AppContext} from "@/internals/app-context";
+import {apiCall} from "@/internals/functions";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -100,8 +101,10 @@ export default function RootLayout({ children }) {
     }
   }
 
-  async function playAll() {
-
+  async function playAllArchive() {
+    await apiCall('queue_manager/play-archive', {
+      client_id: appStatus.clientId,
+    })
   }
 
   async function deleteArchive() {
@@ -396,7 +399,7 @@ export default function RootLayout({ children }) {
               }
               {appStatus.route === 'archive' &&
                 <>
-                  <button onClick={playAll}
+                  <button onClick={playAllArchive}
                           className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 run run-all">
                     <svg viewBox="0 0 24 24" width="1.2em" height="1.2em">
                       <path className={'run'} fill="none" stroke="currentColor" strokeLinecap="round"

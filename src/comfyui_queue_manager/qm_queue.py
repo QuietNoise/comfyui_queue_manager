@@ -440,10 +440,10 @@ class QM_Queue:
             conn = get_conn()
             cursor = conn.cursor()
 
-            PromptServer.instance.number += 1
-
             moved = 0
             for db_id in items:
+                PromptServer.instance.number += 1
+
                 logging.info(
                     "[Queue Manager] Playing item: %s, priority: %d, front: %s",
                     db_id,
@@ -495,7 +495,62 @@ class QM_Queue:
 
                 logging.info("[Queue Manager] %d item(s) scheduled for generation.", moved)
                 PromptServer.instance.send_sync("queue-manager-archive-updated", {"total_moved": moved})
+                PromptServer.instance.queue_updated()
 
+            return moved
+
+    # Change status to 0 for all items with status 3, update the client_id and set correct priority for each item
+    def play_archive(self, client_id=None):
+        with self.native_queue.mutex:
+            # Play the item from the database
+            conn = get_conn()
+            cursor = conn.cursor()
+
+            # Get the archived items from the database
+            cursor.execute(
+                """
+                SELECT id, prompt
+                FROM queue
+                WHERE status = 3
+                ORDER BY created_at DESC
+            """
+            )
+            rows = cursor.fetchall()
+
+            # Convert the items to a list of tuples
+            parameters = []
+            for row in rows:
+                PromptServer.instance.number += 1
+
+                item = json.loads(row[1])
+                item[3]["client_id"] = client_id
+                item[0] = PromptServer.instance.number
+                parameters.append(
+                    (
+                        PromptServer.instance.number,
+                        json.dumps(item),
+                        row[0],
+                    )
+                )
+
+            # Update the items in the database
+            cursor.executemany(
+                """
+                UPDATE queue
+                SET status = 0, number = ?, prompt = ?
+                WHERE id = ?
+            """,
+                parameters,
+            )
+            moved = cursor.rowcount
+            conn.commit()
+            if moved > 0:
+                # Notify native queue lock so if it's waiting it can move on and go for next iteration
+                PromptServer.instance.prompt_queue.not_empty.notify()
+
+                logging.info("[Queue Manager] %d item(s) scheduled for generation.", moved)
+                PromptServer.instance.send_sync("queue-manager-archive-updated", {"total_moved": moved})
+                PromptServer.instance.queue_updated()
             return moved
 
     def delete_archive(self):
@@ -524,7 +579,6 @@ class QM_Queue:
             conn = get_conn()
             cursor = conn.cursor()
 
-            before = conn.total_changes
             query_params = []
 
             for item in items:
@@ -553,8 +607,8 @@ class QM_Queue:
                 """,
                 query_params,
             )
+            total = cursor.rowcount
             conn.commit()
-            total = conn.total_changes - before
 
             if total > 0:
                 theQueue.not_empty.notify()
