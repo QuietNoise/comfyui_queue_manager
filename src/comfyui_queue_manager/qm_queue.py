@@ -497,3 +497,70 @@ class QM_Queue:
                 PromptServer.instance.send_sync("queue-manager-archive-updated", {"total_moved": moved})
 
             return moved
+
+    def delete_archive(self):
+        with self.native_queue.mutex:
+            # Delete the archive from the database
+            conn = get_conn()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                DELETE FROM queue
+                WHERE status = 3
+            """
+            )
+            conn.commit()
+
+            PromptServer.instance.send_sync("queue-manager-archive-updated", {"deleted": cursor.rowcount})
+
+            return cursor.rowcount
+
+    # Import queue from uploaded json file
+    def import_queue(self, items, client_id=None, status=0):
+        theServer = PromptServer.instance
+        theQueue = theServer.prompt_queue
+        with theQueue.mutex:
+            # Add items to the queue in database
+            conn = get_conn()
+            cursor = conn.cursor()
+
+            before = conn.total_changes
+            query_params = []
+
+            for item in items:
+                # TODO: Check if the item is a list, has the correct length, and contains valid data format
+                # SIML: Check if all prompts in the queue are valid
+
+                if client_id is not None:
+                    item[3]["client_id"] = client_id
+
+                PromptServer.instance.number += 1
+                query_params.append(
+                    (
+                        item[1],
+                        PromptServer.instance.number,
+                        item[3]["extra_pnginfo"]["workflow"]["workflow_name"],
+                        item[3]["extra_pnginfo"]["workflow"]["id"],
+                        json.dumps(item),
+                        status,
+                    )
+                )
+
+            cursor.executemany(
+                """
+                    INSERT OR IGNORE INTO queue (prompt_id, number, name, workflow_id, prompt, status)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                query_params,
+            )
+            conn.commit()
+            total = conn.total_changes - before
+
+            if total > 0:
+                theQueue.not_empty.notify()
+                if status == 0:
+                    theServer.queue_updated()
+                if status == 3:
+                    PromptServer.instance.send_sync("queue-manager-archive-updated", {"total_imported": total})
+
+            return total, len(items)

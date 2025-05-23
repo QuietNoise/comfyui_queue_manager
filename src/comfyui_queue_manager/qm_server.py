@@ -114,7 +114,7 @@ class QM_Server:
                 client_id = client_id.decode("ascii")
 
             logging.info("[Queue Manager] Importing %s", "to archive." if is_archive else "to queue.")
-            imported, total = self.queue_manager.import_queue(json_data, client_id, 3 if is_archive else 0)
+            imported, total = self.queue.import_queue(json_data, client_id, 3 if is_archive else 0)
             logging.info(
                 "[Queue Manager] Imported %d of %d total submitted entries %s",
                 imported,
@@ -141,6 +141,16 @@ class QM_Server:
             )
             response.headers["Content-Type"] = "application/json"
             return response
+
+        # Delete archive
+        @PromptServer.instance.routes.delete("/queue_manager/archive")
+        async def delete_archive(request):
+            # Delete the archive
+            total = self.queue.delete_archive()
+
+            logging.info("[Queue Manager] Deleted %d items from the archive", total)
+
+            return web.json_response({"deleted": total})
 
         # Hook us into the server's middleware so we can listen to some native api requests
         @web.middleware

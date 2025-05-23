@@ -100,6 +100,21 @@ export default function RootLayout({ children }) {
     }
   }
 
+  async function playAll() {
+
+  }
+
+  async function deleteArchive() {
+    try {
+      const response = await fetch(`${baseURL}queue_manager/archive`, {
+        method: "DELETE",
+      });
+    } catch (error) {
+      console.error("Error deleting archive:", error);
+    }
+
+  }
+
   const onQueueStatusUpdated = (event) => {
     console.log("Queue progress: ", event.data.message);
 
@@ -365,12 +380,13 @@ export default function RootLayout({ children }) {
       </div>
       <footer className={"footer"}>
         <div className="p-2 flex actions">
-          {appStatus.queue && (appStatus.queue.running.length > 0 || appStatus.queue.pending.length > 0)  &&
+          {appStatus.queue && (appStatus.queue.running.length > 0 || appStatus.queue.pending.length > 0) &&
             <>
               {appStatus.route === 'queue' &&
                 <>
                   <button onClick={archiveAll}
-                          className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-orange-900">Archive All Pending
+                          className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-orange-900">Archive
+                    All Pending
                   </button>
                   <a href={baseURL + "queue_manager/export"}
                      className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-teal-700">📤
@@ -380,7 +396,7 @@ export default function RootLayout({ children }) {
               }
               {appStatus.route === 'archive' &&
                 <>
-                  <button onClick={archiveAll}
+                  <button onClick={playAll}
                           className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 run run-all">
                     <svg viewBox="0 0 24 24" width="1.2em" height="1.2em">
                       <path className={'run'} fill="none" stroke="currentColor" strokeLinecap="round"
@@ -394,6 +410,10 @@ export default function RootLayout({ children }) {
                      className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-teal-700">📤
                     Export Archive
                   </a>
+                  <button onClick={deleteArchive}
+                          className="hover:bg-neutral-700 dark:bg-gray-800 bg-gray-200 dark:text-neutral-200 text-neutral-800 py-1 px-2 rounded mr-1 border-0 order-last ml-auto">
+                    🗑️ Delete Archive
+                  </button>
                 </>
               }
             </>
