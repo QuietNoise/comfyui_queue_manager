@@ -13,6 +13,7 @@ class QM_Queue:
     def __init__(self, queue_manager):
         self.paused = False  # TODO: restore state from DB
         self.queue_manager = queue_manager
+        self.restored = False
 
         # ===================================================================
         # ================ Hijack Native Queue ==============================
@@ -232,7 +233,7 @@ class QM_Queue:
             if len(self.native_queue.queue) == 0:
                 # if we are on the first iteration and there's no item running then check if there is anything that need to be restored
                 if self.native_queue.task_counter == 0 and len(self.native_queue.currently_running) == 0:
-                    self.queue_manager.restore_queue(True)
+                    self.restore_queue(True)
 
                 # Get the item with highest priority from the queue in database
                 cursor.execute("""
@@ -618,3 +619,79 @@ class QM_Queue:
                     PromptServer.instance.send_sync("queue-manager-archive-updated", {"total_imported": total})
 
             return total, len(items)
+
+    # If there are any items in the queue with status 1 (running), restore them to status 0 (pending) with highest priority
+    # TODO: Add a setting to enable/disable this feature
+    def restore_queue(self, called_by_queue_get=False):
+        with PromptServer.instance.prompt_queue.mutex:
+            if self.restored:
+                return
+
+            # Get running items from the database
+            conn = get_conn()
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT prompt_id, number, name, workflow_id, prompt
+                FROM queue
+                WHERE status = 1
+                ORDER BY number
+            """)
+            rows = cursor.fetchall()
+            if len(rows) > 0:
+                logging.info("Restoring unfinished jobs: %d item(s)", len(rows))
+                # Get current highest priority (lowest number for pending task) in the database
+                cursor.execute("""
+                    SELECT number
+                    FROM queue
+                    WHERE status = 0
+                    ORDER BY number
+                    LIMIT 1
+                """)
+                lowest = cursor.fetchone()
+
+                if lowest:
+                    min_number = lowest[0] - 1
+                else:
+                    min_number = 0
+
+                # Set the priority of the running items to the current highest priority
+                for row in rows:
+                    cursor.execute(
+                        """
+                        UPDATE queue
+                        SET status = 0, number = ?
+                        WHERE prompt_id = ?
+                    """,
+                        (
+                            min_number,
+                            row[0],
+                        ),
+                    )
+                    conn.commit()
+                    min_number -= 1
+
+            # Get task counter (highest task number) from the database
+            cursor.execute("""
+                SELECT number
+                FROM queue
+                WHERE status = 1 OR status = 0 -- pending or running
+                ORDER BY number DESC
+                LIMIT 1
+            """)
+            rows = cursor.fetchone()
+            if rows:
+                task_counter = rows[0] + 1
+            else:
+                task_counter = 1
+
+            # Set the task counter in the queue
+            PromptServer.instance.prompt_queue.task_counter = task_counter
+            # Set the number in server
+            PromptServer.instance.number = task_counter
+
+            # Start queue processing
+            # TODO: Add a setting to enable/disable auto-start
+            if not called_by_queue_get:  # prevent circular call
+                PromptServer.instance.prompt_queue.get(1000)
+
+            self.restored = True  # we restore the queue only once per server start
