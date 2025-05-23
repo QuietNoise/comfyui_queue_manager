@@ -154,21 +154,17 @@ class QM_Queue:
             # Get the number of tasks remaining in the database
             conn = get_conn()
             cursor = conn.cursor()
-            # Get the number of tasks remaining in the database (pending only)
+
             cursor.execute(
                 """
                 SELECT COUNT(*)
                 FROM queue
-                WHERE status = 0
+                WHERE status = 0 OR status = 1
             """
             )
             rows = cursor.fetchone()
-            pending_count = rows[0]
 
-            # Get the number of tasks remaining in the native queue
-            native_count = len(self.native_queue.currently_running)
-
-            return pending_count + native_count
+            return rows[0]  # total
 
     def task_done(self, item_id, history_result, status: Optional["PromptQueue.ExecutionStatus"]):
         with self.native_queue.mutex:
