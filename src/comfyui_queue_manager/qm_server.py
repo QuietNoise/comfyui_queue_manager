@@ -3,6 +3,7 @@ from aiohttp import web
 
 from server import PromptServer
 import logging, json
+from datetime import datetime
 
 
 class QM_Server:
@@ -114,6 +115,21 @@ class QM_Server:
             logging.info("[Queue Manager] Imported %d of %d total submitted entries.", imported, total)
 
             return web.json_response({"imported": imported, "submitted": total})
+
+        # Export the queue
+        @PromptServer.instance.routes.get("/queue_manager/export")
+        async def export_queue(request):
+            # Export the queue
+            json_data = self.queue.get_full_queue()
+
+            # Trigger browser download
+            response = web.json_response(json_data)
+            # file name: comfyui-queue-export-[current-date-and-time].json
+            response.headers["Content-Disposition"] = 'attachment; filename="comfyui-queue-export-{}.json"'.format(
+                datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            )
+            response.headers["Content-Type"] = "application/json"
+            return response
 
         # Hook us into the server's middleware so we can listen to some native api requests
         @web.middleware

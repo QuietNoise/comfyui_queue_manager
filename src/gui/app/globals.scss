@@ -55,7 +55,18 @@ button:hover {
 }
 
 footer.footer {
+  .actions {
+    font-size: 0.8em;
 
+    a {
+      font-size: 0.8rem;
+      display: inline-flex;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      color: white;
+    }
+  }
 }
 
 .queue-table {

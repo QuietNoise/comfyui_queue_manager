@@ -87,10 +87,34 @@ class QM_Queue:
                     item = tuple(item)
                     # Add the item to the pending list
                     pending.append(item)
-            else:
+            elif page_size == 0:
                 pending = []
 
             return running, pending
+
+    def get_full_queue(self):
+        # get all pending and running items
+        conn = get_conn()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, prompt, number
+            FROM queue
+            WHERE status = 0 OR status = 1
+            ORDER BY number
+        """
+        )
+        rows = cursor.fetchall()
+
+        # array of prompts
+        prompts = []
+        for row in rows:
+            item = json.loads(row[1])
+            # Convert the item to a tuple
+            # item = tuple(item)
+            # Add the item to the pending list
+            prompts.append(item)
+        return prompts
 
     def get_tasks_remaining(self):
         with self.native_queue.mutex:

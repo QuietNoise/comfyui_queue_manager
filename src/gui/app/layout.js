@@ -359,10 +359,10 @@ export default function RootLayout({ children }) {
         />
       </div>
       <footer className={"footer"}>
-        <div className="p-2 flex">
+        <div className="p-2 flex actions">
           {appStatus.queue && (appStatus.queue.running.length > 0 || appStatus.queue.pending.length > 0) && appStatus.route === 'queue' &&
             <button onClick={archiveAll}
-                    className="hover:bg-neutral-700 text-neutral-200 font-bold py-1 px-2 rounded mr-1 border-0 bg-orange-900">Archive
+                    className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-orange-900">Archive
               All Pending
             </button>
           }
@@ -383,9 +383,15 @@ export default function RootLayout({ children }) {
               onChange={uploadQueue}
             />
             <label htmlFor={"uploadQueueForm"}
-                   className={"hover:bg-neutral-700 text-neutral-200 font-bold py-1 px-2 rounded mr-1 border-0 bg-teal-900"}>📁
+                   className={"hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-teal-900"}>📁
               Import Queue</label>
           </form>
+
+          {appStatus.queue && (appStatus.queue.running.length > 0 || appStatus.queue.pending.length > 0) && appStatus.route === 'queue' &&
+            <a href={baseURL + "queue_manager/export"}
+                    className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-teal-700">📤 Export Queue
+            </a>
+          }
         </div>
       </footer>
       </body>
