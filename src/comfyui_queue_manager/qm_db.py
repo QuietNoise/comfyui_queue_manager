@@ -35,6 +35,9 @@ def init_schema():
             value TEXT
         );
 
+        CREATE INDEX IF NOT EXISTS idx_queue_status_number
+            ON queue(status, number);
+
         -- Create a trigger to update the updated_at column
         CREATE TRIGGER IF NOT EXISTS queue_set_updated_at
         AFTER UPDATE ON queue

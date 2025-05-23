@@ -231,3 +231,39 @@ button {
     cursor: pointer;
   }
 }
+.paging {
+  button {
+    padding: 0.2rem 0.5rem 0.18rem;
+    display: inline-flex;
+    border: 1px solid transparent;
+
+    &.disabled {
+      pointer-events: none;
+      opacity: 0.4;
+    }
+  }
+  .pages {
+    button {
+      border: 1px solid #78787855;
+      border-radius: 25%;
+      align-items: center;
+      justify-content: center;
+      color: #ffffffaa;
+
+    //  on dark
+      @media (prefers-color-scheme: light) {
+        color: #000000aa;
+      }
+
+      &.active {
+        color: white;
+        border-color: white;
+
+        @media (prefers-color-scheme: light) {
+          color: black;
+          border-color: black;
+        }
+      }
+    }
+  }
+}

@@ -58,12 +58,24 @@ class QM_Queue:
         with self.native_queue.mutex:
             # Split running and pending jobs into tuple of running and pending tuples
             running = []
+            pending = []
+            total_rows = 0
             for x in self.native_queue.currently_running.values():
                 running += [x]
 
             if page_size > 0:
                 conn = get_conn()
                 cursor = conn.cursor()
+
+                cursor.execute("SELECT COUNT(*) FROM queue WHERE status = 0")
+                total_rows = cursor.fetchone()[0]
+
+                # If requesting page that doesn't exist then return next adjacent one
+                if page * page_size >= total_rows:
+                    page = (total_rows // page_size) - 1
+                if page < 0:
+                    page = 0
+
                 # Get the first page of the current queue from the database (pending only)
                 cursor.execute(
                     """
@@ -88,10 +100,17 @@ class QM_Queue:
                     item = tuple(item)
                     # Add the item to the pending list
                     pending.append(item)
-            elif page_size == 0:
-                pending = []
 
-            return running, pending
+            return (
+                running,
+                pending,
+                {
+                    "total": total_rows,
+                    "page": page,
+                    "page_size": page_size,
+                    "last_page": 0 if page_size == 0 else (total_rows // page_size),
+                },
+            )
 
     def get_full_queue(self, archive=False):
         conn = get_conn()

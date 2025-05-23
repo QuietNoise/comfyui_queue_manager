@@ -40,12 +40,17 @@ export default function RootLayout({ children }) {
 
 
 
-  const fetchQueueItems = async () => {
+  const fetchQueueItems = async (page) => {
     setAppStatus(prev => ({ ...prev, loading: true, error: null }));
     try {
       // console.log("Fetching queue items from", baseURL);
+      let pageQuery = '';
+      if (page) {
+        pageQuery = "?page=" + page;
+      }
 
-      const response = await fetch(`${baseURL}queue_manager/` + appStatus.route);
+
+      const response = await fetch(`${baseURL}queue_manager/` + appStatus.route + pageQuery);
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
@@ -119,12 +124,11 @@ export default function RootLayout({ children }) {
   }
 
   const onQueueStatusUpdated = (event) => {
-    console.log("Queue progress: ", event.data.message);
 
     switch (event.data.message.name) {
       case "status":
         if (appStatus.route === 'queue') {
-          fetchQueueItems();
+          fetchQueueItems((appStatus.queue && appStatus.queue.info) ? appStatus.queue.info.page : 0);
         }
         break;
       case "execution_start":
@@ -179,7 +183,6 @@ export default function RootLayout({ children }) {
           break;
 
       case "executing":
-        console.log("Executing: ", event.data.message);
         // set executed node id as executed
         const  node_id  = event.data.message.detail;
         if (!node_id) {
@@ -382,6 +385,44 @@ export default function RootLayout({ children }) {
         />
       </div>
       <footer className={"footer"}>
+        <div className={"paging flex"}>
+          {appStatus.queue && (appStatus.queue.info.last_page > 0) &&
+            <>
+              {/* Previous page if needed */}
+              <button
+                className={"page" + (appStatus.queue.info.page === 0 ? ' disabled' : '')}
+                onClick={() => {
+                  setAppStatus(prev => ({...prev, queue: null}));
+                  fetchQueueItems(appStatus.queue.info.page - 1);
+                }}
+                disabled={appStatus.queue.info.page === 0}
+              > &lt;&lt; </button>
+              <div className={'pages flex justify-center flex-1'}>
+                {Array.from({length: (appStatus.queue.info.last_page + 1)}, (_, i) => (
+                  <button
+                    key={i}
+                    className={"page" + (appStatus.queue.info.page === i ? ' active' : '')}
+                    onClick={() => {
+                      setAppStatus(prev => ({...prev, queue: null}));
+                      fetchQueueItems(i);
+                    }}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+              {/* Next page if needed */}
+              <button
+                className={"page" + (appStatus.queue.info.page === appStatus.queue.info.last_page ? ' disabled' : '')}
+                onClick={() => {
+                  setAppStatus(prev => ({...prev, queue: null}));
+                  fetchQueueItems(appStatus.queue.info.page + 1);
+                }}
+                disabled={appStatus.queue.info.page === appStatus.queue.info.last_page}
+              > &gt;&gt; </button>
+            </>
+          }
+        </div>
         <div className="p-2 flex actions">
           {appStatus.queue && (appStatus.queue.running.length > 0 || appStatus.queue.pending.length > 0) &&
             <>

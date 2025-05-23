@@ -15,11 +15,15 @@ class QM_Server:
         # Get queue items
         @PromptServer.instance.routes.get("/queue_manager/queue")
         async def get_queue(request):
+            # Get page number from query string
+            page = int(request.query.get("page", 0))
+
             # pending items
-            queue = self.queue.get_current_queue(0, 100)
+            # TODO: Get page from extension settings
+            queue = self.queue.get_current_queue(page, 100)
 
             # Return the queue object as JSON
-            return web.json_response({"running": queue[0], "pending": queue[1]})
+            return web.json_response({"running": queue[0], "pending": queue[1], "info": queue[2]})
 
         # Get archived items
         @PromptServer.instance.routes.get("/queue_manager/archive")
