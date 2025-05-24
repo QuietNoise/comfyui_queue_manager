@@ -6,7 +6,7 @@ import logging
 import json
 import heapq
 
-from .qm_db import get_conn
+from .qm_db import get_conn, read_query, read_single, write_query, write_many
 
 
 class QM_Queue:
@@ -65,11 +65,7 @@ class QM_Queue:
                 running += [x]
 
             if page_size > 0:
-                conn = get_conn()
-                cursor = conn.cursor()
-
-                cursor.execute("SELECT COUNT(*) FROM queue WHERE status = 0")
-                total_rows = cursor.fetchone()[0]
+                total_rows = read_single("SELECT COUNT(*) FROM queue WHERE status = 0")[0]
 
             if total_rows > 0:
                 last_page = (total_rows - 1) // (0 if page_size == 0 else page_size)
@@ -80,8 +76,7 @@ class QM_Queue:
                 if page < 0:
                     page = 0
 
-                # Get the first page of the current queue from the database (pending only)
-                cursor.execute(
+                rows = read_query(
                     """
                     SELECT id, prompt, number
                     FROM queue
@@ -91,7 +86,7 @@ class QM_Queue:
                 """,
                     (page * page_size, page_size),
                 )
-                rows = cursor.fetchall()
+
                 # array of prompts
                 pending = []
                 for row in rows:
@@ -118,22 +113,17 @@ class QM_Queue:
 
     def get_full_queue(self, archive=False):
         with self.native_queue.mutex:
-            conn = get_conn()
-            cursor = conn.cursor()
-
             if archive:
                 # Get the archived items from the database
-                cursor.execute(
-                    """
+                rows = read_query("""
                     SELECT id, prompt
                     FROM queue
                     WHERE status = 3
                     ORDER BY created_at DESC
-                """
-                )
+                """)
             else:
                 # Get the pending / running items from the database
-                cursor.execute(
+                rows = read_query(
                     """
                     SELECT id, prompt
                     FROM queue
@@ -141,8 +131,6 @@ class QM_Queue:
                     ORDER BY created_at DESC
                 """
                 )
-
-            rows = cursor.fetchall()
 
             # array of prompts
             prompts = []
@@ -157,31 +145,22 @@ class QM_Queue:
     def get_tasks_remaining(self):
         with self.native_queue.mutex:
             # Get the number of tasks remaining in the database
-            conn = get_conn()
-            cursor = conn.cursor()
 
-            cursor.execute(
-                """
+            return read_single("""
                 SELECT COUNT(*)
                 FROM queue
                 WHERE status = 0 OR status = 1
-            """
-            )
-            rows = cursor.fetchone()
-
-            return rows[0]  # total
+            """)[0]  # total
 
     def task_done(self, item_id, history_result, status: Optional["PromptQueue.ExecutionStatus"]):
         with self.native_queue.mutex:
             # Mark the task as finished in the database
-            conn = get_conn()
-            cursor = conn.cursor()
 
             # Get the running item from the native queue dictionary
             item = self.native_queue.currently_running.get(item_id, None)
             if item is not None:
                 # Mark the item as finished in the database
-                cursor.execute(
+                write_query(
                     """
                     UPDATE queue
                     SET status = 2
@@ -189,7 +168,6 @@ class QM_Queue:
                 """,
                     (item[1],),
                 )
-                conn.commit()
                 # logging.info("[Queue Manager] Workflow finished: %s at %s", item[1], item[0])
 
                 # Call the original task_done method
@@ -199,9 +177,7 @@ class QM_Queue:
     def queue_put(self, item):  # comfy server calls this method
         with self.native_queue.mutex:
             # Add the item to the database
-            conn = get_conn()
-            cursor = conn.cursor()
-            cursor.execute(
+            write_query(
                 """
                 INSERT OR REPLACE INTO queue (prompt_id, number, name, workflow_id, prompt)
                 VALUES (?, ?, ?, ?, ?)
@@ -214,14 +190,13 @@ class QM_Queue:
                     json.dumps(item),
                 ),
             )
-            conn.commit()
 
             # logging.info("[Queue Manager] Workflow queued: %s at %s", item[1], item[0])
 
             # Is there's no pending item in the native heap nd we are not paused then add item with highest priority (could be this one)
             if len(self.native_queue.queue) == 0 and not self.paused:
                 # get item from database which has highest priority and higher than this
-                cursor.execute(
+                item = read_single(
                     """
                     SELECT number, prompt
                     FROM queue
@@ -231,7 +206,7 @@ class QM_Queue:
                 """,
                     (item[0],),
                 )
-                item = cursor.fetchone()
+
                 if item is not None:
                     # Convert the item to a tuple
                     item = tuple(json.loads(item[1]))
@@ -246,9 +221,6 @@ class QM_Queue:
                 if timeout is not None and self.paused:  # if timed out and we are still paused
                     return None  # give up
 
-            conn = get_conn()
-            cursor = conn.cursor()
-
             # if no pending item in the native queue then we get the one from the database
             if len(self.native_queue.queue) == 0:
                 # if we are on the first iteration and there's no item running then check if there is anything that need to be restored
@@ -256,14 +228,14 @@ class QM_Queue:
                     self.restore_queue(True)
 
                 # Get the item with highest priority from the queue in database
-                cursor.execute("""
+                item = read_single("""
                     SELECT number, prompt
                     FROM queue
                     WHERE status = 0
                     ORDER BY number
                     LIMIT 1
                 """)
-                item = cursor.fetchone()
+
                 if item is not None:
                     # Convert the item to a tuple
                     item = tuple(json.loads(item[1]))  # Convert the json's list to a tuple
@@ -275,7 +247,7 @@ class QM_Queue:
 
             if queue_item is not None:
                 # Mark the item as running in the database
-                cursor.execute(
+                write_query(
                     """
                     UPDATE queue
                     SET status = 1
@@ -283,7 +255,6 @@ class QM_Queue:
                 """,
                     (queue_item[0][1],),
                 )
-                conn.commit()
                 logging.info("[Queue Manager] Executing workflow: %s at %s", queue_item[0][1], queue_item[0][0])
                 return queue_item  # (item, task_counter)
             else:
@@ -322,58 +293,44 @@ class QM_Queue:
         """
         Delete items from the database
         """
-
-        logging.info("[Queue Manager] Deleting items from queue: %s", items)
         with self.native_queue.mutex:
             logging.info("[Queue Manager] Deleting items from queue: %s", items)
             # Delete the item from the database
-            conn = get_conn()
-            cursor = conn.cursor()
 
             deleted = 0
             for item in items:
-                cursor.execute(
+                deleted += write_query(
                     """
                     DELETE FROM queue
                     WHERE prompt_id = ?
                 """,
                     (item,),
+                    False,
                 )
-                deleted += cursor.rowcount
 
-            conn.commit()
+            get_conn().commit()
 
             if deleted > 0:
                 PromptServer.instance.queue_updated()
+                PromptServer.instance.send_sync("queue-manager-archive-updated", {"deleted": deleted})
 
     def wipe_queue(self):
         with self.native_queue.mutex:
             # Wipe the queue from the database
-            conn = get_conn()
-            cursor = conn.cursor()
-            cursor.execute(
-                """
+            write_query("""
                 DELETE FROM queue
                 WHERE status = 0
-            """
-            )
-            conn.commit()
+            """)
 
     # Set status of pending and running items to 3 (archived)
     def archive_queue(self):
         with self.native_queue.mutex:
             # Archive the queue from the database
-            conn = get_conn()
-            cursor = conn.cursor()
-            cursor.execute(
-                """
+            total = write_query("""
                 UPDATE queue
                 SET status = 3
                 WHERE status = 0
-            """
-            )
-            conn.commit()
-            total = cursor.rowcount
+            """)
 
             # If affected any rows notify the frontend that the queue and archive have been archived
             if total > 0:
@@ -388,17 +345,12 @@ class QM_Queue:
     def get_archived_items(self):
         with self.native_queue.mutex:
             # Get the archived items from the database
-            conn = get_conn()
-            cursor = conn.cursor()
-            cursor.execute(
-                """
+            rows = read_query("""
                 SELECT id, prompt
                 FROM queue
                 WHERE status = 3
                 ORDER BY created_at DESC
-            """
-            )
-            rows = cursor.fetchall()
+            """)
 
             # Convert the items to a list of tuples
             archive = []
@@ -415,22 +367,20 @@ class QM_Queue:
         """
         with self.native_queue.mutex:
             # Archive the item from the database
-            conn = get_conn()
-            cursor = conn.cursor()
 
             archived = 0
             for item in items:
-                cursor.execute(
+                archived += write_query(
                     """
                     UPDATE queue
                     SET status = 3
                     WHERE id = ?
                 """,
                     (item,),
+                    False,
                 )
-                archived += cursor.rowcount
 
-            conn.commit()
+            get_conn().commit()
 
             if archived > 0:
                 logging.info("[Queue Manager] Queue Item Archived: %d item(s)", archived)
@@ -441,17 +391,10 @@ class QM_Queue:
     def delete_running(self):
         with self.native_queue.mutex:
             # Interrupt the queue
-            conn = get_conn()
-            cursor = conn.cursor()
-            cursor.execute(
-                """
+            return write_query("""
                 DELETE FROM queue
                 WHERE status = 1
-            """
-            )
-            conn.commit()
-
-            return cursor.rowcount
+            """)
 
     def play_items(self, items, front, client_id=None):
         """
@@ -459,8 +402,6 @@ class QM_Queue:
         """
         with self.native_queue.mutex:
             # Play the item from the database
-            conn = get_conn()
-            cursor = conn.cursor()
 
             moved = 0
             for db_id in items:
@@ -474,7 +415,7 @@ class QM_Queue:
                 )
 
                 # Get the item and update the client id in prompt json
-                cursor.execute(
+                row = read_single(
                     """
                     SELECT prompt
                     FROM queue
@@ -482,14 +423,13 @@ class QM_Queue:
                 """,
                     (db_id,),
                 )
-                row = cursor.fetchone()
                 if row is None:
                     continue
 
                 prompt = json.loads(row[0])
                 prompt[3]["client_id"] = client_id
 
-                cursor.execute(
+                moved += write_query(
                     """
                     UPDATE queue
                     SET status = 0, number = ?, prompt = ?
@@ -501,10 +441,10 @@ class QM_Queue:
                         json.dumps(prompt),
                         db_id,
                     ),
+                    False,
                 )
-                moved += cursor.rowcount
 
-            conn.commit()
+            get_conn().commit()
 
             if moved > 0:
                 # if moved to the front then remove the pending item from the native queue so next iteration will get the one
@@ -525,19 +465,14 @@ class QM_Queue:
     def play_archive(self, client_id=None):
         with self.native_queue.mutex:
             # Play the item from the database
-            conn = get_conn()
-            cursor = conn.cursor()
 
             # Get the archived items from the database
-            cursor.execute(
-                """
+            rows = read_query("""
                 SELECT id, prompt
                 FROM queue
                 WHERE status = 3
                 ORDER BY created_at DESC
-            """
-            )
-            rows = cursor.fetchall()
+            """)
 
             # Convert the items to a list of tuples
             parameters = []
@@ -556,7 +491,7 @@ class QM_Queue:
                 )
 
             # Update the items in the database
-            cursor.executemany(
+            moved = write_many(
                 """
                 UPDATE queue
                 SET status = 0, number = ?, prompt = ?
@@ -564,8 +499,7 @@ class QM_Queue:
             """,
                 parameters,
             )
-            moved = cursor.rowcount
-            conn.commit()
+
             if moved > 0:
                 # Notify native queue lock so if it's waiting it can move on and go for next iteration
                 PromptServer.instance.prompt_queue.not_empty.notify()
@@ -578,19 +512,14 @@ class QM_Queue:
     def delete_archive(self):
         with self.native_queue.mutex:
             # Delete the archive from the database
-            conn = get_conn()
-            cursor = conn.cursor()
-            cursor.execute(
-                """
+            deleted = write_query("""
                 DELETE FROM queue
                 WHERE status = 3
-            """
-            )
-            conn.commit()
+            """)
 
-            PromptServer.instance.send_sync("queue-manager-archive-updated", {"deleted": cursor.rowcount})
+            PromptServer.instance.send_sync("queue-manager-archive-updated", {"deleted": deleted})
 
-            return cursor.rowcount
+            return deleted
 
     # Import queue from uploaded json file
     def import_queue(self, items, client_id=None, status=0):
@@ -598,8 +527,6 @@ class QM_Queue:
         theQueue = theServer.prompt_queue
         with theQueue.mutex:
             # Add items to the queue in database
-            conn = get_conn()
-            cursor = conn.cursor()
 
             query_params = []
 
@@ -622,15 +549,13 @@ class QM_Queue:
                     )
                 )
 
-            cursor.executemany(
+            total = write_many(
                 """
                     INSERT OR IGNORE INTO queue (prompt_id, number, name, workflow_id, prompt, status)
                     VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 query_params,
             )
-            total = cursor.rowcount
-            conn.commit()
 
             if total > 0:
                 theQueue.not_empty.notify()
@@ -649,26 +574,22 @@ class QM_Queue:
                 return
 
             # Get running items from the database
-            conn = get_conn()
-            cursor = conn.cursor()
-            cursor.execute("""
+            rows = read_query("""
                 SELECT prompt_id, number, name, workflow_id, prompt
                 FROM queue
                 WHERE status = 1
                 ORDER BY number
             """)
-            rows = cursor.fetchall()
             if len(rows) > 0:
                 logging.info("[Queue Manager] Restoring unfinished jobs: %d item(s)", len(rows))
                 # Get current highest priority (lowest number for pending task) in the database
-                cursor.execute("""
+                lowest = read_single("""
                     SELECT number
                     FROM queue
                     WHERE status = 0
                     ORDER BY number
                     LIMIT 1
                 """)
-                lowest = cursor.fetchone()
 
                 if lowest:
                     min_number = lowest[0] - 1
@@ -677,7 +598,7 @@ class QM_Queue:
 
                 # Set the priority of the running items to the current highest priority
                 for row in rows:
-                    cursor.execute(
+                    write_query(
                         """
                         UPDATE queue
                         SET status = 0, number = ?
@@ -688,18 +609,16 @@ class QM_Queue:
                             row[0],
                         ),
                     )
-                    conn.commit()
                     min_number -= 1
 
             # Get task counter (highest task number) from the database
-            cursor.execute("""
+            rows = read_single("""
                 SELECT number
                 FROM queue
                 WHERE status = 1 OR status = 0 -- pending or running
                 ORDER BY number DESC
                 LIMIT 1
             """)
-            rows = cursor.fetchone()
             if rows:
                 task_counter = rows[0] + 1
             else:

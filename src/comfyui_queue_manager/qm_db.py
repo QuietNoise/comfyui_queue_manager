@@ -49,3 +49,37 @@ def init_schema():
           WHERE  rowid = NEW.rowid;
         END;
     """)
+
+
+# Helper functions to read and write to the database
+def write_query(query, params=(), commit=True):
+    conn = get_conn()
+    cursor = conn.cursor()
+    cursor.execute(query, params)
+    if commit:
+        conn.commit()
+    return cursor.rowcount
+
+
+def write_many(query, params):
+    if params is None:
+        params = []
+    conn = get_conn()
+    cursor = conn.cursor()
+    cursor.executemany(query, params)
+    conn.commit()
+    return cursor.rowcount
+
+
+def read_query(query, params=()):
+    conn = get_conn()
+    cursor = conn.cursor()
+    cursor.execute(query, params)
+    return cursor.fetchall()
+
+
+def read_single(query, params=()):
+    conn = get_conn()
+    cursor = conn.cursor()
+    cursor.execute(query, params)
+    return cursor.fetchone()
