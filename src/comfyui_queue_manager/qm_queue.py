@@ -117,41 +117,42 @@ class QM_Queue:
             )
 
     def get_full_queue(self, archive=False):
-        conn = get_conn()
-        cursor = conn.cursor()
+        with self.native_queue.mutex:
+            conn = get_conn()
+            cursor = conn.cursor()
 
-        if archive:
-            # Get the archived items from the database
-            cursor.execute(
+            if archive:
+                # Get the archived items from the database
+                cursor.execute(
+                    """
+                    SELECT id, prompt
+                    FROM queue
+                    WHERE status = 3
+                    ORDER BY created_at DESC
                 """
-                SELECT id, prompt
-                FROM queue
-                WHERE status = 3
-                ORDER BY created_at DESC
-            """
-            )
-        else:
-            # Get the pending / running items from the database
-            cursor.execute(
+                )
+            else:
+                # Get the pending / running items from the database
+                cursor.execute(
+                    """
+                    SELECT id, prompt
+                    FROM queue
+                    WHERE status = 0 OR status = 1
+                    ORDER BY created_at DESC
                 """
-                SELECT id, prompt
-                FROM queue
-                WHERE status = 0 OR status = 1
-                ORDER BY created_at DESC
-            """
-            )
+                )
 
-        rows = cursor.fetchall()
+            rows = cursor.fetchall()
 
-        # array of prompts
-        prompts = []
-        for row in rows:
-            item = json.loads(row[1])
-            # Convert the item to a tuple
-            # item = tuple(item)
-            # Add the item to the pending list
-            prompts.append(item)
-        return prompts
+            # array of prompts
+            prompts = []
+            for row in rows:
+                item = json.loads(row[1])
+                # Convert the item to a tuple
+                # item = tuple(item)
+                # Add the item to the pending list
+                prompts.append(item)
+            return prompts
 
     def get_tasks_remaining(self):
         with self.native_queue.mutex:
@@ -324,6 +325,7 @@ class QM_Queue:
 
         logging.info("[Queue Manager] Deleting items from queue: %s", items)
         with self.native_queue.mutex:
+            logging.info("[Queue Manager] Deleting items from queue: %s", items)
             # Delete the item from the database
             conn = get_conn()
             cursor = conn.cursor()
