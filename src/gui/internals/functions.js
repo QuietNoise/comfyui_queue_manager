@@ -18,8 +18,21 @@ export async function apiCall(endpoint, data) {
     if (!response.ok) {
       throw new Error("Network response was not ok");
     }
-    return await response.json();
+    // is response body non empty and json?
+    const contentType = response.headers.get("content-type");
+    const contentLength = parseInt(response.headers.get("content-length"));
+
+
+    if (contentLength === 0) {
+      return null;
+    }
+    if (contentType.includes("application/json")) {
+      return await response.json();
+    } else {
+      // plain text response
+      return await response.text()
+    }
   } catch (error) {
-    console.error("Error archiving item:", error);
+    console.error("Error running apiCall:", error);
   }
 }
