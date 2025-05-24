@@ -1,5 +1,5 @@
 "use client";
-import { Geist, Geist_Mono } from "next/font/google";
+import {Geist, Geist_Mono} from "next/font/google";
 import "./globals.scss";
 import {useEffect, useState} from "react";
 import Queue from "@/components/Queue";
@@ -19,19 +19,20 @@ const geistMono = Geist_Mono({
 });
 
 
-export default function RootLayout({ children }) {
-  const [ appStatus, setAppStatus ] = useState({
+export default function RootLayout({children}) {
+  const [appStatus, setAppStatus] = useState({
     loading: true,
     error: null,
     queue: null,
     route: 'queue', // queue, archive, bin
     shiftDown: false,
     clientId: null,
+    filters: null
   });
 
-  const [ currentJob, setProgress ] = useState({
-    id:null,
-    nodes:{
+  const [currentJob, setProgress] = useState({
+    id: null,
+    nodes: {
       // [node_id]: string|boolean - true executed, node id - not executed
     },
     integrity: true, // false if events about workflow execution are received before the workflow data is loaded
@@ -39,14 +40,19 @@ export default function RootLayout({ children }) {
   });
 
 
-
   const fetchQueueItems = async (page) => {
-    setAppStatus(prev => ({ ...prev, loading: true, error: null }));
+    setAppStatus(prev => ({...prev, loading: true, error: null}));
     try {
       // console.log("Fetching queue items from", baseURL);
       let pageQuery = '';
       if (page) {
         pageQuery = "?page=" + page;
+      }
+
+      // if filter is set, add it to the query
+      if (appStatus.filters) {
+        // url encode the json encoded filter
+        pageQuery += (pageQuery ? '&filters=' : '?filters=') + encodeURIComponent(JSON.stringify(appStatus.filters));
       }
 
 
@@ -55,11 +61,11 @@ export default function RootLayout({ children }) {
         throw new Error("Network response was not ok");
       }
       const queue = await response.json();
-      setAppStatus(prev => ({ ...prev, loading: false, error: null, queue }));
+      setAppStatus(prev => ({...prev, loading: false, error: null, queue}));
 
     } catch (error) {
-      setAppStatus(prev => ({...prev,  loading: false, error: error.message, queue: null }));
-      console.error("Error fetching "+appStatus.route+" items:", error);
+      setAppStatus(prev => ({...prev, loading: false, error: error.message, queue: null}));
+      console.error("Error fetching " + appStatus.route + " items:", error);
     }
   };
 
@@ -132,7 +138,7 @@ export default function RootLayout({ children }) {
         }
         break;
       case "execution_start":
-        const { prompt_id } = event.data.message.detail;
+        const {prompt_id} = event.data.message.detail;
         // console.log("Execution started: ", status.queue, prompt_id);
 
         const theJob = getTheJob(prompt_id, appStatus.queue);
@@ -153,38 +159,38 @@ export default function RootLayout({ children }) {
 
         // set the current job with the prompt id and false integrity flag
         // we don't have the workflow data yet, so set integrity to false so we can pick up progress later when we get the workflow data
-        setProgress(prev => ({ ...prev, id: prompt_id, integrity: false, nodes: {} }));
+        setProgress(prev => ({...prev, id: prompt_id, integrity: false, nodes: {}}));
 
         break;
 
-        case 'execution_cached':
-          // console.log("Execution cached: ", event.data.message);
-          // set cached node ids as executed
-          const { nodes } = event.data.message.detail; // array of node id strings
+      case 'execution_cached':
+        // console.log("Execution cached: ", event.data.message);
+        // set cached node ids as executed
+        const {nodes} = event.data.message.detail; // array of node id strings
 
-          if (!nodes || nodes.length === 0) {
-            return;
+        if (!nodes || nodes.length === 0) {
+          return;
+        }
+
+        const newNodes = {};
+        for (const node of nodes) {
+          newNodes[node] = true;
+        }
+
+        // console.log("newNodes: ", newNodes);
+
+        setProgress(prev => ({
+          ...prev,
+          nodes: {
+            ...prev.nodes,
+            ...newNodes
           }
-
-          const newNodes = {};
-          for (const node of nodes) {
-            newNodes[node] = true;
-          }
-
-          // console.log("newNodes: ", newNodes);
-
-          setProgress(prev => ({
-            ...prev,
-            nodes: {
-              ...prev.nodes,
-              ...newNodes
-            }
-          }));
-          break;
+        }));
+        break;
 
       case "executing":
         // set executed node id as executed
-        const  node_id  = event.data.message.detail;
+        const node_id = event.data.message.detail;
         if (!node_id) {
           return;
         }
@@ -269,15 +275,19 @@ export default function RootLayout({ children }) {
     }
   });
 
+  useEffect(() => {
+    fetchQueueItems()
+  }, [appStatus.filters]);
+
   // when progress data is updated
   useEffect(() => {
     const progress =
       Object.values(currentJob.nodes).length > 0 ?
         Math.round(
           Math.max(
-              (Object.values(currentJob.nodes).filter(v => typeof v === 'boolean').length - 1),
-              0
-            ) / Object.values(currentJob.nodes).length * 100,
+            (Object.values(currentJob.nodes).filter(v => typeof v === 'boolean').length - 1),
+            0
+          ) / Object.values(currentJob.nodes).length * 100,
           2
         )
         :
@@ -374,6 +384,30 @@ export default function RootLayout({ children }) {
         >Archive
         </button>
       </div>
+      {appStatus.filters && Object.values(appStatus.filters).length > 0 &&
+        <div className="filters flex items-center p-2">
+          <span className="text-neutral-500">Filters:</span>
+          {Object.values(appStatus.filters).map(filter =>
+            <div className="filter flex items-center" key={filter.type}>
+                <span
+                  className="inline-flex text-neutral-800 dark:text-neutral-200 close label"><span
+                  className={'type'}>{filter.type + ": "}&nbsp;</span>{filter.valueLabel}</span>
+              <button
+                className="dark:bg-neutral-700 bg-neutral-400 text-neutral-200 light:text-neutral-800 close hover:bg-neutral-500"
+                onClick={() => {
+                  // remove the filter from the filters object
+                  setAppStatus(prev => ({...prev, filters: (({[filter.type]: _, ...f}) => f)(prev.filters)}));
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="1.2em" height="1.2em">
+                  <path fill="currentColor"
+                        d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z"></path>
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
+      }
       <div className={'queue-table' + (appStatus.shiftDown ? ' shift-down' : '')}>
         {/* Tabs for Queue and Archive */}
         <Queue data={appStatus.queue}

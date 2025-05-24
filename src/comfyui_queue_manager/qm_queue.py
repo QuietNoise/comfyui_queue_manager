@@ -1,5 +1,6 @@
 import threading
 from typing import Optional
+
 from execution import PromptQueue
 from server import PromptServer
 import logging
@@ -52,7 +53,7 @@ class QM_Queue:
     # NOTE: This hijack will make native queue API endpoint to not return pending items.
     # We do this to avoid bottleneck in the native queue when it goes massive
     # and to avoid duplicate bandwidth for requesting queue by execution store and queue manager.
-    def get_current_queue(self, page=0, page_size=0, route="queue"):
+    def get_current_queue(self, page=0, page_size=0, route="queue", filters=None):
         # logging.info('get_current_queue: %d, %d', page, page_size)
         # Get the first page of the current queue
 
@@ -71,8 +72,21 @@ class QM_Queue:
                 case "archive":
                     status = 3  # archived items
 
+            where_clauses = ["status = ?"]
+            params = [status]
+
+            if filters is not None:
+                # If there are any filters, add them to the where clauses
+                for key, the_filter in filters.items():
+                    if key == "workflow":
+                        where_clauses.append("workflow_id = ?")
+                        params.append(the_filter["value"])
+                    # elif key == "checkpoint":
+                    #     where_clauses.append("name LIKE ?")
+                    #     params.append(f"%{value}%")
+
             if page_size > 0:
-                total_rows = read_single("SELECT COUNT(*) FROM queue WHERE status = ?", (status,))[0]
+                total_rows = read_single(f"""SELECT COUNT(*) FROM queue WHERE {" AND ".join(where_clauses)}""", tuple(params))[0]
 
             if total_rows > 0:
                 last_page = (total_rows - 1) // (0 if page_size == 0 else page_size)
@@ -83,19 +97,20 @@ class QM_Queue:
                 if page < 0:
                     page = 0
 
+                params.extend([page * page_size, page_size])
+
                 rows = read_query(
-                    """
+                    f"""
                     SELECT id, prompt, number
                     FROM queue
-                    WHERE status = ?
+                    WHERE {" AND ".join(where_clauses)}
                     ORDER BY number
                     LIMIT ?, ?
                 """,
-                    (status, page * page_size, page_size),
+                    tuple(params),
                 )
 
                 # array of prompts
-                pending = []
                 for row in rows:
                     item = json.loads(row[1])
                     # Add db_id to the item

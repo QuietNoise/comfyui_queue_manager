@@ -26,7 +26,7 @@ export default function Queue( { data, isLoading, error, progress } ) {
   }
 
   function QueueItemRow({item, className, loader, index, mode}) {
-    const {appStatus} = useContext(AppContext)
+    const {appStatus, setAppStatus} = useContext(AppContext)
 
     async function cancelQueueItem() {
       const route = mode === 'running' ? 'interrupt' : 'queue';
@@ -59,6 +59,15 @@ export default function Queue( { data, isLoading, error, progress } ) {
       await apiCall(`queue_manager/play`, {items: [item[3].db_id], front: appStatus.shiftDown === true, clientId: appStatus.clientId})
     }
 
+    async function filterByWorkflow() {
+      // Post message to parent window to filter by workflow
+      setAppStatus(prev => ({...prev, filters: {...appStatus.filters, workflow: {
+            type: 'workflow',
+            value: item[3].extra_pnginfo.workflow.id,
+            valueLabel: item[3].extra_pnginfo.workflow.workflow_name
+          }}}));
+    }
+
 
     return (
       <tr className={"dark:odd:bg-neutral-900 odd:bg-neutral-100" + (className ? ' ' + className : '')}>
@@ -70,7 +79,11 @@ export default function Queue( { data, isLoading, error, progress } ) {
             </span>
           }
         </td>
-        <td className="px-3 py-1 text-left name">{item[3].extra_pnginfo.workflow.workflow_name ? item[3].extra_pnginfo.workflow.workflow_name : ""}</td>
+        <td className="px-3 py-1 text-left name">
+          <button className={'plain'} onClick={filterByWorkflow}>
+            {item[3].extra_pnginfo.workflow.workflow_name ? item[3].extra_pnginfo.workflow.workflow_name : ""}
+          </button>
+        </td>
         <td className={'px-3 py-1 text-right actions'}>
           <Button className={"bg-red-900"} onClick={cancelQueueItem}>Delete</Button>
           <Button className={"bg-green-900"} onClick={loadQueueItem}>Load</Button>
