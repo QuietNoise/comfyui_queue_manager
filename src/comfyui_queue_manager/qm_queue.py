@@ -17,6 +17,9 @@ class QM_Queue:
         self.paused = queue_manager.options.get("queue_paused", False)
         logging.info("[Queue Manager] Queue status: %s", "not paused" if not self.paused else "paused")
 
+        if self.paused:
+            self.restore_queue(True)
+
         # ===================================================================
         # ================ Hijack Native Queue ==============================
         # ===================================================================
@@ -633,6 +636,8 @@ class QM_Queue:
             PromptServer.instance.prompt_queue.task_counter = task_counter
             # Set the number in server
             PromptServer.instance.number = task_counter
+
+            logging.info("[Queue Manager] Task counter set to %d", task_counter)
 
             # Start queue processing
             # TODO: Add a setting to enable/disable auto-start
