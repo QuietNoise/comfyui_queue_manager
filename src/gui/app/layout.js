@@ -55,8 +55,10 @@ export default function RootLayout({children}) {
         pageQuery += (pageQuery ? '&filters=' : '?filters=') + encodeURIComponent(JSON.stringify(appStatus.filters));
       }
 
+      pageQuery += (pageQuery ? '&' : '?') + 'route=' + appStatus.route;
 
-      const response = await fetch(`${baseURL}queue_manager/` + appStatus.route + pageQuery);
+
+      const response = await fetch(`${baseURL}queue_manager/queue` + pageQuery);
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }

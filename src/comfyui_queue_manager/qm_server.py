@@ -17,6 +17,7 @@ class QM_Server:
         async def get_queue(request):
             # Get page number from query string
             page = int(request.query.get("page", 0))
+
             filters_json = request.query.get("filters", None)
             filters = None
             if filters_json is not None:
@@ -26,21 +27,14 @@ class QM_Server:
                 except json.JSONDecodeError:
                     return web.json_response({"error": "Invalid filter format"}, status=400)
 
+            route = request.query.get("route", "queue")
+            if route not in ["queue", "archive"]:
+                return web.json_response({"error": "Invalid route"}, status=400)
+
             logging.info("[Queue Manager] Get queue page %d with filter %s", page, filters_json)
             # pending items
             # TODO: Get page size from extension settings
-            queue = self.queue.get_current_queue(page, 100, filters=filters)
-
-            # Return the queue object as JSON
-            return web.json_response({"running": queue[0], "pending": queue[1], "info": queue[2]})
-
-        # Get archived items
-        @PromptServer.instance.routes.get("/queue_manager/archive")
-        async def get_archive(request):
-            page = int(request.query.get("page", 0))
-
-            # Get the archived items
-            running, pending, info = self.queue.get_current_queue(page, 100, route="archive")
+            running, pending, info = self.queue.get_current_queue(page, 100, route=route, filters=filters)
 
             # Return the archive object as JSON
             return web.json_response({"running": running, "pending": pending, "info": info})
