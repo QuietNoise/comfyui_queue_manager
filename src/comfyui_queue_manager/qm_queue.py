@@ -11,9 +11,10 @@ from .qm_db import get_conn, read_query, read_single, write_query, write_many
 
 class QM_Queue:
     def __init__(self, queue_manager):
-        self.paused = False  # TODO: restore state from DB
         self.queue_manager = queue_manager
         self.restored = False
+        self.paused = queue_manager.options.get("queue_paused", False)
+        logging.info("[Queue Manager] Queue status: %s", "not paused" if not self.paused else "paused")
 
         # ===================================================================
         # ================ Hijack Native Queue ==============================
@@ -276,6 +277,9 @@ class QM_Queue:
                     "paused": self.paused,
                 },
             )
+
+            # Save option in the database
+            self.queue_manager.options.set("queue_paused", self.paused)
 
             # unlock the pause lock if we are playing
             if not self.paused:
