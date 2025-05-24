@@ -342,24 +342,48 @@ class QM_Queue:
 
             return total
 
-    def get_archived_items(self):
+    def get_archived_items(self, page=0, page_size=0):
         with self.native_queue.mutex:
-            # Get the archived items from the database
-            rows = read_query("""
-                SELECT id, prompt
-                FROM queue
-                WHERE status = 3
-                ORDER BY created_at DESC
-            """)
-
-            # Convert the items to a list of tuples
+            total_rows = 0
+            last_page = 0
             archive = []
-            for row in rows:
-                item = tuple(json.loads(row[1]))
-                item[3]["db_id"] = row[0]
-                archive.append(item)
 
-            return archive
+            if page_size > 0:
+                total_rows = read_single("SELECT COUNT(*) FROM queue WHERE status = 3")[0]
+
+            if total_rows > 0:
+                last_page = (total_rows - 1) // page_size
+
+                # If requesting page that doesn't exist then return next adjacent one
+                if page > last_page:
+                    page = last_page
+                if page < 0:
+                    page = 0
+
+                # Get the archived items from the database
+                rows = read_query(
+                    """
+                    SELECT id, prompt
+                    FROM queue
+                    WHERE status = 3
+                    ORDER BY id
+                    LIMIT ?, ?
+                """,
+                    (page * page_size, page_size),
+                )
+
+                # Convert the items to a list of tuples
+                for row in rows:
+                    item = tuple(json.loads(row[1]))
+                    item[3]["db_id"] = row[0]
+                    archive.append(item)
+
+            return archive, {
+                "total": total_rows,
+                "page": page,
+                "page_size": page_size,
+                "last_page": last_page,
+            }
 
     def archive_items(self, items):
         """
