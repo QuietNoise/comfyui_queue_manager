@@ -52,7 +52,7 @@ class QM_Queue:
     # NOTE: This hijack will make native queue API endpoint to not return pending items.
     # We do this to avoid bottleneck in the native queue when it goes massive
     # and to avoid duplicate bandwidth for requesting queue by execution store and queue manager.
-    def get_current_queue(self, page=0, page_size=0):
+    def get_current_queue(self, page=0, page_size=0, route="queue"):
         # logging.info('get_current_queue: %d, %d', page, page_size)
         # Get the first page of the current queue
 
@@ -62,11 +62,17 @@ class QM_Queue:
             pending = []
             total_rows = 0
             last_page = 0
-            for x in self.native_queue.currently_running.values():
-                running += [x]
+            status = 0
+
+            match route:
+                case "queue":
+                    for x in self.native_queue.currently_running.values():
+                        running += [x]
+                case "archive":
+                    status = 3  # archived items
 
             if page_size > 0:
-                total_rows = read_single("SELECT COUNT(*) FROM queue WHERE status = 0")[0]
+                total_rows = read_single("SELECT COUNT(*) FROM queue WHERE status = ?", (status,))[0]
 
             if total_rows > 0:
                 last_page = (total_rows - 1) // (0 if page_size == 0 else page_size)
@@ -81,11 +87,11 @@ class QM_Queue:
                     """
                     SELECT id, prompt, number
                     FROM queue
-                    WHERE status = 0
+                    WHERE status = ?
                     ORDER BY number
                     LIMIT ?, ?
                 """,
-                    (page * page_size, page_size),
+                    (status, page * page_size, page_size),
                 )
 
                 # array of prompts
@@ -94,12 +100,11 @@ class QM_Queue:
                     item = json.loads(row[1])
                     # Add db_id to the item
                     item[3]["db_id"] = row[0]
-                    item[0] = row[2]  # set the number to the one from the database
 
-                    # Convert the item to a tuple
-                    item = tuple(item)
-                    # Add the item to the pending list
-                    pending.append(item)
+                    if route == "queue":
+                        item[0] = row[2]  # set the number to the one from the database
+
+                    pending.append(tuple(item))
 
             return (
                 running,
@@ -345,49 +350,6 @@ class QM_Queue:
                 logging.info("[Queue Manager] No items to archive")
 
             return total
-
-    def get_archived_items(self, page=0, page_size=0):
-        with self.native_queue.mutex:
-            total_rows = 0
-            last_page = 0
-            archive = []
-
-            if page_size > 0:
-                total_rows = read_single("SELECT COUNT(*) FROM queue WHERE status = 3")[0]
-
-            if total_rows > 0:
-                last_page = (total_rows - 1) // page_size
-
-                # If requesting page that doesn't exist then return next adjacent one
-                if page > last_page:
-                    page = last_page
-                if page < 0:
-                    page = 0
-
-                # Get the archived items from the database
-                rows = read_query(
-                    """
-                    SELECT id, prompt
-                    FROM queue
-                    WHERE status = 3
-                    ORDER BY id
-                    LIMIT ?, ?
-                """,
-                    (page * page_size, page_size),
-                )
-
-                # Convert the items to a list of tuples
-                for row in rows:
-                    item = tuple(json.loads(row[1]))
-                    item[3]["db_id"] = row[0]
-                    archive.append(item)
-
-            return archive, {
-                "total": total_rows,
-                "page": page,
-                "page_size": page_size,
-                "last_page": last_page,
-            }
 
     def archive_items(self, items):
         """

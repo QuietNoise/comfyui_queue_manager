@@ -31,10 +31,10 @@ class QM_Server:
             page = int(request.query.get("page", 0))
 
             # Get the archived items
-            archive, info = self.queue.get_archived_items(page, 100)
+            running, pending, info = self.queue.get_current_queue(page, 100, route="archive")
 
             # Return the archive object as JSON
-            return web.json_response({"running": [], "pending": archive, "info": info})
+            return web.json_response({"running": running, "pending": pending, "info": info})
 
         # Archive POSTed items
         @PromptServer.instance.routes.post("/queue_manager/archive")
