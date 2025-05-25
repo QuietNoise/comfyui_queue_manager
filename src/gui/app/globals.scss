@@ -322,6 +322,20 @@ button {
 
       @media (prefers-color-scheme: light) {
         border-color: var(--color-neutral-200);
+        color: black;
+      }
+
+      &.close-all {
+        border-radius: 0.5rem;
+        padding: 0 0.4rem 0 0.2rem;
+        height: 1.5rem;
+        display: flex;
+        align-items: center;
+        border-color: #ffffff44;
+
+        @media (prefers-color-scheme: light) {
+          color: black;
+        }
       }
     }
   }

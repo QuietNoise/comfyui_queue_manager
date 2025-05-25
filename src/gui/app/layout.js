@@ -426,6 +426,20 @@ export default function RootLayout({children}) {
               </button>
             </div>
           )}
+
+          {/*  Clear all  */}
+          <button
+            className="dark:bg-neutral-700 bg-neutral-400 text-neutral-200 light:text-neutral-800 close close-all hover:bg-neutral-500 ml-auto"
+            onClick={() => {
+              setAppStatus(prev => ({...prev, filters: null}));
+            }}
+          >
+            <svg viewBox="0 0 24 24" width="1.2em" height="1.2em">
+              <path fill="currentColor"
+                    d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z"></path>
+            </svg>
+            Clear filters
+          </button>
         </div>
       }
       <div className={'queue-table' + (appStatus.shiftDown ? ' shift-down' : '')}>
