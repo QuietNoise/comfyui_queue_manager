@@ -132,17 +132,16 @@ export default function RootLayout({children}) {
     })
   }
 
-  async function deleteArchive() {
-    let queryArgs = appendFilters("");
+  async function deleteFromQueue() {
+    let queryArgs = appendFilters("?route=" + appStatus.route);
 
     try {
-      const response = await fetch(`${baseURL}queue_manager/archive${queryArgs}`, {
+      const response = await fetch(`${baseURL}queue_manager/queue${queryArgs}`, {
         method: "DELETE",
       });
     } catch (error) {
-      console.error("Error deleting archive:", error);
+      console.error(`Error deleting items from ${appStatus.route}:`, error);
     }
-
   }
 
   function isFilterOn() {
@@ -504,14 +503,19 @@ export default function RootLayout({children}) {
                      className="hover:bg-neutral-700 dark:bg-teal-700 bg-teal-200 text-neutral-900 py-1 px-2 rounded mr-1 border-0 ">📤
                     Export {isFilterOn() ? "*" : "Queue"}
                   </a>
-
+                  {isFilterOn() &&
+                    <button onClick={deleteFromQueue}
+                            className="hover:bg-neutral-700 dark:bg-gray-800 bg-gray-200 dark:text-neutral-200 text-neutral-800 py-1 px-2 rounded mr-1 border-0 order-last ml-auto">
+                      🗑️ Delete All *
+                    </button>
+                  }
                 </>
               }
               {appStatus.route === 'archive' &&
                 <>
                   <button onClick={playAllArchive}
                           className="hover:bg-neutral-700 text-neutral-200 dark:text-neutral-900 py-1 px-2 rounded mr-1 border-0 run run-all">
-                    <svg viewBox="0 0 24 24" width="1.2em" height="1.2em">
+                  <svg viewBox="0 0 24 24" width="1.2em" height="1.2em">
                       <path className={'run'} fill="none" stroke="currentColor" strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth="2"
@@ -523,7 +527,7 @@ export default function RootLayout({children}) {
                      className="hover:bg-neutral-700 dark:bg-teal-700 bg-teal-200 text-neutral-900  py-1 px-2 rounded mr-1 border-0">📤
                     Export {isFilterOn() ? "*" : "Archive"}
                   </a>
-                  <button onClick={deleteArchive}
+                  <button onClick={deleteFromQueue}
                           className="hover:bg-neutral-700 dark:bg-gray-800 bg-gray-200 dark:text-neutral-200 text-neutral-800 py-1 px-2 rounded mr-1 border-0 order-last ml-auto">
                     🗑️ Delete {isFilterOn() ? "All *" : "All Archive"}
                   </button>

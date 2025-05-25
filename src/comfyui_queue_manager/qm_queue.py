@@ -511,9 +511,9 @@ class QM_Queue:
                 PromptServer.instance.queue_updated()
             return moved
 
-    def delete_archive(self, filters=None):
+    def delete_from_queue(self, route="queue", filters=None):
         with self.native_queue.mutex:
-            where_string, params = self.get_filters(filters, ["status = 3"])
+            where_string, params = self.get_filters(filters, ["status = 3" if route == "archive" else "status = 0"])
             # Delete the archive from the database
             deleted = write_query(
                 f"""
@@ -523,7 +523,10 @@ class QM_Queue:
                 params,
             )
 
-            PromptServer.instance.send_sync("queue-manager-archive-updated", {"deleted": deleted})
+            if route == "archive":
+                PromptServer.instance.send_sync("queue-manager-archive-updated", {"deleted": deleted})
+            else:
+                PromptServer.instance.queue_updated()
 
             return deleted
 
