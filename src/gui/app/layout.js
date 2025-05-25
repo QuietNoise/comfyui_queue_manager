@@ -44,21 +44,21 @@ export default function RootLayout({children}) {
     setAppStatus(prev => ({...prev, loading: true, error: null}));
     try {
       // console.log("Fetching queue items from", baseURL);
-      let pageQuery = '';
+      let queryArgs = '';
       if (page) {
-        pageQuery = "?page=" + page;
+        queryArgs = "?page=" + page;
       }
 
       // if filter is set, add it to the query
       if (isFilterOn()) {
         // url encode the json encoded filter
-        pageQuery += (pageQuery ? '&filters=' : '?filters=') + encodeURIComponent(JSON.stringify(appStatus.filters));
+        queryArgs += (queryArgs ? '&filters=' : '?filters=') + encodeURIComponent(JSON.stringify(appStatus.filters));
       }
 
-      pageQuery += (pageQuery ? '&' : '?') + 'route=' + appStatus.route;
+      queryArgs += (queryArgs ? '&' : '?') + 'route=' + appStatus.route;
 
 
-      const response = await fetch(`${baseURL}queue_manager/queue` + pageQuery);
+      const response = await fetch(`${baseURL}queue_manager/queue` + queryArgs);
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
@@ -108,18 +108,18 @@ export default function RootLayout({children}) {
 
   async function archiveAll() {
     try {
-      let pageQuery = '';
+      let queryArgs = '';
       if (isFilterOn()) {
-        pageQuery += (pageQuery ? '&filters=' : '?filters=') + encodeURIComponent(JSON.stringify(appStatus.filters));
+        queryArgs += (queryArgs ? '&filters=' : '?filters=') + encodeURIComponent(JSON.stringify(appStatus.filters));
       }
-      const response = await fetch(`${baseURL}queue_manager/archive-queue${pageQuery}`);
+      const response = await fetch(`${baseURL}queue_manager/archive-queue${queryArgs}`);
     } catch (error) {
       console.error("Error fetching queue items:", error);
     }
   }
 
   async function playAllArchive() {
-    let pageQuery = '';
+    let queryArgs = '';
     await apiCall('queue_manager/play-archive', {
       client_id: appStatus.clientId,
       filters: isFilterOn() ? appStatus.filters : null,
