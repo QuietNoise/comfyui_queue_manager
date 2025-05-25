@@ -78,18 +78,10 @@ class QM_Queue:
             where_clauses = ["status = ?"]
             params = [status]
 
-            if filters is not None:
-                # If there are any filters, add them to the where clauses
-                for key, the_filter in filters.items():
-                    if key == "workflow":
-                        where_clauses.append("workflow_id = ?")
-                        params.append(the_filter["value"])
-                    # elif key == "checkpoint":
-                    #     where_clauses.append("name LIKE ?")
-                    #     params.append(f"%{value}%")
+            where_string, params = self.get_filters(filters, where_clauses, params)
 
             if page_size > 0:
-                total_rows = read_single(f"""SELECT COUNT(*) FROM queue WHERE {" AND ".join(where_clauses)}""", tuple(params))[0]
+                total_rows = read_single(f"""SELECT COUNT(*) FROM queue WHERE {where_string}""", params)[0]
 
             if total_rows > 0:
                 last_page = (total_rows - 1) // (0 if page_size == 0 else page_size)
@@ -100,17 +92,17 @@ class QM_Queue:
                 if page < 0:
                     page = 0
 
-                params.extend([page * page_size, page_size])
+                params += (page * page_size, page_size)
 
                 rows = read_query(
                     f"""
                     SELECT id, prompt, number
                     FROM queue
-                    WHERE {" AND ".join(where_clauses)}
+                    WHERE {where_string}
                     ORDER BY number
                     LIMIT ?, ?
                 """,
-                    tuple(params),
+                    params,
                 )
 
                 # array of prompts
@@ -350,14 +342,19 @@ class QM_Queue:
             """)
 
     # Set status of pending and running items to 3 (archived)
-    def archive_queue(self):
+    def archive_queue(self, filters=None):
         with self.native_queue.mutex:
+            where_string, params = self.get_filters(filters, ["status = 0"])
+
             # Archive the queue from the database
-            total = write_query("""
+            total = write_query(
+                f"""
                 UPDATE queue
                 SET status = 3
-                WHERE status = 0
-            """)
+                WHERE {where_string}
+            """,
+                params,
+            )
 
             # If affected any rows notify the frontend that the queue and archive have been archived
             if total > 0:
@@ -645,3 +642,21 @@ class QM_Queue:
                 PromptServer.instance.prompt_queue.get(1000)
 
             self.restored = True  # we restore the queue only once per server start
+
+    def get_filters(self, filters=None, where_clauses=None, params=None):
+        if filters is not None:
+            if where_clauses is None:
+                where_clauses = []
+            if params is None:
+                params = []
+
+            # If there are any filters, add them to the where clauses
+            for key, the_filter in filters.items():
+                if key == "workflow":
+                    where_clauses.append("workflow_id = ?")
+                    params.append(the_filter["value"])
+                # elif key == "checkpoint":
+                #     where_clauses.append("name LIKE ?")
+                #     params.append(f"%{value}%")
+
+        return " AND ".join(where_clauses), tuple(params)

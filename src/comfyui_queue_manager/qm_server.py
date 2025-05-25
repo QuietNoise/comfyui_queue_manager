@@ -18,20 +18,12 @@ class QM_Server:
             # Get page number from query string
             page = int(request.query.get("page", 0))
 
-            filters_json = request.query.get("filters", None)
-            filters = None
-            if filters_json is not None:
-                #     decode url-encoded json string
-                try:
-                    filters = json.loads(filters_json)
-                except json.JSONDecodeError:
-                    return web.json_response({"error": "Invalid filter format"}, status=400)
+            filters = self.get_filters(request)
 
             route = request.query.get("route", "queue")
             if route not in ["queue", "archive"]:
                 return web.json_response({"error": "Invalid route"}, status=400)
 
-            logging.info("[Queue Manager] Get queue page %d with filter %s", page, filters_json)
             # pending items
             # TODO: Get page size from extension settings
             running, pending, info = self.queue.get_current_queue(page, 100, route=route, filters=filters)
@@ -82,8 +74,8 @@ class QM_Server:
 
         @PromptServer.instance.routes.get("/queue_manager/archive-queue")
         async def archive_queue(request):
-            # Archive the queue
-            total = self.queue.archive_queue()
+            filters = self.get_filters(request)
+            total = self.queue.archive_queue(filters)
             return web.json_response({"archived": total})
 
         # Play item from archive
@@ -199,3 +191,15 @@ class QM_Server:
             0,
             post_queue,
         )
+
+    def get_filters(self, request):
+        filters_json = request.query.get("filters", None)
+        filters = None
+        if filters_json is not None:
+            #     decode url-encoded json string
+            try:
+                filters = json.loads(filters_json)
+            except json.JSONDecodeError:
+                return web.json_response({"error": "Invalid filter format"}, status=400)
+
+        return filters

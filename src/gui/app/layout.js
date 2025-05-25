@@ -50,7 +50,7 @@ export default function RootLayout({children}) {
       }
 
       // if filter is set, add it to the query
-      if (appStatus.filters) {
+      if (isFilterOn()) {
         // url encode the json encoded filter
         pageQuery += (pageQuery ? '&filters=' : '?filters=') + encodeURIComponent(JSON.stringify(appStatus.filters));
       }
@@ -108,7 +108,12 @@ export default function RootLayout({children}) {
 
   async function archiveAll() {
     try {
-      const response = await fetch(`${baseURL}queue_manager/archive-queue`);
+      let pageQuery = '';
+      if (isFilterOn()) {
+        // url encode the json encoded filter
+        pageQuery += (pageQuery ? '&filters=' : '?filters=') + encodeURIComponent(JSON.stringify(appStatus.filters));
+      }
+      const response = await fetch(`${baseURL}queue_manager/archive-queue${pageQuery}`);
     } catch (error) {
       console.error("Error fetching queue items:", error);
     }
@@ -129,6 +134,10 @@ export default function RootLayout({children}) {
       console.error("Error deleting archive:", error);
     }
 
+  }
+
+  function isFilterOn() {
+    return appStatus.filters && Object.keys(appStatus.filters).length > 0;
   }
 
   const onQueueStatusUpdated = (event) => {
@@ -386,7 +395,7 @@ export default function RootLayout({children}) {
         >Archive
         </button>
       </div>
-      {appStatus.filters && Object.values(appStatus.filters).length > 0 &&
+      {isFilterOn() &&
         <div className="filters flex items-center p-2">
           <span className="text-neutral-500">Filters:</span>
           {Object.values(appStatus.filters).map(filter =>
@@ -466,7 +475,7 @@ export default function RootLayout({children}) {
                 <>
                   <button onClick={archiveAll}
                           className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-orange-900">Archive
-                    All Pending
+                    All {isFilterOn() ? "*" : "Pending"}
                   </button>
                   <a href={baseURL + "queue_manager/export"}
                      className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-teal-700">📤
