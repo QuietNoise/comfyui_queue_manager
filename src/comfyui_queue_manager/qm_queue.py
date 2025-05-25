@@ -127,26 +127,19 @@ class QM_Queue:
                 },
             )
 
-    def get_full_queue(self, archive=False):
+    def get_full_queue(self, archive=False, filters=None):
         with self.native_queue.mutex:
-            if archive:
-                # Get the archived items from the database
-                rows = read_query("""
-                    SELECT id, prompt
-                    FROM queue
-                    WHERE status = 3
-                    ORDER BY created_at DESC
-                """)
-            else:
-                # Get the pending / running items from the database
-                rows = read_query(
-                    """
-                    SELECT id, prompt
-                    FROM queue
-                    WHERE status = 0 OR status = 1
-                    ORDER BY created_at DESC
-                """
-                )
+            where_string, params = self.get_filters(filters, ["status = 0 OR status = 1" if not archive else "status = 3"])
+
+            rows = read_query(
+                f"""
+                SELECT id, prompt
+                FROM queue
+                WHERE {where_string}
+                ORDER BY created_at DESC
+            """,
+                params,
+            )
 
             # array of prompts
             prompts = []

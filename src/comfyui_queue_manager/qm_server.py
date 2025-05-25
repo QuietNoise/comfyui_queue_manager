@@ -5,6 +5,8 @@ from server import PromptServer
 import logging, json
 from datetime import datetime
 
+from .helpers import sanitize_filename
+
 
 class QM_Server:
     def __init__(self, queue_manager, __version__):
@@ -145,15 +147,29 @@ class QM_Server:
         async def export_queue(request):
             # Is there 'archive' in query string?
             archive = request.query.get("archive", "false").lower() == "true"
+            filters = self.get_filters(request)
 
             # Export the queue
-            json_data = self.queue.get_full_queue(archive)
+            json_data = self.queue.get_full_queue(archive, filters)
+
+            # Get filter values from the request so we can include them in the export filename
+            filter_values = []
+            if filters is not None:
+                for key, the_filter in filters.items():
+                    if isinstance(the_filter, dict):
+                        filter_values.append(the_filter["valueLabel"])
+            if len(filter_values) > 0:
+                filter_values = "(" + (",".join(filter_values)) + ")"
+                # sanitize filter values for filename
+                filter_values = sanitize_filename(filter_values)
+            else:
+                filter_values = ""
 
             # Trigger browser download
             response = web.json_response(json_data)
             # file name: comfyui-queue-export-[current-date-and-time].json
             response.headers["Content-Disposition"] = 'attachment; filename="comfyui-{}-export-{}.json"'.format(
-                "archive" if archive else "queue", datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                ("archive" if archive else "queue") + filter_values, datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             )
             response.headers["Content-Type"] = "application/json"
             return response

@@ -486,10 +486,11 @@ export default function RootLayout({children}) {
                           className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-orange-900">Archive
                     All {isFilterOn() ? "*" : "Pending"}
                   </button>
-                  <a href={baseURL + "queue_manager/export"}
+                  <a href={baseURL + "queue_manager/export" + appendFilters("")}
                      className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-teal-700">📤
-                    Export Queue
+                    Export {isFilterOn() ? "*" : "Queue"}
                   </a>
+
                 </>
               }
               {appStatus.route === 'archive' &&
@@ -504,9 +505,9 @@ export default function RootLayout({children}) {
                     </svg>
                     Run All {isFilterOn() ? "*" : ""}
                   </button>
-                  <a href={baseURL + "queue_manager/export?archive=true"}
+                  <a href={baseURL + "queue_manager/export" + appendFilters("?archive=true")}
                      className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-teal-700">📤
-                    Export Archive
+                    Export {isFilterOn() ? "*" : "Archive"}
                   </a>
                   <button onClick={deleteArchive}
                           className="hover:bg-neutral-700 dark:bg-gray-800 bg-gray-200 dark:text-neutral-200 text-neutral-800 py-1 px-2 rounded mr-1 border-0 order-last ml-auto">
