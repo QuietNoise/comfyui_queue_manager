@@ -110,7 +110,6 @@ export default function RootLayout({children}) {
     try {
       let pageQuery = '';
       if (isFilterOn()) {
-        // url encode the json encoded filter
         pageQuery += (pageQuery ? '&filters=' : '?filters=') + encodeURIComponent(JSON.stringify(appStatus.filters));
       }
       const response = await fetch(`${baseURL}queue_manager/archive-queue${pageQuery}`);
@@ -120,8 +119,10 @@ export default function RootLayout({children}) {
   }
 
   async function playAllArchive() {
+    let pageQuery = '';
     await apiCall('queue_manager/play-archive', {
       client_id: appStatus.clientId,
+      filters: isFilterOn() ? appStatus.filters : null,
     })
   }
 
@@ -493,7 +494,7 @@ export default function RootLayout({children}) {
                             strokeWidth="2"
                             d="m6 3l14 9l-14 9z"></path>
                     </svg>
-                    Run All
+                    Run All {isFilterOn() ? "*" : ""}
                   </button>
                   <a href={baseURL + "queue_manager/export?archive=true"}
                      className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-teal-700">📤

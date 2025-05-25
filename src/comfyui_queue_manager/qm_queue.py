@@ -467,17 +467,21 @@ class QM_Queue:
             return moved
 
     # Change status to 0 for all items with status 3, update the client_id and set correct priority for each item
-    def play_archive(self, client_id=None):
+    def play_archive(self, client_id=None, filters=None):
         with self.native_queue.mutex:
             # Play the item from the database
+            where_string, params = self.get_filters(filters, ["status = 3"])
 
             # Get the archived items from the database
-            rows = read_query("""
+            rows = read_query(
+                f"""
                 SELECT id, prompt
                 FROM queue
-                WHERE status = 3
+                WHERE {where_string}
                 ORDER BY created_at DESC
-            """)
+            """,
+                params,
+            )
 
             # Convert the items to a list of tuples
             parameters = []

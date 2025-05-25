@@ -48,10 +48,13 @@ class QM_Server:
             logging.info("[Queue Manager] Play archive")
             json_data = await request.json()
             client_id = None
+            filters = None
             if "client_id" in json_data:
                 client_id = json_data["client_id"]
+            if "filters" in json_data:
+                filters = json_data["filters"]
 
-            moved = self.queue.play_archive(client_id)
+            moved = self.queue.play_archive(client_id, filters)
             return web.json_response({"archived": moved})
 
         # Toggle Play/Pause of the queue
