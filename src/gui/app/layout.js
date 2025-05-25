@@ -127,8 +127,13 @@ export default function RootLayout({children}) {
   }
 
   async function deleteArchive() {
+    let queryArgs = '';
+    if (isFilterOn()) {
+      queryArgs += (queryArgs ? '&filters=' : '?filters=') + encodeURIComponent(JSON.stringify(appStatus.filters));
+    }
+
     try {
-      const response = await fetch(`${baseURL}queue_manager/archive`, {
+      const response = await fetch(`${baseURL}queue_manager/archive${queryArgs}`, {
         method: "DELETE",
       });
     } catch (error) {
@@ -502,7 +507,7 @@ export default function RootLayout({children}) {
                   </a>
                   <button onClick={deleteArchive}
                           className="hover:bg-neutral-700 dark:bg-gray-800 bg-gray-200 dark:text-neutral-200 text-neutral-800 py-1 px-2 rounded mr-1 border-0 order-last ml-auto">
-                    🗑️ Delete Archive
+                    🗑️ Delete {isFilterOn() ? "All *" : "All Archive"}
                   </button>
                 </>
               }

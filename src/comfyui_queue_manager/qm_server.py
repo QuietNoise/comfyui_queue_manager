@@ -162,7 +162,8 @@ class QM_Server:
         @PromptServer.instance.routes.delete("/queue_manager/archive")
         async def delete_archive(request):
             # Delete the archive
-            total = self.queue.delete_archive()
+            filters = self.get_filters(request)
+            total = self.queue.delete_archive(filters)
 
             logging.info("[Queue Manager] Deleted %d items from the archive", total)
 
