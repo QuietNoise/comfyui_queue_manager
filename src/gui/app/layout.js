@@ -49,13 +49,8 @@ export default function RootLayout({children}) {
         queryArgs = "?page=" + page;
       }
 
-      // if filter is set, add it to the query
-      if (isFilterOn()) {
-        // url encode the json encoded filter
-        queryArgs += (queryArgs ? '&filters=' : '?filters=') + encodeURIComponent(JSON.stringify(appStatus.filters));
-      }
-
-      queryArgs += (queryArgs ? '&' : '?') + 'route=' + appStatus.route;
+      queryArgs = appendFilters(queryArgs);
+      queryArgs = appendRoute(queryArgs);
 
 
       const response = await fetch(`${baseURL}queue_manager/queue` + queryArgs);
@@ -106,12 +101,24 @@ export default function RootLayout({children}) {
     return null;
   }
 
+  function appendFilters(queryArgs) {
+    if (isFilterOn()) {
+      queryArgs += (queryArgs ? '&filters=' : '?filters=') + encodeURIComponent(JSON.stringify(appStatus.filters));
+    }
+    return queryArgs;
+  }
+
+  function appendRoute(queryArgs) {
+    if (appStatus.route) {
+      queryArgs += (queryArgs ? '&route=' : '?route=') + appStatus.route;
+    }
+    return queryArgs;
+  }
+
   async function archiveAll() {
     try {
-      let queryArgs = '';
-      if (isFilterOn()) {
-        queryArgs += (queryArgs ? '&filters=' : '?filters=') + encodeURIComponent(JSON.stringify(appStatus.filters));
-      }
+      let queryArgs = appendFilters("");
+
       const response = await fetch(`${baseURL}queue_manager/archive-queue${queryArgs}`);
     } catch (error) {
       console.error("Error fetching queue items:", error);
@@ -119,7 +126,6 @@ export default function RootLayout({children}) {
   }
 
   async function playAllArchive() {
-    let queryArgs = '';
     await apiCall('queue_manager/play-archive', {
       client_id: appStatus.clientId,
       filters: isFilterOn() ? appStatus.filters : null,
@@ -127,10 +133,7 @@ export default function RootLayout({children}) {
   }
 
   async function deleteArchive() {
-    let queryArgs = '';
-    if (isFilterOn()) {
-      queryArgs += (queryArgs ? '&filters=' : '?filters=') + encodeURIComponent(JSON.stringify(appStatus.filters));
-    }
+    let queryArgs = appendFilters("");
 
     try {
       const response = await fetch(`${baseURL}queue_manager/archive${queryArgs}`, {
