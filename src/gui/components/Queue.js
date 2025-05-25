@@ -87,7 +87,7 @@ export default function Queue( { data, isLoading, error, progress } ) {
         <td className={'px-3 py-1 text-right actions'}>
           <Button className={"bg-red-900"} onClick={cancelQueueItem}>Delete</Button>
           <Button className={"bg-green-900"} onClick={loadQueueItem}>Load</Button>
-          {appStatus.route === 'queue' &&
+          {appStatus.route === 'queue' && mode !== 'running' &&
             <Button className={"bg-orange-900"} onClick={archiveQueueItem}>Archive</Button>
           }
           {appStatus.route === 'archive' &&
