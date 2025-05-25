@@ -663,4 +663,4 @@ class QM_Queue:
                 #     where_clauses.append("name LIKE ?")
                 #     params.append(f"%{value}%")
 
-        return " AND ".join(where_clauses), tuple(params)
+        return " AND ".join(where_clauses), () if params is None else tuple(params)  # convert to tuple if not None
