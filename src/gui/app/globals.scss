@@ -1,5 +1,9 @@
 @use 'tailwindcss' as *;
 
+$archive-color: #221111;
+$archive-color-light: #ffeecc;
+$archive-color-darker: #110808;
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -55,6 +59,15 @@ button:hover {
 }
 
 footer.footer {
+  border-top: 1px solid var(--color-neutral-600);
+  .route-archive & {
+    background-color: $archive-color;
+
+    @media (prefers-color-scheme: light) {
+      background-color: $archive-color-light;
+    }
+  }
+
   .actions {
     font-size: 0.8em;
 
@@ -66,6 +79,25 @@ footer.footer {
       justify-content: center;
       color: white;
     }
+
+    button {
+      color: white;
+
+      &.run-all {
+        padding-left: 1.6rem;
+
+        @media (prefers-color-scheme: dark) {
+          color: black;
+        }
+      }
+    }
+
+    @media (prefers-color-scheme: light) {
+      a,
+      button {
+        color: black;
+      }
+    }
   }
 }
 
@@ -73,11 +105,41 @@ footer.footer {
   flex: 1;
   overflow: auto;
 
+  .route-archive & {
+    background-color: $archive-color-darker;
+
+    @media (prefers-color-scheme: light) {
+      background-color: $archive-color-light;
+    }
+  }
+
   tr {
     transition: all 0.2s ease-in-out;
     &:hover {
       background: var(--background-faded);
       color: var(--foreground-faded);
+    }
+
+    .route-archive & {
+      &:nth-child(odd) {
+        background-color: #ffffff05;
+
+        @media (prefers-color-scheme: light) {
+          background-color: #ffffff88;
+        }
+      }
+    }
+  }
+
+  thead {
+    tr {
+      .route-archive & {
+        background-color: $archive-color !important;
+
+        @media (prefers-color-scheme: light) {
+          background-color: $archive-color-light !important;
+        }
+      }
     }
   }
 
@@ -189,6 +251,14 @@ footer.footer {
       border-top-right-radius: 0.5rem;
       padding: 0.4rem 0.8rem 0.2rem;
       border-color: var(--background);
+
+      &.archive {
+        background-color: $archive-color;
+
+        @media (prefers-color-scheme: light) {
+          background-color: $archive-color-light;
+        }
+      }
     }
   }
 }
@@ -226,10 +296,6 @@ button {
     }
   }
 
-  &.run-all {
-    padding-left: 1.6rem;
-  }
-
   &.plain {
     margin: 0;
     padding: 0;
@@ -252,6 +318,8 @@ button {
   }
 }
 .paging {
+  padding-top: 0.4rem;
+
   button {
     padding: 0.2rem 0.5rem 0.18rem;
     display: inline-flex;
@@ -290,6 +358,20 @@ button {
 
 .filters {
   font-size: 0.8rem;
+  background-color: var(--color-neutral-800);
+  border-bottom: 1px solid var(--color-neutral-600);
+
+  @media (prefers-color-scheme: light) {
+    background-color: var(--color-neutral-200);
+  }
+
+  .route-archive & {
+    background-color: $archive-color;
+
+    @media (prefers-color-scheme: light) {
+      background-color: $archive-color-light;
+    }
+  }
 
   .label {
     border: 1px solid #ffffff44;

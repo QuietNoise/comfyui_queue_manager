@@ -17,7 +17,7 @@ export default function Queue( { data, isLoading, error, progress } ) {
   function Button({children, className, onClick}) {
     return (
       <button
-        className={"hover:bg-neutral-700 text-neutral-200 rounded inline-flex items-center justify-center" + (className ? ' ' + className : '')}
+        className={"hover:bg-neutral-700 dark:text-neutral-200 rounded inline-flex items-center justify-center" + (className ? ' ' + className : '')}
         onClick={onClick}
       >
         {children}
@@ -85,10 +85,10 @@ export default function Queue( { data, isLoading, error, progress } ) {
           </button>
         </td>
         <td className={'px-3 py-1 text-right actions'}>
-          <Button className={"bg-red-900"} onClick={cancelQueueItem}>Delete</Button>
-          <Button className={"bg-green-900"} onClick={loadQueueItem}>Load</Button>
+          <Button className={"dark:bg-red-900 bg-rose-200 text-red-900"} onClick={cancelQueueItem}>Delete</Button>
+          <Button className={"dark:bg-green-900 bg-green-300"} onClick={loadQueueItem}>Load</Button>
           {appStatus.route === 'queue' && mode !== 'running' &&
-            <Button className={"bg-orange-900"} onClick={archiveQueueItem}>Archive</Button>
+            <Button className={"dark:bg-orange-900 bg-orange-200"} onClick={archiveQueueItem}>Archive</Button>
           }
           {appStatus.route === 'archive' &&
             <Button className={"run"} onClick={playItem}>

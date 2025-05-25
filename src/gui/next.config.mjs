@@ -38,7 +38,9 @@ const nextConfig = (envo === 'prod') ? {
     sassOptions: {
       // suppress deprecation warnings from any dependency
       quietDeps: true,
+      sourceMap: true,
     },
+    productionBrowserSourceMaps: true,
 };
 
 export default nextConfig;

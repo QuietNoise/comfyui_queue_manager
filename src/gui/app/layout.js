@@ -386,7 +386,7 @@ export default function RootLayout({children}) {
         <title>Queue Manager</title>
         <meta name="description" content="ComfyUI Queue Manager frontend"/>
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} route-${appStatus.route}`}>
       {/*{children}*/}
       <div className="tabs">
         <button
@@ -397,7 +397,7 @@ export default function RootLayout({children}) {
         >Queue
         </button>
         <button
-          className={"tab" + (appStatus.route === 'archive' ? ' dark:bg-neutral-800 bg-neutral-200 active' : '')}
+          className={"tab archive" + (appStatus.route === 'archive' ? ' active' : '')}
           onClick={() => {
             setAppStatus(prev => ({...prev, route: 'archive'}));
           }}
@@ -497,11 +497,11 @@ export default function RootLayout({children}) {
               {appStatus.route === 'queue' &&
                 <>
                   <button onClick={archiveAll}
-                          className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-orange-900">Archive
+                          className="hover:bg-neutral-700 bg-orange-200 py-1 px-2 rounded mr-1 border-0 dark:bg-orange-900">Archive
                     All {isFilterOn() ? "*" : "Pending"}
                   </button>
                   <a href={baseURL + "queue_manager/export" + appendFilters("")}
-                     className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-teal-700">📤
+                     className="hover:bg-neutral-700 dark:bg-teal-700 bg-teal-200 text-neutral-900 py-1 px-2 rounded mr-1 border-0 ">📤
                     Export {isFilterOn() ? "*" : "Queue"}
                   </a>
 
@@ -510,7 +510,7 @@ export default function RootLayout({children}) {
               {appStatus.route === 'archive' &&
                 <>
                   <button onClick={playAllArchive}
-                          className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 run run-all">
+                          className="hover:bg-neutral-700 text-neutral-200 dark:text-neutral-900 py-1 px-2 rounded mr-1 border-0 run run-all">
                     <svg viewBox="0 0 24 24" width="1.2em" height="1.2em">
                       <path className={'run'} fill="none" stroke="currentColor" strokeLinecap="round"
                             strokeLinejoin="round"
@@ -520,7 +520,7 @@ export default function RootLayout({children}) {
                     Run All {isFilterOn() ? "*" : ""}
                   </button>
                   <a href={baseURL + "queue_manager/export" + appendFilters("?archive=true")}
-                     className="hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-teal-700">📤
+                     className="hover:bg-neutral-700 dark:bg-teal-700 bg-teal-200 text-neutral-900  py-1 px-2 rounded mr-1 border-0">📤
                     Export {isFilterOn() ? "*" : "Archive"}
                   </a>
                   <button onClick={deleteArchive}
@@ -549,7 +549,7 @@ export default function RootLayout({children}) {
               onChange={uploadQueue}
             />
             <label htmlFor={"uploadQueueForm"}
-                   className={"hover:bg-neutral-700 text-neutral-200 py-1 px-2 rounded mr-1 border-0 bg-teal-900"}>📁
+                   className={"hover:bg-neutral-700 py-1 px-2 rounded mr-1 border-0 dark:bg-teal-900 bg-teal-300"}>📁
               Import {appStatus.route === 'queue' ? 'Queue' : 'Archive'}</label>
           </form>
         </div>
