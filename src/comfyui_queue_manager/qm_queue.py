@@ -73,24 +73,17 @@ class QM_Queue:
             pending = []
             total_rows = 0
             last_page = 0
-            status = 0
             order_string = "ORDER BY number"
 
             match route:
                 case "queue":
-                    for x in self.native_queue.currently_running.values():
-                        running += [x]
-                case "archive":
-                    status = 3  # archived items
-                    order_string = "ORDER BY updated_at"
-                case "completed":
-                    status = 2  # completed items
+                    running.extend(self.native_queue.currently_running.values())
+                case "archive" | "completed":
                     order_string = "ORDER BY updated_at"
 
-            where_clauses = ["status = ?"]
-            params = [status]
+            where_clauses = [self.get_route_query(route)]
 
-            where_string, params = self.get_filters(filters, where_clauses, params)
+            where_string, params = self.get_filters(filters, where_clauses)
 
             if page_size > 0:
                 total_rows = read_single(f"""SELECT COUNT(*) FROM queue WHERE {where_string}""", params)[0]
@@ -141,16 +134,7 @@ class QM_Queue:
 
     def get_full_queue(self, route="queue", filters=None):
         with self.native_queue.mutex:
-            status_query = ""
-            match route:
-                case "queue":
-                    status_query = "status = 0 OR status = 1"  # pending or running
-                case "archive":
-                    status_query = "status = 3"  # archived
-                case "completed":
-                    status_query = "status = 2"  # completed
-
-            where_string, params = self.get_filters(filters, [status_query])
+            where_string, params = self.get_filters(filters, [self.get_route_query(route, True)])
 
             rows = read_query(
                 f"""
@@ -357,7 +341,7 @@ class QM_Queue:
 
             if deleted > 0:
                 PromptServer.instance.queue_updated()
-                PromptServer.instance.send_sync("queue-manager-archive-updated", {"deleted": deleted})
+                PromptServer.instance.send_sync("queue-manager-queue-updated", {"deleted": deleted})
 
     def wipe_queue(self):
         with self.native_queue.mutex:
@@ -390,7 +374,7 @@ class QM_Queue:
             if total > 0:
                 logging.info("[Queue Manager] Queue Archived: %d item(s)", total)
                 PromptServer.instance.queue_updated()
-                PromptServer.instance.send_sync("queue-manager-archive-updated", {"total_moved": total})
+                PromptServer.instance.send_sync("queue-manager-queue-updated", {"total_moved": total})
             else:
                 logging.info("[Queue Manager] No items to archive")
 
@@ -419,7 +403,7 @@ class QM_Queue:
 
             if archived > 0:
                 logging.info("[Queue Manager] Queue Item Archived: %d item(s)", archived)
-                PromptServer.instance.send_sync("queue-manager-archive-updated", {"total_moved": archived})
+                PromptServer.instance.send_sync("queue-manager-queue-updated", {"total_moved": archived})
 
             return archived
 
@@ -491,7 +475,7 @@ class QM_Queue:
                 PromptServer.instance.prompt_queue.not_empty.notify()
 
                 logging.info("[Queue Manager] %d item(s) scheduled for generation.", moved)
-                PromptServer.instance.send_sync("queue-manager-archive-updated", {"total_moved": moved})
+                PromptServer.instance.send_sync("queue-manager-queue-updated", {"total_moved": moved})
                 PromptServer.instance.queue_updated()
 
             return moved
@@ -544,13 +528,13 @@ class QM_Queue:
                 PromptServer.instance.prompt_queue.not_empty.notify()
 
                 logging.info("[Queue Manager] %d item(s) scheduled for generation.", moved)
-                PromptServer.instance.send_sync("queue-manager-archive-updated", {"total_moved": moved})
+                PromptServer.instance.send_sync("queue-manager-queue-updated", {"total_moved": moved})
                 PromptServer.instance.queue_updated()
             return moved
 
     def delete_from_queue(self, route="queue", filters=None):
         with self.native_queue.mutex:
-            where_string, params = self.get_filters(filters, ["status = 3" if route == "archive" else "status = 0"])
+            where_string, params = self.get_filters(filters, [self.get_route_query(route)])
             # Delete the archive from the database
             deleted = write_query(
                 f"""
@@ -560,10 +544,10 @@ class QM_Queue:
                 params,
             )
 
-            if route == "archive":
-                PromptServer.instance.send_sync("queue-manager-archive-updated", {"deleted": deleted})
-            else:
+            if route == "queue":
                 PromptServer.instance.queue_updated()
+            else:
+                PromptServer.instance.send_sync("queue-manager-queue-updated", {"deleted": deleted})
 
             return deleted
 
@@ -608,7 +592,7 @@ class QM_Queue:
                 if status == 0:
                     theServer.queue_updated()
                 if status == 3:
-                    PromptServer.instance.send_sync("queue-manager-archive-updated", {"total_imported": total})
+                    PromptServer.instance.send_sync("queue-manager-queue-updated", {"total_imported": total})
 
             return total, len(items)
 
@@ -701,3 +685,15 @@ class QM_Queue:
                 #     params.append(f"%{value}%")
 
         return " AND ".join(where_clauses), () if params is None else tuple(params)  # convert to tuple if not None
+
+    def get_route_query(self, route="queue", include_running=False):
+        # Get the query for the given route
+        match route:
+            case "queue":
+                return "status = 0" + (" OR status = 1" if include_running else "")  # pending
+            case "archive":
+                return "status = 3"
+            case "completed":
+                return "status = 2"  # completed
+
+        return ""

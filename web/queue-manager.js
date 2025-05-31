@@ -83,7 +83,7 @@ app.registerExtension({
       postStatusMessageToIframe(e)
     })
 
-    app.api.addEventListener("queue-manager-archive-updated", function (e) {
+    app.api.addEventListener("queue-manager-queue-updated", function (e) {
       postStatusMessageToIframe(e)
     })
 

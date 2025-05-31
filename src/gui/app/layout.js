@@ -236,8 +236,8 @@ export default function RootLayout({children}) {
         }));
         break;
 
-      case "queue-manager-archive-updated":
-        console.log("Queue archive updated: ", event.data.message);
+      case "queue-manager-queue-updated":
+        console.log("Queue Manager: queue updated: ", event.data.message);
         fetchQueueItems()
         break;
     }
@@ -576,6 +576,10 @@ export default function RootLayout({children}) {
                      className="hover:bg-neutral-700 dark:bg-teal-700 bg-teal-200 text-neutral-900  py-1 px-2 rounded mr-1 border-0">📤
                     Export {isFilterOn() ? "*" : "Completed"}
                   </a>
+                  <button onClick={deleteFromQueue}
+                          className="hover:bg-neutral-700 dark:bg-gray-800 bg-gray-200 dark:text-neutral-200 text-neutral-800 py-1 px-2 rounded mr-1 border-0 order-last ml-auto">
+                    🗑️ Delete {isFilterOn() ? "All *" : "All Completed"}
+                  </button>
                 </>
               }
             </>
