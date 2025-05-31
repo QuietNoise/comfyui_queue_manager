@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from .qm_db import write_query, read_single
 import json
 
@@ -19,13 +21,16 @@ class QM_Options:
         )
         self.__options[key] = value
 
-    def get(self, key, default=None):
+    def get(self, key, default=None, with_timestamp=False):
         if key in self.__options:
-            return self.__options[key]
+            if with_timestamp:
+                return self.__options[key]
+            else:
+                return self.__options[key][0]
 
         value = read_single(
             """
-                SELECT value FROM options
+                SELECT value, updated_at FROM options
                 WHERE key = ?
             """,
             (key,),
@@ -33,8 +38,14 @@ class QM_Options:
 
         if value is None:
             return_value = default
+            timestamp = datetime.now()
         else:
             return_value = json.loads(value[0]) if value else default
+            timestamp = value[1]
 
-        self.__options[key] = return_value
-        return return_value
+        self.__options[key] = (return_value, timestamp)
+
+        if with_timestamp:
+            return return_value, timestamp
+        else:
+            return return_value
