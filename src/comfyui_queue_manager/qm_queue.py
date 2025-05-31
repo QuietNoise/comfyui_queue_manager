@@ -364,6 +364,10 @@ class QM_Queue:
                 params,
             )
 
+            # remove the items from the native queue and heapify queue
+            self.native_queue.queue = []
+            heapq.heapify(self.native_queue.queue)
+
             # If affected any rows notify the frontend that the queue and archive have been archived
             if total > 0:
                 logging.info("[Queue Manager] Queue Archived: %d item(s)", total)
