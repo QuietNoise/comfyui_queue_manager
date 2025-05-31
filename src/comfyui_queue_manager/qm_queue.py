@@ -74,6 +74,7 @@ class QM_Queue:
             total_rows = 0
             last_page = 0
             status = 0
+            order_string = "ORDER BY number"
 
             match route:
                 case "queue":
@@ -81,6 +82,7 @@ class QM_Queue:
                         running += [x]
                 case "archive":
                     status = 3  # archived items
+                    order_string = "ORDER BY updated_at"
 
             where_clauses = ["status = ?"]
             params = [status]
@@ -106,7 +108,7 @@ class QM_Queue:
                     SELECT id, prompt, number
                     FROM queue
                     WHERE {where_string}
-                    ORDER BY number
+                    {order_string}
                     LIMIT ?, ?
                 """,
                     params,
@@ -490,7 +492,7 @@ class QM_Queue:
                 SELECT id, prompt
                 FROM queue
                 WHERE {where_string}
-                ORDER BY created_at DESC
+                ORDER BY updated_at
             """,
                 params,
             )
