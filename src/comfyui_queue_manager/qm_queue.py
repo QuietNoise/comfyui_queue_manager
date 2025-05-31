@@ -281,7 +281,11 @@ class QM_Queue:
                 """,
                     (queue_item[0][1],),
                 )
-                logging.info("[Queue Manager] Executing workflow: %s at %s", queue_item[0][1], queue_item[0][0])
+                logging.info(
+                    "[Queue Manager] Executing workflow: \033[33m%s\033[0m at %s",
+                    queue_item[0][3]["extra_pnginfo"]["workflow"]["workflow_name"],
+                    queue_item[0][0],
+                )
                 return queue_item  # (item, task_counter)
             else:
                 # No item in the queue
