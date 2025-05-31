@@ -3,7 +3,7 @@ from aiohttp import web
 
 from server import PromptServer
 import logging, json
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .helpers import sanitize_filename
 
@@ -184,6 +184,28 @@ class QM_Server:
             logging.info("[Queue Manager] Deleted %d items from the archive", total)
 
             return web.json_response({"deleted": total})
+
+        # Take over client focus
+        @PromptServer.instance.routes.get("/queue_manager/takeover")
+        async def takeover_focus(request):
+            client_id = request.query.get("client_id", None)
+
+            # is client_id valid: 32 chars hex
+            if client_id is None:
+                return web.json_response({"error": "Client ID not provided"}, status=400)
+            if len(client_id) != 32:
+                return web.json_response({"error": "Invalid client ID"}, status=400)
+            if not all(c in "0123456789abcdef" for c in client_id):
+                return web.json_response({"error": "Invalid client ID"}, status=400)
+
+            takeover_client = {"client_id": client_id, "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")}
+
+            self.queue_manager.queue.takeover_client = takeover_client
+            self.queue_manager.options.set("takeover_client", client_id)
+
+            logging.info(f"[Queue Manager] Client takeover requested by {client_id}")
+
+            return web.json_response(takeover_client)
 
         # Hook us into the server's middleware so we can listen to some native api requests
         @web.middleware

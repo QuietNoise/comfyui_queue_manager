@@ -9,6 +9,7 @@ $archive-color-darker: #110808;
   --foreground: #171717;
   --background-faded: #ffffffaa;
   --foreground-faded: #272727;
+  --comfy-bg: #DDD;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -17,6 +18,7 @@ $archive-color-darker: #110808;
     --foreground: #ededed;
     --background-faded: #272727;
     --foreground-faded: #ffffffaa;
+    --comfy-bg:#161b22;
   }
 }
 
@@ -418,6 +420,26 @@ button {
         @media (prefers-color-scheme: light) {
           color: black;
         }
+      }
+    }
+  }
+}
+
+.top-menu {
+  position: fixed;
+  top: 0;
+  right: 0;
+  background-color: var(--comfy-bg);
+  padding: 1rem 1rem;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+
+  button {
+    &:hover {
+      background-color: #00000022;
+      transition: 0.3s ease-in-out all;
+
+      @media (prefers-color-scheme: dark) {
+        background-color: #ffffff22;
       }
     }
   }

@@ -1,6 +1,6 @@
 import {baseURL} from "@/internals/config";
 
-export async function apiCall(endpoint, data) {
+export async function apiCall(endpoint, data, method = "POST") {
   // is endpoint an absolute URL
   const url = (endpoint.startsWith("https://") || endpoint.startsWith("http://")) ?
     endpoint :
@@ -8,13 +8,19 @@ export async function apiCall(endpoint, data) {
 
 
   try {
-    const response = await fetch(url, {
-      method: "POST",
+
+    let request = {
+      method: method,
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(data),
-    });
+    };
+
+    if (method.toLowerCase() !== "get") {
+      request.body = JSON.stringify(data);
+    }
+
+    const response = await fetch(url, request);
     if (!response.ok) {
       throw new Error("Network response was not ok");
     }

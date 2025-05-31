@@ -14,8 +14,15 @@ class QM_Queue:
     def __init__(self, queue_manager):
         self.queue_manager = queue_manager
         self.restored = False
+
         self.paused = queue_manager.options.get("queue_paused", False)
         logging.info("[Queue Manager] Queue status: %s", "not paused" if not self.paused else "paused")
+
+        client_id, timestamp = queue_manager.options.get("takeover_client", False, True)
+        if client_id:
+            self.takeover_client = {"client_id": client_id, "timestamp": timestamp}
+        else:
+            self.takeover_client = None
 
         if self.paused:
             self.restore_queue(True)
@@ -237,17 +244,25 @@ class QM_Queue:
                     self.restore_queue(True)
 
                 # Get the item with highest priority from the queue in database
-                item = read_single("""
-                    SELECT number, prompt
+                item_db = read_single("""
+                    SELECT number, prompt, updated_at
                     FROM queue
                     WHERE status = 0
                     ORDER BY number
                     LIMIT 1
                 """)
 
-                if item is not None:
-                    # Convert the item to a tuple
-                    item = tuple(json.loads(item[1]))  # Convert the json's list to a tuple
+                if item_db is not None:
+                    item = json.loads(item_db[1])
+
+                    # SIML: TODO: Perhaps use different column to check timestamp? i.e. queued_at since item might be updated for other reasons?
+                    # If we have takeover client then we need to set the client_id in the prompt
+                    if self.takeover_client and self.takeover_client["timestamp"] > item_db[2]:
+                        item[3]["client_id"] = self.takeover_client["client_id"]
+
+                    # Native format is a tuple
+                    item = tuple(item)
+
                     heapq.heappush(self.native_queue.queue, item)
 
             queue_item = self.original_get(

@@ -144,6 +144,10 @@ export default function RootLayout({children}) {
     }
   }
 
+  async function takeOver() {
+    apiCall('queue_manager/takeover?client_id='+appStatus.clientId, null, "GET");
+  }
+
   function isFilterOn() {
     return appStatus.filters && Object.keys(appStatus.filters).length > 0;
   }
@@ -387,6 +391,9 @@ export default function RootLayout({children}) {
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} route-${appStatus.route}`}>
       {/*{children}*/}
+      <section className={"top-menu"}>
+        <button className={"button"} onClick={takeOver}>🎯 Take over focus</button>
+      </section>
       <div className="tabs">
         <button
           className={"tab" + (appStatus.route === 'queue' ? ' dark:bg-neutral-800 bg-neutral-200 active' : '')}
