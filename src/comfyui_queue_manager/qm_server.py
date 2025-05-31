@@ -6,6 +6,7 @@ import logging, json
 from datetime import datetime, timezone
 
 from .helpers import sanitize_filename
+from .inc.exceptions import BadRouteException
 
 
 class QM_Server:
@@ -22,9 +23,7 @@ class QM_Server:
 
             filters = self.get_filters(request)
 
-            route = request.query.get("route", "queue")
-            if route not in ["queue", "archive", "completed"]:
-                return web.json_response({"error": "Invalid route"}, status=400)
+            route = self.get_the_route(request)
 
             # pending items
             # TODO: Get page size from extension settings
@@ -145,10 +144,7 @@ class QM_Server:
         # Export the queue
         @PromptServer.instance.routes.get("/queue_manager/export")
         async def export_queue(request):
-            # Is there 'archive' in query string?
-            route = request.query.get("route", "queue").lower()
-            if route not in ["queue", "archive", "completed"]:
-                return web.json_response({"error": "Invalid route"}, status=400)
+            route = self.get_the_route(request)
 
             filters = self.get_filters(request)
 
@@ -236,6 +232,33 @@ class QM_Server:
             0,
             post_queue,
         )
+
+        # Handle internal errors
+        @web.middleware
+        async def error_middleware(request, handler):
+            try:
+                return await handler(request)
+            except BadRouteException as ae:
+                logging.error("[Queue Manager] " + ae.message)
+                return web.json_response(
+                    {"error": ae.message},
+                    status=422,
+                )
+
+        PromptServer.instance.app.middlewares.insert(
+            0,
+            error_middleware,
+        )
+
+    def get_the_route(self, request):
+        """
+        Check if the route is valid.
+        """
+        route = request.query.get("route", "queue")
+        if route not in ["queue", "archive", "completed"]:
+            raise BadRouteException("Invalid route: " + route)
+
+        return route
 
     def get_filters(self, request):
         filters_json = request.query.get("filters", None)
