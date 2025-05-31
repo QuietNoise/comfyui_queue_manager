@@ -4,5 +4,18 @@
   justify-content: space-between;
   flex-wrap: wrap;
   min-height: 2.875rem;
+  height: 2.875rem;
   border-bottom: 1px solid var(--p-toolbar-border-color);
+  width: calc(100% - 2.875rem);
+  position: relative;
+  z-index: 1;
+  background: var(--p-toolbar-background);
+}
+.comfyui-queue-manager .app-iframe {
+  margin-top: -2.875rem;
+  position: relative;
+  background: var(--p-toolbar-background);
+}
+.comfyui-queue-manager .app-iframe iframe {
+  background-color: transparent;
 }

@@ -130,10 +130,8 @@ app.registerExtension({
           <div class='comfyui-queue-manager flex flex-col' style="height: calc(100vh - var(--comfy-topbar-height) - 4px);">
             <header class="px-2 py-1 text-sm header">
               QUEUE MANAGER
-              <button class="settings pi pi-ellipsis-v p-button p-button-icon-only p-button-text" type="button" aria-label="Settings" data-pc-name="button" data-pd-tooltip="true">
-              </button>
             </header>
-            <section class='app-iframe flex-1' style="background-color: var(--p-form-field-background);">
+            <section class='app-iframe flex-1'>
               <iframe src="${QueueManagerURL}" class="w-full h-full border-0"></iframe>
             </section>
             <footer>
