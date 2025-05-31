@@ -32,7 +32,8 @@ def init_schema():
         CREATE TABLE IF NOT EXISTS options (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             key TEXT NOT NULL UNIQUE,
-            value TEXT
+            value TEXT,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
         CREATE INDEX IF NOT EXISTS idx_queue_status_number
@@ -45,6 +46,16 @@ def init_schema():
         WHEN NEW.updated_at = OLD.updated_at         -- only if caller didn't change it
         BEGIN
           UPDATE queue
+          SET    updated_at = CURRENT_TIMESTAMP
+          WHERE  rowid = NEW.rowid;
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS options_set_updated_at
+        AFTER UPDATE ON options
+        FOR EACH ROW
+        WHEN NEW.updated_at = OLD.updated_at         -- only if caller didn't change it
+        BEGIN
+          UPDATE options
           SET    updated_at = CURRENT_TIMESTAMP
           WHERE  rowid = NEW.rowid;
         END;
