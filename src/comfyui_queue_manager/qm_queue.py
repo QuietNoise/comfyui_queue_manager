@@ -83,6 +83,9 @@ class QM_Queue:
                 case "archive":
                     status = 3  # archived items
                     order_string = "ORDER BY updated_at"
+                case "completed":
+                    status = 2  # completed items
+                    order_string = "ORDER BY updated_at"
 
             where_clauses = ["status = ?"]
             params = [status]
@@ -136,9 +139,18 @@ class QM_Queue:
                 },
             )
 
-    def get_full_queue(self, archive=False, filters=None):
+    def get_full_queue(self, route="queue", filters=None):
         with self.native_queue.mutex:
-            where_string, params = self.get_filters(filters, ["status = 0 OR status = 1" if not archive else "status = 3"])
+            status_query = ""
+            match route:
+                case "queue":
+                    status_query = "status = 0 OR status = 1"  # pending or running
+                case "archive":
+                    status_query = "status = 3"  # archived
+                case "completed":
+                    status_query = "status = 2"  # completed
+
+            where_string, params = self.get_filters(filters, [status_query])
 
             rows = read_query(
                 f"""

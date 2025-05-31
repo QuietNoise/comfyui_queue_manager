@@ -23,7 +23,7 @@ class QM_Server:
             filters = self.get_filters(request)
 
             route = request.query.get("route", "queue")
-            if route not in ["queue", "archive"]:
+            if route not in ["queue", "archive", "completed"]:
                 return web.json_response({"error": "Invalid route"}, status=400)
 
             # pending items
@@ -146,11 +146,14 @@ class QM_Server:
         @PromptServer.instance.routes.get("/queue_manager/export")
         async def export_queue(request):
             # Is there 'archive' in query string?
-            archive = request.query.get("archive", "false").lower() == "true"
+            route = request.query.get("route", "queue").lower()
+            if route not in ["queue", "archive", "completed"]:
+                return web.json_response({"error": "Invalid route"}, status=400)
+
             filters = self.get_filters(request)
 
             # Export the queue
-            json_data = self.queue.get_full_queue(archive, filters)
+            json_data = self.queue.get_full_queue(route, filters)
 
             # Get filter values from the request so we can include them in the export filename
             filter_values = []
@@ -169,7 +172,7 @@ class QM_Server:
             response = web.json_response(json_data)
             # file name: comfyui-queue-export-[current-date-and-time].json
             response.headers["Content-Disposition"] = 'attachment; filename="comfyui-{}-export-{}.json"'.format(
-                ("archive" if archive else "queue") + filter_values, datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                route + filter_values, datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             )
             response.headers["Content-Type"] = "application/json"
             return response

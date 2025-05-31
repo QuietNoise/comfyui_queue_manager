@@ -410,7 +410,10 @@ export default function RootLayout({children}) {
           <button className={"button"} onClick={takeOver}>🎯 Take over focus</button>
         </div>
       </section>
+
+      {/* Tabs Nav */}
       <div className="tabs">
+        {/* Queue */}
         <button
           className={"tab" + (appStatus.route === 'queue' ? ' dark:bg-neutral-800 bg-neutral-200 active' : '')}
           onClick={() => {
@@ -418,6 +421,8 @@ export default function RootLayout({children}) {
           }}
         >Queue
         </button>
+
+        {/* Archive */}
         <button
           className={"tab archive" + (appStatus.route === 'archive' ? ' active' : '')}
           onClick={() => {
@@ -425,6 +430,15 @@ export default function RootLayout({children}) {
           }}
         >Archive
         </button>
+
+        {/* Completed */}
+        <button className={"tab completed" + (appStatus.route === 'completed' ? ' active' : '')}
+                onClick={() => {
+                  setAppStatus(prev => ({...prev, route: 'completed'}));
+                }}
+        >Completed
+        </button>
+
       </div>
       {isFilterOn() &&
         <div className="filters flex items-center p-2">
@@ -546,7 +560,7 @@ export default function RootLayout({children}) {
                     </svg>
                     Run All {isFilterOn() ? "*" : ""}
                   </button>
-                  <a href={baseURL + "queue_manager/export" + appendFilters("?archive=true")}
+                  <a href={baseURL + "queue_manager/export" + appendFilters("?route=archive")}
                      className="hover:bg-neutral-700 dark:bg-teal-700 bg-teal-200 text-neutral-900  py-1 px-2 rounded mr-1 border-0">📤
                     Export {isFilterOn() ? "*" : "Archive"}
                   </a>
@@ -556,29 +570,38 @@ export default function RootLayout({children}) {
                   </button>
                 </>
               }
+              {appStatus.route === 'completed' &&
+                <>
+                  <a href={baseURL + "queue_manager/export" + appendFilters("?route=completed")}
+                     className="hover:bg-neutral-700 dark:bg-teal-700 bg-teal-200 text-neutral-900  py-1 px-2 rounded mr-1 border-0">📤
+                    Export {isFilterOn() ? "*" : "Completed"}
+                  </a>
+                </>
+              }
             </>
 
           }
 
-
-          <form
-            method="post"
-            encType="multipart/form-data"
-            className={"import-form"}
-          >
-            <input
-              id="uploadQueueForm"
-              type="file"
-              name="queue_json"
-              accept=".json"
-              required
-              hidden
-              onChange={uploadQueue}
-            />
-            <label htmlFor={"uploadQueueForm"}
-                   className={"hover:bg-neutral-700 py-1 px-2 rounded mr-1 border-0 dark:bg-teal-900 bg-teal-300"}>📁
-              Import {appStatus.route === 'queue' ? 'Queue' : 'Archive'}</label>
-          </form>
+          {['queue', 'archive'].includes(appStatus.route) &&
+            <form
+              method="post"
+              encType="multipart/form-data"
+              className={"import-form"}
+            >
+              <input
+                id="uploadQueueForm"
+                type="file"
+                name="queue_json"
+                accept=".json"
+                required
+                hidden
+                onChange={uploadQueue}
+              />
+              <label htmlFor={"uploadQueueForm"}
+                     className={"hover:bg-neutral-700 py-1 px-2 rounded mr-1 border-0 dark:bg-teal-900 bg-teal-300"}>📁
+                Import {appStatus.route === 'queue' ? 'Queue' : 'Archive'}</label>
+            </form>
+          }
         </div>
       </footer>
       </body>
