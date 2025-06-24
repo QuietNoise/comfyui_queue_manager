@@ -5,12 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "comfyui_queue_manager"
 version = "0.0.1"
-description = "Nodes and extension supporting more streamlined prompt queue management."
+description = "An extension supporting more streamlined prompt queue management."
 authors = [
-  {name = "QuietNoise"}
+  {name = "Edgerunner"}
 ]
 readme = "README.md"
-license = {text = "MIT license"}
+license = {file = "LICENSE"}
 classifiers = []
 dependencies = [
 
@@ -29,10 +29,11 @@ dev = [
 [project.urls]
 bugs = "https://github.com/QuietNoise/comfyui_queue_manager/issues"
 homepage = "https://github.com/QuietNoise/comfyui_queue_manager"
+repository = "https://github.com/QuietNoise/comfyui_queue_manager"
 
 
 [tool.comfy]
-PublisherId = "QuietNoise"
+PublisherId = "edgerunner"
 DisplayName = "ComfyUI Queue Manager"
 Icon = ""
 
