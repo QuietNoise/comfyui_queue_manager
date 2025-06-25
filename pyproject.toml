@@ -27,9 +27,9 @@ dev = [
 ]
 
 [project.urls]
-bugs = "https://github.com/QuietNoise/comfyui_queue_manager/issues"
-homepage = "https://github.com/QuietNoise/comfyui_queue_manager"
-repository = "https://github.com/QuietNoise/comfyui_queue_manager"
+bugs = "https://github.com/QuietNoise/ComfyUI-Queue-Manager/issues"
+homepage = "https://github.com/QuietNoise/ComfyUI-Queue-Manager"
+Repository = "https://github.com/QuietNoise/ComfyUI-Queue-Manager"
 
 
 [tool.comfy]
