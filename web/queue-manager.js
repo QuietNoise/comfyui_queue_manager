@@ -1,4 +1,4 @@
-import { QM_ENVIRONMENT, QM_DEV_URL, QM_PROD_URL, QueueManagerURL } from './js/config.js';
+import {QM_ENVIRONMENT, QM_DEV_URL, QM_PROD_URL, QueueManagerURL, QueueManagerOrigin} from './js/config.js';
 import {postMessageToIframe, postStatusMessageToIframe} from './js/functions.js';
 
 import { app } from '../../scripts/app.js'
@@ -103,7 +103,7 @@ app.registerExtension({
      * When workflow is received from iframe then load it into ComfyUI
      */
     window.addEventListener("message", (event) => {
-      if (event.origin !== QueueManagerURL) return;
+      if (event.origin !== QueueManagerOrigin) return;
       const { type, workflow, number } = event.data;
       if (type === "QM_LoadWorkflow" && workflow) {
         // e.g. forward into ComfyUI’s API

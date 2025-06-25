@@ -1,4 +1,4 @@
-import { QueueManagerURL } from './config.js';
+import {QueueManagerOrigin, QueueManagerURL} from './config.js';
 
 function theIframe() {
   return document.querySelector(".comfyui-queue-manager iframe");
@@ -22,6 +22,6 @@ export function postMessageToIframe(message, type) {
     iframe.contentWindow.postMessage({
       type: type,
       message: message
-    }, QueueManagerURL);
+    }, QueueManagerOrigin);
   }
 }
