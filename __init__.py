@@ -4,7 +4,7 @@ __all__ = [
     "WEB_DIRECTORY",
 ]
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 from .src.comfyui_queue_manager.queue_manager import QueueManager
 
@@ -16,5 +16,5 @@ from .src.comfyui_queue_manager.queue_manager import QueueManager
 # PromptServer.instance.app.on_startup.append(on_ready)
 
 queueManager = QueueManager(__version__)
-
+NODE_CLASS_MAPPINGS = {}
 WEB_DIRECTORY = "./web"
