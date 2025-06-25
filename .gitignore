@@ -106,3 +106,4 @@ cookiecutter-pypackage-env/
 # outputs
 /queue.json
 /data/
+/node.zip
