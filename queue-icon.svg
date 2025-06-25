@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Message-Queue--Streamline-Carbon" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 16 16">
+  <!-- Generator: Adobe Illustrator 29.6.0, SVG Export Plug-In . SVG Version: 2.1.1 Build 207)  -->
+  <defs>
+    <style>
+      .st0 {
+        fill: #fff;
+      }
+
+      .st1 {
+        fill: none;
+      }
+    </style>
+  </defs>
+  <rect class="st0" y="0" width="16" height="16" rx="2.3" ry="2.3"/>
+  <path d="M14,14H2c-.6,0-1-.4-1-1v-2.5h1v2.5h12v-2.5h1v2.5c0,.6-.4,1-1,1Z"/>
+  <path d="M3.5,10.5h9v1H3.5v-1Z"/>
+  <path d="M3.5,8h9v1H3.5v-1Z"/>
+  <path d="M3.5,5.5h9v1H3.5v-1Z"/>
+  <path d="M3.5,3h9v1H3.5v-1Z"/>
+  <path id="_Transparent_Rectangle_" class="st1" d="M0,0h16v16H0V0Z"/>
+</svg>

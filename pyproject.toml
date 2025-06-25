@@ -35,7 +35,7 @@ repository = "https://github.com/QuietNoise/comfyui_queue_manager"
 [tool.comfy]
 PublisherId = "edgerunner"
 DisplayName = "ComfyUI Queue Manager"
-Icon = ""
+Icon = "https://raw.githubusercontent.com/QuietNoise/ComfyUI-Queue-Manager/refs/heads/main/queue-icon.svg"
 
 [tool.setuptools.package-data]
 "*" = ["*.*"]
