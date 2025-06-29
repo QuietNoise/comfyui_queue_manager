@@ -6,7 +6,7 @@ __all__ = [
     "WEB_DIRECTORY",
 ]
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 
 from .src.comfyui_queue_manager.queue_manager import QueueManager
 from .src.comfyui_queue_manager.nodes import NODE_CLASS_MAPPINGS
