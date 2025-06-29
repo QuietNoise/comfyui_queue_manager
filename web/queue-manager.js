@@ -49,6 +49,11 @@ app.registerExtension({
           }
         });
 
+        // WebSocket messages
+        // app.api.socket.addEventListener('message', (event) => {
+        //   console.log(event.data);
+        // });
+
         // Check if queue is paused (will trigger the event to update the button icon)
         try {
           const response = await fetch(`/queue_manager/playback`);
