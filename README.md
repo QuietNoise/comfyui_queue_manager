@@ -32,7 +32,7 @@ An extension supporting more streamlined prompt queue management.
 ## Roadmap
 In no particular order, just some ideas I have for the future of this extension.
 - [ ] Options. Toggles, big red buttons, levers and valves to control Queue Manager's behavior. Now everything is hardcoded.
-- [ ] Queue Manager nodes. On top of Workflow Name node add some other queue related strings you could use to streamline your workflows.
+- [ ] Queue Manager node. Workflow name string and some other strings you could use to streamline file names etc. for your workflows.
 - [ ] Bin. Can't think of a use case for it yet but I feel like it should be there at some stage.
 - [ ] Cover images, thumbnails, previews of rendered images in the queue. In other words what we have in core queue History with some spices added.
 - [ ] More columns in the queue table. Suggest your favourites.
@@ -97,6 +97,7 @@ To restore the client focus, click the three vertical dots menu and select `Take
 ### Workflow Name node
 You can use the Workflow Name node to get the name of the currently running workflow.
 Typical use case is to connect the `workflow_name` output to a node that accepts a string input, like **Save Image**'s `filename_prefix`, to have output images saved with the workflow's name as a prefix.
+
 ![workflow_name_use_case.png](web/docs/workflow_name_use_case.png)
 
 ## Development
