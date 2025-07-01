@@ -2,12 +2,29 @@
 
 An extension supporting more streamlined prompt queue management.
 
+## Table of Contents
+- [Quickstart](#quickstart)
+- [Important](#important)
+- [Features](#features)
+- [Compatibility](#compatibility)
+- [Roadmap](#roadmap)
+- [Manual](#manual)
+  - [Pause / Resume Queue](#pause--resume-queue)
+  - [Running and main Queue Manager window](#running-and-main-queue-manager-window)
+  - [Archive](#archive)
+  - [Export and Import](#export-and-import)
+  - [Filter by workflow](#filter-by-workflow)
+  - [Restore client focus](#restore-client-focus)
+  - [Workflow Name node](#workflow-name-node)
+- [Development](#development)
+- [Have fun!](#have-fun)
+
 ## Quickstart
 
 1. Install [ComfyUI](https://docs.comfy.org/get_started).
-1. Install [ComfyUI-Manager](https://github.com/ltdrdata/ComfyUI-Manager) if it is not already installed (recent versions come with it already).
-1. Look up this extension in ComfyUI-Manager (ComfyUI Queue Manager). If you are installing manually, clone this repository under `ComfyUI/custom_nodes`.
-1. Restart ComfyUI.
+2. Install [ComfyUI-Manager](https://github.com/ltdrdata/ComfyUI-Manager) if it is not already installed (recent versions come with it already).
+3. Look up this extension in ComfyUI-Manager (ComfyUI Queue Manager). If you are installing manually, clone this repository under `ComfyUI/custom_nodes`.
+4. Restart ComfyUI.
 
 ## Important
 
@@ -32,7 +49,7 @@ An extension supporting more streamlined prompt queue management.
 ## Roadmap
 In no particular order, just some ideas I have for the future of this extension.
 - [ ] Options. Toggles, big red buttons, levers and valves to control Queue Manager's behavior. Now everything is hardcoded.
-- [ ] Queue Manager node. Workflow name string and some other strings you could use to streamline file names etc. for your workflows.
+- [ ] Queue Manager nodes. On top of Workflow Name node add some other queue related strings you could use to streamline your workflows i.e. custom file names.
 - [ ] Bin. Can't think of a use case for it yet but I feel like it should be there at some stage.
 - [ ] Cover images, thumbnails, previews of rendered images in the queue. In other words what we have in core queue History with some spices added.
 - [ ] More columns in the queue table. Suggest your favourites.
@@ -90,7 +107,7 @@ Asterisk `*` next to the button label indicates that the action will be applied 
 ### Restore client focus
 When you restart ComfyUI or browser, you might lose the client focus. When that happens the progress of running renders in ComfyUI will no longer update (no progress view, no previews, no highlights which nodes is being executed).
 
-To restore the client focus, click the three vertical dots menu and select `Take over focus`.
+To restore the client focus, click the three vertical dots menu and select `Take over focus`. The effect will take place after currently running job (if any) finishes.
 
 ![focus.png](readme-img/focus.png)
 
@@ -109,6 +126,7 @@ Nevertheless, here are some pointers if you have some PR ideas for critical fixe
 - Server side (python) part of the extension is in `/src/comfyui_queue_manager`
 - Source code for the Next.js app is in `/src/gui`
 - database is in `/data/` (sqlite files are created automatically on first run)
+
 Better docs will come later.
 
 ## Have fun!
