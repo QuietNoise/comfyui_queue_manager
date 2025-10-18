@@ -126,7 +126,7 @@ app.registerExtension({
     app.extensionManager.registerSidebarTab({
       id: "comfyui-queue-manager",
       icon: "pi pi-list-check",
-      title: "search",
+      title: "Q Manager",
       tooltip: "Queue Manager",
       type: "custom",
       render: (el) => {
