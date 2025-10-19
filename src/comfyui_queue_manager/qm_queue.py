@@ -63,7 +63,7 @@ class QM_Queue:
     # NOTE: This hijack will make native queue API endpoint to not return pending items.
     # We do this to avoid bottleneck in the native queue when it goes massive
     # and to avoid duplicate bandwidth for requesting queue by execution store and queue manager.
-    def get_current_queue(self, page=0, page_size=0, route="queue", filters=None):
+    def get_current_queue(self, page=0, page_size=0, route="queue", filters=None, return_meta=False):
         # logging.info('get_current_queue: %d, %d', page, page_size)
         # Get the first page of the current queue
 
@@ -121,16 +121,21 @@ class QM_Queue:
 
                     pending.append(tuple(item))
 
-            return (
-                running,
-                pending,
-                {
-                    "total": total_rows,
-                    "page": page,
-                    "page_size": page_size,
-                    "last_page": last_page,
-                },
-            )
+            # If called without parameters, return all three values
+
+            if return_meta:
+                return (
+                    running,
+                    pending,
+                    {
+                        "total": total_rows,
+                        "page": page,
+                        "page_size": page_size,
+                        "last_page": last_page,
+                    },
+                )
+            else:
+                return running, pending
 
     def get_full_queue(self, route="queue", filters=None):
         with self.native_queue.mutex:
@@ -407,13 +412,16 @@ class QM_Queue:
 
             return archived
 
-    def delete_running(self):
+    def delete_running(self, prompt_id=None):
         with self.native_queue.mutex:
             # Interrupt the queue
-            return write_query("""
+            return write_query(
+                """
                 DELETE FROM queue
-                WHERE status = 1
-            """)
+                WHERE status = 1 AND (? IS NULL OR prompt_id = ?)
+            """,
+                (prompt_id, prompt_id),
+            )
 
     def play_items(self, items, front, client_id=None):
         """

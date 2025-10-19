@@ -27,7 +27,7 @@ class QM_Server:
 
             # pending items
             # TODO: Get page size from extension settings
-            running, pending, info = self.queue.get_current_queue(page, 100, route=route, filters=filters)
+            running, pending, info = self.queue.get_current_queue(page, 100, route=route, filters=filters, return_meta=True)
 
             # Return the archive object as JSON
             return web.json_response({"running": running, "pending": pending, "info": info})
@@ -222,8 +222,16 @@ class QM_Server:
                         if "delete" in json_data:
                             self.queue.delete_items(json_data["delete"])
                     case "/api/interrupt":
-                        # delete the currently running item
-                        total = self.queue.delete_running()
+                        json_data = await request.json()
+                        total = 0
+
+                        if ("prompt_id" in json_data) and (json_data["prompt_id"] is not None):
+                            # delete specific item
+                            total = self.queue.delete_running(json_data["prompt_id"])
+                            # logging.info(f"[Queue Manager] Interrupting item {json_data["prompt_id"]}")
+                        else:
+                            # delete the currently running item
+                            total = self.queue.delete_running()
                         logging.info(f"[Queue Manager] Deleted {total} items from the queue")
 
             return await handler(request)
