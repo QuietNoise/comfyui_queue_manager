@@ -131,8 +131,11 @@ app.registerExtension({
       type: "custom",
       render: (el) => {
         el.innerHTML = `
-          <style>.p-splitter[data-p-resizing="true"] .comfyui-queue-manager {pointer-events: none}</style>
-          <div class='comfyui-queue-manager flex flex-col' style="height: calc(100vh - var(--comfy-topbar-height) - 4px);">
+          <style>
+            .p-splitter[data-p-resizing="true"] .comfyui-queue-manager {pointer-events: none;}
+            .comfyui-queue-manager { height: 100% }
+          </style>
+          <div class='comfyui-queue-manager flex flex-col'>
             <header class="px-2 py-1 text-sm header">
               QUEUE MANAGER
             </header>
@@ -156,6 +159,9 @@ app.registerExtension({
           };
           document.head.appendChild(style);
         }
+
+        // resize container
+        el.style.height = '100%';
       },
     });
 
