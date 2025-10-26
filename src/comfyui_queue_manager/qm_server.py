@@ -5,7 +5,7 @@ from server import PromptServer
 import logging, json
 from datetime import datetime, timezone
 
-from .helpers import sanitize_filename
+from .helpers import sanitize_filename, requestJson
 from .inc.exceptions import BadRouteException
 
 
@@ -215,14 +215,14 @@ class QM_Server:
             if request.method == "POST":
                 match request.path:
                     case "/api/queue":
-                        json_data = await request.json()
+                        json_data = await requestJson(request)
                         if "clear" in json_data:
                             if json_data["clear"]:
                                 self.queue.wipe_queue()
                         if "delete" in json_data:
                             self.queue.delete_items(json_data["delete"])
                     case "/api/interrupt":
-                        json_data = await request.json()
+                        json_data = await requestJson(request)
                         total = 0
 
                         if ("prompt_id" in json_data) and (json_data["prompt_id"] is not None):
