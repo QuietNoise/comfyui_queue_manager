@@ -16,6 +16,7 @@ An extension supporting more streamlined prompt queue management.
   - [Filter by workflow](#filter-by-workflow)
   - [Restore client focus](#restore-client-focus)
   - [Workflow Name node](#workflow-name-node)
+  - [External jobs](#external-jobs)
 - [Development](#development)
 - [Have fun!](#have-fun)
 
@@ -121,6 +122,7 @@ Typical use case is to connect the `workflow_name` output to a node that accepts
 - Some third parties that queue through API don't supply full ComfyUI workflow context (i.e. ComfyUI plugin for Krita).
 - Since these renders won't benefit from the Queue Manager features we delegate these jobs to native queue handler and mark as external.
 - These jobs will appear in the native queue side bar; and the Queue Manager itself will indicate if such job is currently running.
+
 ![external-job.png](readme-img/external-job.png)
 - Also any such jobs will always take precedence over items queued in Queue Manager.
 - **IMPORTANT! This accommodation for such external jobs is a workaround measure.** When I have time I will investigate if there is a better way to handle this scenario. To avoid potential conflicts and unexpected behavior it's recommended to avoid using such third party plugins while running jobs from Queue Manager (and vice versa).
