@@ -162,6 +162,7 @@ app.registerExtension({
 
         // resize container
         el.style.height = '100%';
+        el.parentElement.style.overflow = 'hidden';
       },
     });
 

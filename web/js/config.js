@@ -1,5 +1,5 @@
-// export const QM_ENVIRONMENT = "development"; // Any other value will be treated as production
-export const QM_ENVIRONMENT = "production";
+export const QM_ENVIRONMENT = "development"; // Any other value will be treated as production
+// export const QM_ENVIRONMENT = "production";
 
 export const QM_DEV_URL = "http://localhost:3000"; // The URL of the development server for nextjs project. Check front end README for Cross-Origin issues
 export const QM_PROD_URL = window.location.protocol + "//" + window.location.host +

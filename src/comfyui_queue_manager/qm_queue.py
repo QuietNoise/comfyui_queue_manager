@@ -194,7 +194,16 @@ class QM_Queue:
 
     # NOTE: We keep only up to one item in native "pending" queue (to avoid bottleneck for large queues).
     def queue_put(self, item):  # comfy server calls this method
+        # logging.info(json.dumps(item))
+
         with self.native_queue.mutex:
+            # if item[3]["extra_pnginfo"] is not set then we pass it to original put
+            # It suggests request does not come from ComfyUI but from external source (like API or some app's plugin) - as such they won't benefit from queue manager features
+            if "extra_pnginfo" not in item[3] or "workflow" not in item[3]["extra_pnginfo"]:
+                # item = tuple(item)
+                self.original_put(tuple(item))
+                return
+
             # Add the item to the database
             write_query(
                 """
@@ -229,6 +238,7 @@ class QM_Queue:
                 if item is not None:
                     # Convert the item to a tuple
                     item = tuple(json.loads(item[1]))
+                    logging.info(item)
                     self.original_put(item)
             else:  # just notify frontend that we have a new item
                 PromptServer.instance.queue_updated()
@@ -282,11 +292,11 @@ class QM_Queue:
                 """,
                     (queue_item[0][1],),
                 )
-                logging.info(
-                    "[Queue Manager] Executing workflow: \033[33m%s\033[0m at %s",
-                    queue_item[0][3]["extra_pnginfo"]["workflow"]["workflow_name"],
-                    queue_item[0][0],
-                )
+                # logging.info(
+                #     "[Queue Manager] Executing workflow: \033[33m%s\033[0m at %s",
+                #     queue_item[0][3]["extra_pnginfo"]["workflow"]["workflow_name"],
+                #     queue_item[0][0],
+                # )
                 return queue_item  # (item, task_counter)
             else:
                 # No item in the queue
