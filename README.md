@@ -16,6 +16,7 @@ An extension supporting more streamlined prompt queue management.
   - [Filter by workflow](#filter-by-workflow)
   - [Restore client focus](#restore-client-focus)
   - [Workflow Name node](#workflow-name-node)
+  - [External jobs](#external-jobs)
 - [Development](#development)
 - [Have fun!](#have-fun)
 
