@@ -171,7 +171,7 @@ class QM_Queue:
                 WHERE status = 0 OR status = 1
             """)[0]  # total
 
-    def task_done(self, item_id, history_result, status: Optional["PromptQueue.ExecutionStatus"]):
+    def task_done(self, item_id, history_result, status: Optional["PromptQueue.ExecutionStatus"], process_item=None):
         with self.native_queue.mutex:
             # Mark the task as finished in the database
 
@@ -190,7 +190,11 @@ class QM_Queue:
                 # logging.info("[Queue Manager] Workflow finished: %s at %s", item[1], item[0])
 
                 # Call the original task_done method
-                self.original_task_done(item_id, history_result, status)
+                if (process_item is None) or (not process_item):  # accommodate original method signature
+                    self.original_task_done(item_id, history_result, status)
+                    return
+
+                self.original_task_done(item_id, history_result, status, process_item)
 
     # NOTE: We keep only up to one item in native "pending" queue (to avoid bottleneck for large queues).
     def queue_put(self, item):  # comfy server calls this method
@@ -238,7 +242,6 @@ class QM_Queue:
                 if item is not None:
                     # Convert the item to a tuple
                     item = tuple(json.loads(item[1]))
-                    logging.info(item)
                     self.original_put(item)
             else:  # just notify frontend that we have a new item
                 PromptServer.instance.queue_updated()

@@ -26,7 +26,7 @@ class QM_Server:
             route = self.get_the_route(request)
 
             # pending items
-            # TODO: Get page size from extension settings
+            # SIML: Get page size from extension settings
             running, pending, info = self.queue.get_current_queue(page, 100, route=route, filters=filters, return_meta=True)
 
             # Return the archive object as JSON
