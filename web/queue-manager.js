@@ -3,7 +3,47 @@ import {postMessageToIframe, postStatusMessageToIframe} from './js/functions.js'
 
 import { app } from '../../scripts/app.js'
 
+async function AddPlayPauseButton(actionsContainer) {
+  const pauseButtonHTML = `
+      <button class="pause-button p-button p-component p-button-icon-only p-button-danger p-button-text" type="button" aria-label="Pause queue" data-pc-name="button" data-pd-tooltip="true">
+        <span class="p-button-icon pi pi-pause" data-pc-section="icon"></span>
+        <span class="p-button-label" data-pc-section="label">&nbsp;</span>
+      </button>`;
 
+  let pauseButton = null;
+  let buttonIcon = null;
+  // Add pause button if not already present
+    if (!actionsContainer.querySelector('.pause-button')) {
+      actionsContainer.insertAdjacentHTML('beforeend', pauseButtonHTML);
+      pauseButton = actionsContainer.querySelector('.pause-button');
+      buttonIcon = actionsContainer.querySelector('.pause-button .p-button-icon');
+      pauseButton.addEventListener('click', async function () {
+        try {
+          // POST item[1] as json
+          const response = await fetch(`/queue_manager/toggle`);
+        } catch (error) {
+          console.error("Error fetching queue items:", error);
+        }
+      });
+    }
+
+    app.api.addEventListener("queue-manager-toggle-queue", function (event) {
+      if (event.detail.paused) { // remove pi-play and add pi-pause to buttonIcon
+        buttonIcon.classList.remove('pi-pause');
+        buttonIcon.classList.add('pi-caret-right');
+      } else {
+        buttonIcon.classList.remove('pi-caret-right');
+        buttonIcon.classList.add('pi-pause');
+      }
+    });
+
+    // Check if queue is paused (will trigger the event to update the button icon)
+    try {
+      const response = await fetch(`/queue_manager/playback`);
+    } catch (error) {
+      console.error("Error fetching queue items:", error);
+    }
+}
 
 /**
  * Main function wrapping plugin's core functionality
@@ -13,54 +53,35 @@ app.registerExtension({
   // async init() {
   // },
   async setup() {
-    const pauseButtonHTML = `
-      <button data-v-43776fb9="" class="pause-button p-button p-component p-button-icon-only p-button-danger p-button-text" type="button" aria-label="Pause queue" data-pc-name="button" data-pd-tooltip="true">
-        <span class="p-button-icon pi pi-pause" data-pc-section="icon"></span>
-        <span class="p-button-label" data-pc-section="label">&nbsp;</span>
-      </button>`
-
-    // when window fully loaded
-    let pauseButton = null;
-    let buttonIcon = null;
     setTimeout(async function () {
       const actionsContainer = document.querySelector('.execution-actions');
-        // Add pause button if not already present
-        if (!actionsContainer.querySelector('.pause-button')) {
-          actionsContainer.insertAdjacentHTML('beforeend', pauseButtonHTML);
-          pauseButton = actionsContainer.querySelector('.pause-button');
-          buttonIcon = actionsContainer.querySelector('.pause-button .p-button-icon');
-          pauseButton.addEventListener('click', async function () {
-            try {
-              // POST item[1] as json
-              const response = await fetch(`/queue_manager/toggle`);
-            } catch (error) {
-              console.error("Error fetching queue items:", error);
+
+      if (actionsContainer) {
+        await AddPlayPauseButton(actionsContainer);
+        return;
+      }
+
+      const observer = new MutationObserver(mutations => {
+        for (const mutation of mutations) {
+          for (const node of mutation.addedNodes) {
+            if (node instanceof HTMLElement) {
+              if (node.matches('.execution-actions')) {
+                observer.disconnect();
+                AddPlayPauseButton(node);
+                return;
+              }
+              const found = node.querySelector('.execution-actions');
+              if (found) {
+                observer.disconnect();
+                AddPlayPauseButton(found);
+                return;
+              }
             }
-          });
-        }
-
-        app.api.addEventListener("queue-manager-toggle-queue", function (event) {
-          if (event.detail.paused) { // remove pi-play and add pi-pause to buttonIcon
-            buttonIcon.classList.remove('pi-pause');
-            buttonIcon.classList.add('pi-caret-right');
-          } else {
-            buttonIcon.classList.remove('pi-caret-right');
-            buttonIcon.classList.add('pi-pause');
           }
-        });
-
-        // WebSocket messages
-        // app.api.socket.addEventListener('message', (event) => {
-        //   console.log(event.data);
-        // });
-
-        // Check if queue is paused (will trigger the event to update the button icon)
-        try {
-          const response = await fetch(`/queue_manager/playback`);
-        } catch (error) {
-          console.error("Error fetching queue items:", error);
         }
+      });
 
+      observer.observe(document.body, { childList: true, subtree: true });
     });
 
 
