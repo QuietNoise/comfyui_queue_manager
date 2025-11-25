@@ -169,13 +169,13 @@ app.registerExtension({
 
     const _apiQueuePrompt = app.api.queuePrompt;
 
-    app.api.queuePrompt = function(n, data) {
+    app.api.queuePrompt = async function(n, data, ...args) {
       // Inject workflow name
       // SIML: Perhaps add a setting to enable/disable this behaviour (privacy concern? the workflow name will travel all the way to the generated PNG)
       data.workflow.workflow_name = app.extensionManager.workflow.activeWorkflow.filename;
 
 
-      return _apiQueuePrompt.call(app, n, data);
+      return await _apiQueuePrompt.call(app.api, n, data, ...args);
     };
 
     // app.api.addEventListener("promptQueued", function (e) {
