@@ -25,11 +25,17 @@ export default function Queue( { data, isLoading, error, progress } ) {
     );
   }
 
-  function QueueItemRow({item, className, loader, index, mode}) {
+    // minimal helper to decide mode for an item
+  function getMode(item) {
+    return item[3].extra_pnginfo ? 'running' : 'external'
+  }
+
+  function QueueItemRow({item, className, loader, index}) {
     const {appStatus, setAppStatus} = useContext(AppContext)
+    const mode = getMode(item)
 
     async function cancelQueueItem() {
-      const route = (mode === 'running' || mode === 'external') ? 'interrupt' : 'queue';
+      const route = (className === 'running') ? 'interrupt' : 'queue';
 
       await apiCall(`api/${route}`, {
         delete: [item[1]],
@@ -80,12 +86,12 @@ export default function Queue( { data, isLoading, error, progress } ) {
           }
         </td>
         <td className="px-3 py-1 text-left name">
-          <button className={'plain'} onClick={filterByWorkflow}>
-            {mode === 'external'
-              ? "External job"
-              : (item[3].extra_pnginfo.workflow.workflow_name ? item[3].extra_pnginfo.workflow.workflow_name : "")
-            }
-          </button>
+          {mode === 'external'
+            ? <span className={'plain'}>External job - {item?.[1]}</span>
+            : <button className={'plain'} onClick={filterByWorkflow}>
+                {item?.[3]?.extra_pnginfo?.workflow?.workflow_name ?? ""}
+              </button>
+          }
         </td>
         <td className={'px-3 py-1 text-right actions'}>
           <Button className={"dark:bg-red-900 bg-rose-200 text-red-900"} onClick={cancelQueueItem}>Delete</Button>
@@ -93,7 +99,7 @@ export default function Queue( { data, isLoading, error, progress } ) {
           {mode !== 'external' &&
             <Button className={"dark:bg-green-900 bg-green-300"} onClick={loadQueueItem}>Load</Button>
           }
-          {appStatus.route === 'queue' && mode !== 'running' && mode !== 'external' &&
+            {appStatus.route === 'queue' && className === 'pending' &&
             <Button className={"dark:bg-orange-900 bg-orange-200"} onClick={archiveQueueItem}>Archive</Button>
           }
           {appStatus.route === 'archive' &&
@@ -138,7 +144,7 @@ export default function Queue( { data, isLoading, error, progress } ) {
         </thead>
         <tbody>
           {state.running.map(item => (
-            <QueueItemRow item={item} key={item[1]} className={'running'} loader={true} mode={ item[3].extra_pnginfo ? 'running' : 'external'} />
+            <QueueItemRow item={item} key={item[1]} className={'running'} loader={true} />
           ))}
           {state.pending.map((item, index) => (
             <QueueItemRow item={item} key={item[3].db_id} className={'pending'} index={index} />
