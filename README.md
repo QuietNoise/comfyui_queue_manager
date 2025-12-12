@@ -17,6 +17,9 @@ An extension supporting more streamlined prompt queue management.
   - [Restore client focus](#restore-client-focus)
   - [Workflow Name node](#workflow-name-node)
   - [External jobs](#external-jobs)
+  - [Comfy API / Partner Nodes](#comfy-api--partner-nodes)
+- [Troubleshooting](#troubleshooting)
+- [Tips and words of wisdom](#tips-and-words-of-wisdom)
 - [Development](#development)
 - [Have fun!](#have-fun)
 
@@ -46,6 +49,13 @@ An extension supporting more streamlined prompt queue management.
 - This extension hijacks several native queue processes from ComfyUI and front end and alters / disables some of them to provide a more streamlined experience.
 - This extension might be incompatible with other extensions that directly manipulate or read the native queue object.
 - Other than that an effort was made to retain compatibility as much as possible (internal events, messages, queue api endpoints still work as before).
+
+### IMPORTANT! Multiple accounts / users are not supported
+- This extension does not support multiple accounts / users.
+- If you intend your ComfyUI instance to be used by multiple users logged in to Comfy.org at the same time then this extension will produce unexpected results.
+- It's highly recommended to avoid using this extension in such multi-user scenarios as users will see each other's jobs, might unintentionally end-up using each other's Comfy Cloud credits etc.
+- Let me reiterate: this extension is NOT intended to be used to manage queues in multi-account ComfyUI deployments.
+- If there is enough demand for multi-user support I will consider adding it in future releases.
 
 ## Roadmap
 In no particular order, just some ideas I have for the future of this extension.
@@ -127,6 +137,34 @@ Typical use case is to connect the `workflow_name` output to a node that accepts
 - Also any such jobs will always take precedence over items queued in Queue Manager.
 - **IMPORTANT! This accommodation for such external jobs is a workaround measure.** When I have time I will investigate if there is a better way to handle this scenario. To avoid potential conflicts and unexpected behavior it's recommended to avoid using such third party plugins while running jobs from Queue Manager (and vice versa).
 
+### Comfy API / Partner Nodes
+1. This extension supports usage of Comfy API (Partner Nodes) in queued workflows.
+2. To use Partner Nodes in queued workflows you must be logged in to Comfy.org using Comfy API Key (https://docs.comfy.org/account/login#logging-in-with-an-api-key).
+3. When your Comfy API Key is deleted or revoked then all jobs in the queue that were queued with that key and used Partner Nodes, will fail. To run such jobs you need to requeue them; the best way to do it is to export them, log-in with your new Comfy API Key and then import the exported items back.
+4. **IMPORTANT!** When you queue jobs while logged in with Comfy API key then those jobs will get through (and use your credits if you used Partner nodes) even if you log out from ComfyUI or Comfy.org.
+5. Conversely, if you queue jobs with Partner nodes while NOT logged in with Comfy API key then those jobs will NOT be able to use Partner nodes even if you log in later before running them. (See point 3. above for export-import workaround).
+
+## Troubleshooting
+#### I updated custom nodes and can no longer load items from queue or play from Archive or items imported from file.
+
+Sometimes updates to custom nodes introduce breaking changes to the node's internals that are incompatible with that node's old version. When that happens trying to play workflows with old version of the affected custom node will fail.
+
+There is no permanent fix for this. You can either re-create the affected workflows with the updated version of the custom node or downgrade the offending custom note to the same version as the node used to queue the workflow that failed.
+
+#### I updated ComfyUI and Queue Manager is no longer working properly.
+
+In rare cases updates to ComfyUI introduce breaking changes that affect Queue Manager functionality.
+Report the issue on the extension's GitHub page and I will try to address it as soon as possible.
+
+#### I exported queue to file and imported on another device but I can't play it there
+
+Similarly to points above, if the target device has different versions of custom nodes or different versions of ComfyUI they might be incompatible. There is no fix for that other than ensuring source and destination devices have same versions of ComfyUI and affected custom nodes.
+Check the error message in the ComfyUI terminal to identify the affected custom nodes.
+
+
+## Tips and words of wisdom
+- Before updating ComfyUI or custom nodes it's best to finish all queued and archived jobs to avoid potential incompatibility issues with new versions of ComfyUI or custom nodes.
+- While the ComfyUI Queue Manager offers data persistence between restarts and crashes as well as import/export functionality, it's not intended to provide a long term storage for queue jobs. Updates to ComfyUI and custom nodes might introduce breaking changes that will affect queued and archived jobs and make them unplayable. Run your queued and archived jobs as soon as possible to avoid such issues.
 
 
 ## Development

@@ -128,13 +128,15 @@ app.registerExtension({
     /**
      * When workflow is received from iframe then load it into ComfyUI
      */
-    window.addEventListener("message", (event) => {
+    window.addEventListener("message", async (event) => {
       if (event.origin !== QueueManagerOrigin) return;
       const { type, workflow, number } = event.data;
+
       if (type === "QM_LoadWorkflow" && workflow) {
         // e.g. forward into ComfyUI’s API
         app.loadGraphData(workflow, true, true, workflow.workflow_name + ' ' + number);
       }
+
       if (type === "QM_QueueManager_Hello") {
         event.source.postMessage(
           { type: "QM_QueueManager_Hello", clientId: app.api.clientId },
