@@ -1,11 +1,24 @@
 import {QM_ENVIRONMENT, QM_DEV_URL, QM_PROD_URL, QueueManagerURL, QueueManagerOrigin} from './js/config.js';
 import {postMessageToIframe, postStatusMessageToIframe} from './js/functions.js';
 
-import { app } from '../../scripts/app.js'
+import { app } from '../../scripts/app.js';
+
+function compareVersions(a, b) {
+  const pa = String(a).split('.').map(x => parseInt(x, 10) || 0);
+  const pb = String(b).split('.').map(x => parseInt(x, 10) || 0);
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i++) {
+    const na = pa[i] || 0;
+    const nb = pb[i] || 0;
+    if (na > nb) return 1;
+    if (na < nb) return -1;
+  }
+  return 0;
+}
 
 async function AddPlayPauseButton(actionsContainer) {
   const pauseButtonHTML = `
-      <button class="pause-button p-button p-component p-button-icon-only p-button-danger p-button-text" type="button" aria-label="Pause queue" data-pc-name="button" data-pd-tooltip="true">
+      <button class="pause-button p-button p-component p-button-icon-only p-button-danger p-button-text outline-hidden rounded-lg cursor-pointer p-0 size-8 text-xs !rounded-md border-none relative ml-2 mr-2 transition-colors duration-200 ease-in-out bg-secondary-background hover:bg-secondary-background-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-background" type="button" aria-label="Pause queue" title="Pause queue" data-pc-name="button" data-pd-tooltip="true">
         <span class="p-button-icon pi pi-pause" data-pc-section="icon"></span>
         <span class="p-button-label" data-pc-section="label">&nbsp;</span>
       </button>`;
@@ -27,15 +40,25 @@ async function AddPlayPauseButton(actionsContainer) {
       });
     }
 
-    app.api.addEventListener("queue-manager-toggle-queue", function (event) {
-      if (event.detail.paused) { // remove pi-play and add pi-pause to buttonIcon
-        buttonIcon.classList.remove('pi-pause');
-        buttonIcon.classList.add('pi-caret-right');
-      } else {
-        buttonIcon.classList.remove('pi-caret-right');
-        buttonIcon.classList.add('pi-pause');
-      }
-    });
+app.api.addEventListener("queue-manager-toggle-queue", function (event) {
+  if (!pauseButton || !buttonIcon) return;
+
+  const paused = !!event.detail.paused;
+
+  if (paused) {
+    // show "play" icon and set labels to "Resume"
+    buttonIcon.classList.remove('pi-pause');
+    buttonIcon.classList.add('pi-caret-right');
+    pauseButton.title = 'Resume queue';
+    pauseButton.setAttribute('aria-label', 'Resume queue');
+  } else {
+    // show "pause" icon and set labels to "Pause"
+    buttonIcon.classList.remove('pi-caret-right');
+    buttonIcon.classList.add('pi-pause');
+    pauseButton.title = 'Pause queue';
+    pauseButton.setAttribute('aria-label', 'Pause queue');
+  }
+});
 
     // Check if queue is paused (will trigger the event to update the button icon)
     try {
@@ -54,9 +77,20 @@ app.registerExtension({
   // },
   async setup() {
     setTimeout(async function () {
-      const actionsContainer = document.querySelector('.execution-actions');
+      let nodeSelector = null;
+
+      const current = typeof __COMFYUI_FRONTEND_VERSION__ !== 'undefined' ? __COMFYUI_FRONTEND_VERSION__  : '0.0.0';
+
+      if (compareVersions(current, '1.33.1') >= 0) {
+        nodeSelector = '.actionbar > .p-panel-content-container > .p-panel-content > div';
+      } else {
+        nodeSelector = '.execution-actions';
+      }
+
+      const actionsContainer = document.querySelector(nodeSelector);
 
       if (actionsContainer) {
+        console.log("Actions container found", actionsContainer);
         await AddPlayPauseButton(actionsContainer);
         return;
       }
@@ -65,15 +99,16 @@ app.registerExtension({
         for (const mutation of mutations) {
           for (const node of mutation.addedNodes) {
             if (node instanceof HTMLElement) {
-              if (node.matches('.execution-actions')) {
+              if (node.matches(nodeSelector)) {
                 observer.disconnect();
                 AddPlayPauseButton(node);
                 return;
               }
-              const found = node.querySelector('.execution-actions');
-              if (found) {
+
+              const foundActionbar = node.querySelector(nodeSelector);
+              if (foundActionbar) {
                 observer.disconnect();
-                AddPlayPauseButton(found);
+                AddPlayPauseButton(foundActionbar);
                 return;
               }
             }
