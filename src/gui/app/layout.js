@@ -157,6 +157,22 @@ export default function RootLayout({children}) {
     apiCall('queue_manager/takeover?client_id='+appStatus.clientId, null, "GET");
   }
 
+  async function clearPending() {
+    try {
+        // POST {"clear":true} to /api/queue
+        const response = await fetch(`${baseURL}api/queue`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({clear: true})
+        });
+      } catch (error) {
+        console.error("Error fetching queue items:", error);
+      }
+  }
+
+
   function isFilterOn() {
     return appStatus.filters && Object.keys(appStatus.filters).length > 0;
   }
@@ -545,10 +561,16 @@ export default function RootLayout({children}) {
                      className="hover:bg-neutral-700 dark:bg-teal-700 bg-teal-200 text-neutral-900 py-1 px-2 rounded mr-1 border-0 ">📤
                     Export {isFilterOn() ? "*" : "Queue"}
                   </a>
-                  {isFilterOn() &&
+                  {isFilterOn()
+                    ?
                     <button onClick={deleteFromQueue}
                             className="hover:bg-neutral-700 dark:bg-gray-800 bg-gray-200 dark:text-neutral-200 text-neutral-800 py-1 px-2 rounded mr-1 border-0 order-last ml-auto">
                       🗑️ Delete All *
+                    </button>
+                    :
+                    <button onClick={clearPending}
+                            className="hover:bg-neutral-700 dark:bg-gray-800 bg-gray-200 dark:text-neutral-200 text-neutral-800 py-1 px-2 rounded mr-1 border-0 order-last ml-auto">
+                      🗑️ Delete All Pending
                     </button>
                   }
                 </>
