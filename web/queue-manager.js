@@ -16,57 +16,141 @@ function compareVersions(a, b) {
   return 0;
 }
 
-async function AddPlayPauseButton(actionsContainer) {
+export async function AddPlayPauseButton(actionsContainer) {
   const pauseButtonHTML = `
-      <button class="pause-button p-button p-component p-button-icon-only p-button-danger p-button-text outline-hidden rounded-lg cursor-pointer p-0 size-8 text-xs !rounded-md border-none relative ml-2 mr-2 transition-colors duration-200 ease-in-out bg-secondary-background hover:bg-secondary-background-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-background" type="button" aria-label="Pause queue" title="Pause queue" data-pc-name="button" data-pd-tooltip="true">
-        <span class="p-button-icon pi pi-pause" data-pc-section="icon"></span>
-        <span class="p-button-label" data-pc-section="label">&nbsp;</span>
-      </button>`;
+    <button class="pause-button p-button p-component p-button-icon-only p-button-danger p-button-text outline-hidden rounded-lg cursor-pointer p-0 size-8 text-xs !rounded-md border-none relative ml-2 mr-2 transition-colors duration-200 ease-in-out bg-secondary-background hover:bg-secondary-background-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-background" type="button" aria-label="Pause queue" title="Pause queue" data-pc-name="button" data-pd-tooltip="true">
+      <span class="p-button-icon pi pi-pause" data-pc-section="icon"></span>
+      <span class="p-button-label" data-pc-section="label">&nbsp;</span>
+    </button>`;
 
   let pauseButton = null;
   let buttonIcon = null;
   // Add pause button if not already present
-    if (!actionsContainer.querySelector('.pause-button')) {
-      actionsContainer.insertAdjacentHTML('beforeend', pauseButtonHTML);
-      pauseButton = actionsContainer.querySelector('.pause-button');
-      buttonIcon = actionsContainer.querySelector('.pause-button .p-button-icon');
-      pauseButton.addEventListener('click', async function () {
-        try {
-          // POST item[1] as json
-          const response = await fetch(`/queue_manager/toggle`);
-        } catch (error) {
-          console.error("Error fetching queue items:", error);
-        }
-      });
-    }
-
-app.api.addEventListener("queue-manager-toggle-queue", function (event) {
-  if (!pauseButton || !buttonIcon) return;
-
-  const paused = !!event.detail.paused;
-
-  if (paused) {
-    // show "play" icon and set labels to "Resume"
-    buttonIcon.classList.remove('pi-pause');
-    buttonIcon.classList.add('pi-caret-right');
-    pauseButton.title = 'Resume queue';
-    pauseButton.setAttribute('aria-label', 'Resume queue');
-  } else {
-    // show "pause" icon and set labels to "Pause"
-    buttonIcon.classList.remove('pi-caret-right');
-    buttonIcon.classList.add('pi-pause');
-    pauseButton.title = 'Pause queue';
-    pauseButton.setAttribute('aria-label', 'Pause queue');
+  if (!actionsContainer.querySelector('.pause-button')) {
+    actionsContainer.insertAdjacentHTML('beforeend', pauseButtonHTML);
+    pauseButton = actionsContainer.querySelector('.pause-button');
+    buttonIcon = actionsContainer.querySelector('.pause-button .p-button-icon');
+    pauseButton.addEventListener('click', async function () {
+      try {
+        // POST item[1] as json
+        const response = await fetch(`/queue_manager/toggle`);
+      } catch (error) {
+        console.error("Error fetching queue items:", error);
+      }
+    });
   }
-});
 
-    // Check if queue is paused (will trigger the event to update the button icon)
-    try {
-      const response = await fetch(`/queue_manager/playback`);
-    } catch (error) {
-      console.error("Error fetching queue items:", error);
+  app.api.addEventListener("queue-manager-toggle-queue", function (event) {
+    if (!pauseButton || !buttonIcon) return;
+
+    const paused = !!event.detail.paused;
+
+    if (paused) {
+      // show "play" icon and set labels to "Resume"
+      buttonIcon.classList.remove('pi-pause');
+      buttonIcon.classList.add('pi-caret-right');
+      pauseButton.title = 'Resume queue';
+      pauseButton.setAttribute('aria-label', 'Resume queue');
+    } else {
+      // show "pause" icon and set labels to "Pause"
+      buttonIcon.classList.remove('pi-caret-right');
+      buttonIcon.classList.add('pi-pause');
+      pauseButton.title = 'Pause queue';
+      pauseButton.setAttribute('aria-label', 'Pause queue');
     }
+  });
+
+  // Check if queue is paused (will trigger the event to update the button icon)
+  try {
+    const response = await fetch(`/queue_manager/playback`);
+  } catch (error) {
+    console.error("Error fetching playback status:", error);
+  }
 }
+
+/**
+ * Adds legacy-like stop button and pending jobs counter to tab button
+ */
+async function AddStopButton(actionsContainer) {
+  const stopButtonHTML = `
+    <button class="stop-button p-button p-component p-button-icon-only p-button-danger p-button-text outline-hidden rounded-lg cursor-pointer p-0 size-8 text-xs !rounded-md border-none relative ml-2 transition-colors duration-200 ease-in-out bg-secondary-background hover:bg-secondary-background-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-background p-button-disabled"  type="button" aria-label="Stop queue" title="Clear all pending" data-pc-name="button" data-pd-tooltip="true">
+      <span class="p-button-icon pi pi-stop" data-pc-section="icon"></span>
+      <span class="p-button-label" data-pc-section="label">&nbsp;</span>
+    </button>`;
+
+  // Add stop button if not already present
+  if (!actionsContainer.querySelector('.stop-button')) {
+    actionsContainer.insertAdjacentHTML('beforeend', stopButtonHTML);
+    const stopButton = actionsContainer.querySelector('.stop-button');
+    stopButton.addEventListener('click', async function () {
+      try {
+        const response = await fetch(`/api/queue`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({clear: true})
+        });
+      } catch (error) {
+        console.error("Error fetching queue items:", error);
+      }
+    });
+  }
+
+  // listen to status updates to enable/disable stop button
+  // and at the same time create / update the counter badge for tab button
+  app.api.addEventListener("status", function (event) {
+    const stopButton = actionsContainer.querySelector('.stop-button');
+    if (!stopButton) return;
+
+    console.log("Status", event);
+
+    //if event.detail.exec_info.queue_remaining is set and greater than 0 then enable stop button
+    const queueRemaining = event.detail.exec_info && event.detail.exec_info.queue_remaining;
+    if (queueRemaining && queueRemaining > 0) {
+      stopButton.disabled = false;
+      stopButton.classList.remove('p-button-disabled');
+
+      const displayCount = queueRemaining > 999 ? '999+' : queueRemaining;
+      // Add a badge to show number of pending jobs
+      const tabButton = document.querySelector('.comfyui-queue-manager-tab-button');
+
+      const existingBadge = tabButton.querySelector('.counter-badge');
+      if (existingBadge) {
+        // Update existing badge
+        existingBadge.textContent = displayCount;
+        existingBadge.title = `${queueRemaining} jobs`;
+      } else {
+        const badgeHtml = `<span class="counter-badge absolute pl-1 pr-2 text-black text-xxs font-bold rounded-full px-1.5" style="color: var(--p-button-primary-color); background: var(--p-button-primary-background); top:-2px; right:-3px" title="${queueRemaining} jobs">${displayCount}</span>`;
+
+        tabButton.insertAdjacentHTML('beforeend', badgeHtml);
+      }
+    } else {
+      stopButton.disabled = true;
+      stopButton.classList.add('p-button-disabled');
+
+      // Remove badge if present
+      const badge = document.querySelector('.comfyui-queue-manager-tab-button .counter-badge');
+      if (badge) {
+        badge.remove();
+      }
+    }
+  });
+
+  // Check current status to set initial state of stop button
+  try {
+    const response = await fetch(`/queue_manager/poke_status`);
+  } catch (error) {
+    console.error("Error fetching status:", error);
+  }
+
+}
+
+async function AddButtons(actionsContainer) {
+  await AddStopButton(actionsContainer);
+  await AddPlayPauseButton(actionsContainer);
+}
+
 
 /**
  * Main function wrapping plugin's core functionality
@@ -91,7 +175,7 @@ app.registerExtension({
 
       if (actionsContainer) {
         console.log("Actions container found", actionsContainer);
-        await AddPlayPauseButton(actionsContainer);
+        await AddButtons(actionsContainer);
         return;
       }
 
@@ -101,14 +185,14 @@ app.registerExtension({
             if (node instanceof HTMLElement) {
               if (node.matches(nodeSelector)) {
                 observer.disconnect();
-                AddPlayPauseButton(node);
+                AddButtons(node);
                 return;
               }
 
               const foundActionbar = node.querySelector(nodeSelector);
               if (foundActionbar) {
                 observer.disconnect();
-                AddPlayPauseButton(foundActionbar);
+                AddButtons(foundActionbar);
                 return;
               }
             }

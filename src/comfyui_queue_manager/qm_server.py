@@ -222,6 +222,11 @@ class QM_Server:
 
             return web.json_response(takeover_client)
 
+        @PromptServer.instance.routes.get("/queue_manager/poke_status")
+        async def poke_status(request):
+            PromptServer.instance.queue_updated()
+            return web.json_response({"success": True})
+
         # Hook us into the server's middleware so we can listen to some native api requests
         @web.middleware
         async def post_queue(request, handler):
