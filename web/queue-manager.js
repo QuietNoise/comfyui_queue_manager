@@ -103,8 +103,6 @@ async function AddStopButton(actionsContainer) {
     const stopButton = actionsContainer.querySelector('.stop-button');
     if (!stopButton) return;
 
-    console.log("Status", event);
-
     //if event.detail.exec_info.queue_remaining is set and greater than 0 then enable stop button
     const queueRemaining = event.detail.exec_info && event.detail.exec_info.queue_remaining;
     if (queueRemaining && queueRemaining > 0) {
@@ -147,7 +145,10 @@ async function AddStopButton(actionsContainer) {
 }
 
 async function AddButtons(actionsContainer) {
-  await AddStopButton(actionsContainer);
+  if (compareVersions(__COMFYUI_FRONTEND_VERSION__, '1.33.1') >= 0) {
+    // the new ui version has no stop button, and no counter, so we add our own
+    await AddStopButton(actionsContainer);
+  }
   await AddPlayPauseButton(actionsContainer);
 }
 
