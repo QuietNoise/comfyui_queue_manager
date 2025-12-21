@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "comfyui_queue_manager"
-version = "0.0.12"
+version = "0.0.16"
 description = "An extension supporting more streamlined prompt queue management."
 readme = "README.md"
 license = {file = "LICENSE"}

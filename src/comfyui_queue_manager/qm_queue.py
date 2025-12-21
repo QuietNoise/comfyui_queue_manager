@@ -196,6 +196,7 @@ class QM_Queue:
 
                 self.original_task_done(item_id, history_result, status, process_item)
 
+    # Put item for execution
     # NOTE: We keep only up to one item in native "pending" queue (to avoid bottleneck for large queues).
     def queue_put(self, item):  # comfy server calls this method
         # logging.info(json.dumps(item))
@@ -243,6 +244,11 @@ class QM_Queue:
                 if item is not None:
                     # Convert the item to a tuple
                     item = tuple(json.loads(item[1]))
+
+                    # Backwards compatibility: if item[5] does not exist, create it with empty dict
+                    if len(item) < 6:
+                        item = item + ({},)
+
                     self.original_put(item)
             else:  # just notify frontend that we have a new item
                 PromptServer.instance.queue_updated()
@@ -279,6 +285,10 @@ class QM_Queue:
 
                     # Native format is a tuple
                     item = tuple(item)
+
+                    # Backwards compatibility: if item[5] does not exist, create it with empty dict
+                    if len(item) < 6:
+                        item = item + ({},)
 
                     heapq.heappush(self.native_queue.queue, item)
 
@@ -470,6 +480,10 @@ class QM_Queue:
                 prompt = json.loads(row[0])
                 prompt[3]["client_id"] = client_id
 
+                # Backwards compatibility: if prompt[5] does not exist, create it with empty dict
+                if len(prompt) < 6:
+                    prompt.append({})
+
                 moved += write_query(
                     """
                     UPDATE queue
@@ -574,7 +588,7 @@ class QM_Queue:
             return deleted
 
     # Import queue from uploaded json file
-    def import_queue(self, items, client_id=None, status=0):
+    def import_queue(self, items, client_id=None, status=0, api_key_comfy_org=None):
         theServer = PromptServer.instance
         theQueue = theServer.prompt_queue
         with theQueue.mutex:
@@ -589,6 +603,11 @@ class QM_Queue:
                 if client_id is not None:
                     item[3]["client_id"] = client_id
 
+                if api_key_comfy_org is not None:
+                    if len(item) < 6:
+                        item.append({})
+                    item[5] = {"api_key_comfy_org": api_key_comfy_org} if api_key_comfy_org is not None else {}
+                    
                 #  Handle External jobs by adding missing workflow info
                 if "extra_pnginfo" not in item[3] or "workflow" not in item[3]["extra_pnginfo"]:
                     workflow_id = item[1]
@@ -596,6 +615,7 @@ class QM_Queue:
                 else: # Normal job
                     workflow_id = item[3]["extra_pnginfo"]["workflow"]["id"]
                     workflow_name = item[3]["extra_pnginfo"]["workflow"]["workflow_name"]
+
 
                 PromptServer.instance.number += 1
                 query_params.append(
