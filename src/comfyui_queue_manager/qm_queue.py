@@ -202,12 +202,13 @@ class QM_Queue:
         # logging.info(json.dumps(item))
 
         with self.native_queue.mutex:
-            # if item[3]["extra_pnginfo"] is not set then we pass it to original put
-            # It suggests request does not come from ComfyUI but from external source (like API or some app's plugin) - as such they won't benefit from queue manager features
+            #  Handle External jobs by adding missing workflow info
             if "extra_pnginfo" not in item[3] or "workflow" not in item[3]["extra_pnginfo"]:
-                # item = tuple(item)
-                self.original_put(tuple(item))
-                return
+                workflow_id = item[1]
+                workflow_name = f"External job - {workflow_id}"
+            else: # Normal job
+                workflow_id = item[3]["extra_pnginfo"]["workflow"]["id"]
+                workflow_name = item[3]["extra_pnginfo"]["workflow"]["workflow_name"]
 
             # Add the item to the database
             write_query(
@@ -218,8 +219,8 @@ class QM_Queue:
                 (
                     item[1],
                     item[0],
-                    item[3]["extra_pnginfo"]["workflow"]["workflow_name"],
-                    item[3]["extra_pnginfo"]["workflow"]["id"],
+                    workflow_name,
+                    workflow_id,
                     json.dumps(item),
                 ),
             )
@@ -606,14 +607,23 @@ class QM_Queue:
                     if len(item) < 6:
                         item.append({})
                     item[5] = {"api_key_comfy_org": api_key_comfy_org} if api_key_comfy_org is not None else {}
+                    
+                #  Handle External jobs by adding missing workflow info
+                if "extra_pnginfo" not in item[3] or "workflow" not in item[3]["extra_pnginfo"]:
+                    workflow_id = item[1]
+                    workflow_name = f"External job - {workflow_id}"
+                else: # Normal job
+                    workflow_id = item[3]["extra_pnginfo"]["workflow"]["id"]
+                    workflow_name = item[3]["extra_pnginfo"]["workflow"]["workflow_name"]
+
 
                 PromptServer.instance.number += 1
                 query_params.append(
                     (
                         item[1],
                         PromptServer.instance.number,
-                        item[3]["extra_pnginfo"]["workflow"]["workflow_name"],
-                        item[3]["extra_pnginfo"]["workflow"]["id"],
+                        workflow_name,
+                        workflow_id,
                         json.dumps(item),
                         status,
                     )
