@@ -10,6 +10,7 @@ An extension supporting more streamlined prompt queue management.
 - [Roadmap](#roadmap)
 - [Manual](#manual)
   - [Pause / Resume Queue](#pause--resume-queue)
+  - [Stop / Clear Queue](#stop--clear-queue)
   - [Running and main Queue Manager window](#running-and-main-queue-manager-window)
   - [Archive](#archive)
   - [Export and Import](#export-and-import)
@@ -79,6 +80,9 @@ Currently running workflow will finish, but no new workflows will be started unt
 Click the play button to resume the queue.
 
 ![resume.png](readme-img/resume.png)
+
+### Stop / Clear Queue
+Queue Manager restores the native ComfyUI queue stop / clear queue button that was removed in ComfyUI v0.4.0. Enjoy.
 
 ### Running and main Queue Manager window
 You can start running jobs as usual using the Run button in the main ComfyUI window.
