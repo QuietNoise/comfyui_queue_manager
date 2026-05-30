@@ -98,6 +98,35 @@ class QM_Server:
             else:
                 return web.json_response({"error": "No item to play"}, status=400)
 
+        # Move items to category (Priority/Main/Background)
+        @PromptServer.instance.routes.post("/queue_manager/move-to-category")
+        async def move_to_category(request):
+            json_data = await request.json()
+            if "items" not in json_data or "category" not in json_data:
+                return web.json_response({"error": "Missing items or category"}, status=400)
+
+            category_map = {
+                "priority": 5,
+                "main": 6,
+                "background": 7,
+            }
+
+            category = json_data["category"].lower()
+            if category not in category_map:
+                return web.json_response({"error": "Invalid category. Must be priority, main, or background"}, status=400)
+
+            category_status = category_map[category]
+            moved = self.queue.move_to_category(json_data["items"], category_status)
+            return web.json_response({"moved": moved})
+
+        # Build queue from categorized items
+        @PromptServer.instance.routes.post("/queue_manager/build-queue")
+        async def build_queue(request):
+            json_data = await request.json()
+            client_id = json_data.get("client_id", None)
+            result = self.queue.build_queue(client_id)
+            return web.json_response(result)
+
         # Endpoint to expose __version__ information
         @PromptServer.instance.routes.get("/queue_manager/version")
         async def get_version(request):
@@ -284,7 +313,7 @@ class QM_Server:
         Check if the route is valid.
         """
         route = request.query.get("route", "queue")
-        if route not in ["queue", "archive", "completed"]:
+        if route not in ["queue", "archive", "completed", "new", "priority", "main", "background"]:
             raise BadRouteException("Invalid route: " + route)
 
         return route

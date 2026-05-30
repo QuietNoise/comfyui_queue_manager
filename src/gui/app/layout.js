@@ -172,6 +172,16 @@ export default function RootLayout({children}) {
       }
   }
 
+  async function buildQueue() {
+    try {
+      await apiCall('queue_manager/build-queue', {
+        client_id: appStatus.clientId,
+      });
+    } catch (error) {
+      console.error("Error building queue:", error);
+    }
+  }
+
 
   function isFilterOn() {
     return appStatus.filters && Object.keys(appStatus.filters).length > 0;
@@ -443,6 +453,42 @@ export default function RootLayout({children}) {
         >Queue
         </button>
 
+        {/* New */}
+        <button
+          className={"tab new" + (appStatus.route === 'new' ? ' active' : '')}
+          onClick={() => {
+            setAppStatus(prev => ({...prev, route: 'new'}));
+          }}
+        >New
+        </button>
+
+        {/* Priority */}
+        <button
+          className={"tab priority" + (appStatus.route === 'priority' ? ' active' : '')}
+          onClick={() => {
+            setAppStatus(prev => ({...prev, route: 'priority'}));
+          }}
+        >Priority
+        </button>
+
+        {/* Main */}
+        <button
+          className={"tab main" + (appStatus.route === 'main' ? ' active' : '')}
+          onClick={() => {
+            setAppStatus(prev => ({...prev, route: 'main'}));
+          }}
+        >Main
+        </button>
+
+        {/* Background */}
+        <button
+          className={"tab background" + (appStatus.route === 'background' ? ' active' : '')}
+          onClick={() => {
+            setAppStatus(prev => ({...prev, route: 'background'}));
+          }}
+        >Background
+        </button>
+
         {/* Archive */}
         <button
           className={"tab archive" + (appStatus.route === 'archive' ? ' active' : '')}
@@ -612,6 +658,12 @@ export default function RootLayout({children}) {
             </>
 
           }
+
+          {/* Build Queue button - always visible */}
+          <button onClick={buildQueue}
+                  className="hover:bg-neutral-700 dark:bg-blue-900 bg-blue-300 py-1 px-2 rounded mr-1 border-0 ml-auto">
+            🔨 Build Queue
+          </button>
 
           {['queue', 'archive'].includes(appStatus.route) &&
             <form

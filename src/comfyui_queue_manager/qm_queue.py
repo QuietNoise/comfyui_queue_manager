@@ -209,11 +209,11 @@ class QM_Queue:
                 self.original_put(tuple(item))
                 return
 
-            # Add the item to the database
+            # Add the item to the database with status=4 (new)
             write_query(
                 """
-                INSERT OR REPLACE INTO queue (prompt_id, number, name, workflow_id, prompt)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT OR REPLACE INTO queue (prompt_id, number, name, workflow_id, prompt, status)
+                VALUES (?, ?, ?, ?, ?, 4)
             """,
                 (
                     item[1],
@@ -567,6 +567,123 @@ class QM_Queue:
                 PromptServer.instance.queue_updated()
             return moved
 
+    def move_to_category(self, item_ids, category_status):
+        """
+        Move items from New (status=4) to Priority/Main/Background (status 5/6/7)
+        """
+        with self.native_queue.mutex:
+            if category_status not in [5, 6, 7]:
+                logging.error("[Queue Manager] Invalid category status: %s", category_status)
+                return 0
+
+            moved = 0
+            for db_id in item_ids:
+                moved += write_query(
+                    """
+                    UPDATE queue
+                    SET status = ?
+                    WHERE id = ? AND status = 4
+                """,
+                    (category_status, db_id),
+                    False,
+                )
+
+            get_conn().commit()
+
+            if moved > 0:
+                logging.info("[Queue Manager] %d item(s) moved to category %d", moved, category_status)
+                PromptServer.instance.send_sync("queue-manager-queue-updated", {"total_moved": moved})
+
+            return moved
+
+    def build_queue(self, client_id=None):
+        """
+        Build the working queue from categorized items:
+        1. Archive all current pending items (status 0 -> 3)
+        2. Move Priority items (status 5 -> 0)
+        3. Move Main items (status 6 -> 0)
+        4. Move Background items (status 7 -> 0)
+        """
+        with self.native_queue.mutex:
+            # Step 1: Archive all current pending items
+            archived = write_query(
+                """
+                UPDATE queue
+                SET status = 3
+                WHERE status = 0
+            """
+            )
+            logging.info("[Queue Manager] Build Queue: Archived %d pending items", archived)
+
+            # Step 2-4: Move items from each category to pending in order
+            categories = [
+                (5, "Priority"),
+                (6, "Main"),
+                (7, "Background"),
+            ]
+
+            total_moved = 0
+            for category_status, category_name in categories:
+                # Get items in this category
+                rows = read_query(
+                    """
+                    SELECT id, prompt
+                    FROM queue
+                    WHERE status = ?
+                    ORDER BY updated_at
+                """,
+                    (category_status,),
+                )
+
+                # Move each item to pending with sequential numbering
+                parameters = []
+                for row in rows:
+                    PromptServer.instance.number += 1
+
+                    item = json.loads(row[1])
+                    if client_id is not None:
+                        item[3]["client_id"] = client_id
+                    item[0] = PromptServer.instance.number
+
+                    # Backwards compatibility: if item[5] does not exist, create it with empty dict
+                    if len(item) < 6:
+                        item.append({})
+
+                    parameters.append(
+                        (
+                            0,  # status = pending
+                            PromptServer.instance.number,
+                            json.dumps(item),
+                            row[0],
+                        )
+                    )
+
+                if parameters:
+                    moved = write_many(
+                        """
+                        UPDATE queue
+                        SET status = ?, number = ?, prompt = ?
+                        WHERE id = ?
+                    """,
+                        parameters,
+                    )
+                    total_moved += moved
+                    logging.info("[Queue Manager] Build Queue: Moved %d items from %s", moved, category_name)
+
+            # Clear native queue and notify
+            self.native_queue.queue = []
+            heapq.heapify(self.native_queue.queue)
+
+            if total_moved > 0:
+                # Notify native queue lock so if it's waiting it can move on
+                PromptServer.instance.prompt_queue.not_empty.notify()
+
+                logging.info("[Queue Manager] Build Queue: %d total item(s) scheduled for generation.", total_moved)
+                PromptServer.instance.send_sync("queue-manager-queue-updated", {"total_moved": total_moved, "archived": archived})
+                PromptServer.instance.queue_updated()
+
+            return {"archived": archived, "moved": total_moved}
+
     def delete_from_queue(self, route="queue", filters=None):
         with self.native_queue.mutex:
             where_string, params = self.get_filters(filters, [self.get_route_query(route)])
@@ -735,5 +852,13 @@ class QM_Queue:
                 return "status = 3"
             case "completed":
                 return "status = 2"  # completed
+            case "new":
+                return "status = 4"  # new
+            case "priority":
+                return "status = 5"  # priority
+            case "main":
+                return "status = 6"  # main
+            case "background":
+                return "status = 7"  # background
 
         return ""

@@ -59,6 +59,10 @@ export default function Queue( { data, isLoading, error, progress } ) {
       await apiCall(`queue_manager/play`, {items: [item[3].db_id], front: appStatus.shiftDown === true, clientId: appStatus.clientId})
     }
 
+    async function moveToCategory(category) {
+      await apiCall(`queue_manager/move-to-category`, {items: [item[3].db_id], category: category})
+    }
+
     async function filterByWorkflow() {
       // Post message to parent window to filter by workflow
       setAppStatus(prev => ({...prev, filters: {...appStatus.filters, workflow: {
@@ -109,6 +113,13 @@ export default function Queue( { data, isLoading, error, progress } ) {
               </svg>
               &nbsp;&nbsp;Run
             </Button>
+          }
+          {appStatus.route === 'new' && mode !== 'running' && mode !== 'external' &&
+            <>
+              <Button className={"dark:bg-purple-900 bg-purple-300"} onClick={() => moveToCategory('priority')}>Priority</Button>
+              <Button className={"dark:bg-blue-900 bg-blue-300"} onClick={() => moveToCategory('main')}>Main</Button>
+              <Button className={"dark:bg-gray-700 bg-gray-300"} onClick={() => moveToCategory('background')}>Background</Button>
+            </>
           }
         </td>
       </tr>
