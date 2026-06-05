@@ -642,79 +642,172 @@ class QM_Queue:
 
             return updated
 
+    def _build_queue_step1_archive_pending(self):
+        """
+        Step 1: Archive all current pending items (status 0 -> 3).
+        Returns the number of archived items.
+        """
+        archived = write_query(
+            """
+            UPDATE queue
+            SET status = 3
+            WHERE status = 0
+        """
+        )
+        logging.info("[Queue Manager] Build Queue Step 1: Archived %d pending items", archived)
+        return archived
+
+    def _build_queue_step2_promote_categories(self, client_id=None):
+        """
+        Step 2: Move items from Priority/Main/Background categories (status 5/6/7)
+        to pending (status 0) with sequential numbering, ordered by category priority.
+        Returns the number of moved items.
+        """
+        categories = [
+            (5, "Priority"),
+            (6, "Main"),
+            (7, "Background"),
+        ]
+
+        total_moved = 0
+        for category_status, category_name in categories:
+            # Get items in this category
+            rows = read_query(
+                """
+                SELECT id, prompt
+                FROM queue
+                WHERE status = ?
+                ORDER BY updated_at
+            """,
+                (category_status,),
+            )
+
+            # Move each item to pending with sequential numbering
+            parameters = []
+            for row in rows:
+                PromptServer.instance.number += 1
+
+                item = json.loads(row[1])
+                if client_id is not None:
+                    item[3]["client_id"] = client_id
+                item[0] = PromptServer.instance.number
+
+                # Backwards compatibility: if item[5] does not exist, create it with empty dict
+                if len(item) < 6:
+                    item.append({})
+
+                parameters.append(
+                    (
+                        0,  # status = pending
+                        PromptServer.instance.number,
+                        json.dumps(item),
+                        row[0],
+                    )
+                )
+
+            if parameters:
+                moved = write_many(
+                    """
+                    UPDATE queue
+                    SET status = ?, number = ?, prompt = ?
+                    WHERE id = ?
+                """,
+                    parameters,
+                )
+                total_moved += moved
+                logging.info("[Queue Manager] Build Queue Step 2: Moved %d items from %s", moved, category_name)
+
+        return total_moved
+
+    def _build_queue_step3_restore_archived(self, client_id=None):
+        """
+        Step 3: Restore archived items (status 3) to pending (status 0),
+        ordered by tag priority (priority -> main -> background -> others)
+        and then by updated_at within each tag group.
+        Returns the number of restored items.
+        """
+        # Tag priority order: lower number = higher priority
+        tag_priority = {
+            "priority": 1,
+            "main": 2,
+            "background": 3,
+            "none": 4,
+            "new": 5,
+            "archive": 6,
+            "completed": 7,
+        }
+
+        # Get all archived items ordered by tag priority, then by updated_at
+        rows = read_query(
+            """
+            SELECT id, prompt, tag
+            FROM queue
+            WHERE status = 3
+            ORDER BY
+                CASE tag
+                    WHEN 'priority' THEN 1
+                    WHEN 'main' THEN 2
+                    WHEN 'background' THEN 3
+                END,
+                updated_at
+        """
+        )
+
+        # Move each item to pending with sequential numbering
+        parameters = []
+        for row in rows:
+            PromptServer.instance.number += 1
+
+            item = json.loads(row[1])
+            if client_id is not None:
+                item[3]["client_id"] = client_id
+            item[0] = PromptServer.instance.number
+
+            # Backwards compatibility: if item[5] does not exist, create it with empty dict
+            if len(item) < 6:
+                item.append({})
+
+            parameters.append(
+                (
+                    0,  # status = pending
+                    PromptServer.instance.number,
+                    json.dumps(item),
+                    row[0],
+                )
+            )
+
+        restored = 0
+        if parameters:
+            restored = write_many(
+                """
+                UPDATE queue
+                SET status = ?, number = ?, prompt = ?
+                WHERE id = ?
+            """,
+                parameters,
+            )
+            logging.info("[Queue Manager] Build Queue Step 3: Restored %d archived items", restored)
+
+        return restored
+
     def build_queue(self, client_id=None):
         """
         Build the working queue from categorized items:
         1. Archive all current pending items (status 0 -> 3)
-        2. Move Priority items (status 5 -> 0)
-        3. Move Main items (status 6 -> 0)
-        4. Move Background items (status 7 -> 0)
+        2. Move Priority/Main/Background items (status 5/6/7 -> 0) with sequential numbering
+        3. Restore archived items (status 3 -> 0) ordered by tag priority
         """
         with self.native_queue.mutex:
             # Step 1: Archive all current pending items
-            archived = write_query(
-                """
-                UPDATE queue
-                SET status = 3
-                WHERE status = 0
-            """
-            )
-            logging.info("[Queue Manager] Build Queue: Archived %d pending items", archived)
+            archived = self._build_queue_step1_archive_pending()
 
-            # Step 2-4: Move items from each category to pending in order
-            categories = [
-                (5, "Priority"),
-                (6, "Main"),
-                (7, "Background"),
-            ]
+            # Step 2: Move items from categories to pending
+            moved = self._build_queue_step2_promote_categories(client_id)
 
-            total_moved = 0
-            for category_status, category_name in categories:
-                # Get items in this category
-                rows = read_query(
-                    """
-                    SELECT id, prompt
-                    FROM queue
-                    WHERE status = ?
-                    ORDER BY updated_at
-                """,
-                    (category_status,),
-                )
+            # Step 3: Restore archived items ordered by tag priority
+            restored = self._build_queue_step3_restore_archived(client_id)
 
-                # Move each item to pending with sequential numbering
-                parameters = []
-                for row in rows:
-                    PromptServer.instance.number += 1
-
-                    item = json.loads(row[1])
-                    if client_id is not None:
-                        item[3]["client_id"] = client_id
-                    item[0] = PromptServer.instance.number
-
-                    # Backwards compatibility: if item[5] does not exist, create it with empty dict
-                    if len(item) < 6:
-                        item.append({})
-
-                    parameters.append(
-                        (
-                            0,  # status = pending
-                            PromptServer.instance.number,
-                            json.dumps(item),
-                            row[0],
-                        )
-                    )
-
-                if parameters:
-                    moved = write_many(
-                        """
-                        UPDATE queue
-                        SET status = ?, number = ?, prompt = ?
-                        WHERE id = ?
-                    """,
-                        parameters,
-                    )
-                    total_moved += moved
-                    logging.info("[Queue Manager] Build Queue: Moved %d items from %s", moved, category_name)
+            total_moved = moved + restored
 
             # Clear native queue and notify
             self.native_queue.queue = []
