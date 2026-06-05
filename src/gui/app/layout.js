@@ -455,7 +455,7 @@ export default function RootLayout({children}) {
 
         {/* New */}
         <button
-          className={"tab new" + (appStatus.route === 'new' ? ' active' : '')}
+          className={"tab new" + (appStatus.route === 'new' ? ' dark:bg-neutral-800 bg-neutral-200 active' : '')}
           onClick={() => {
             setAppStatus(prev => ({...prev, route: 'new'}));
           }}
@@ -464,7 +464,7 @@ export default function RootLayout({children}) {
 
         {/* Priority */}
         <button
-          className={"tab priority" + (appStatus.route === 'priority' ? ' active' : '')}
+          className={"tab priority" + (appStatus.route === 'priority' ? ' dark:bg-neutral-800 bg-neutral-200 active' : '')}
           onClick={() => {
             setAppStatus(prev => ({...prev, route: 'priority'}));
           }}
@@ -473,7 +473,7 @@ export default function RootLayout({children}) {
 
         {/* Main */}
         <button
-          className={"tab main" + (appStatus.route === 'main' ? ' active' : '')}
+          className={"tab main" + (appStatus.route === 'main' ? ' dark:bg-neutral-800 bg-neutral-200 active' : '')}
           onClick={() => {
             setAppStatus(prev => ({...prev, route: 'main'}));
           }}
@@ -482,7 +482,7 @@ export default function RootLayout({children}) {
 
         {/* Background */}
         <button
-          className={"tab background" + (appStatus.route === 'background' ? ' active' : '')}
+          className={"tab background" + (appStatus.route === 'background' ? ' dark:bg-neutral-800 bg-neutral-200 active' : '')}
           onClick={() => {
             setAppStatus(prev => ({...prev, route: 'background'}));
           }}
@@ -491,7 +491,7 @@ export default function RootLayout({children}) {
 
         {/* Archive */}
         <button
-          className={"tab archive" + (appStatus.route === 'archive' ? ' active' : '')}
+          className={"tab archive" + (appStatus.route === 'archive' ? ' dark:bg-neutral-800 bg-neutral-200 active' : '')}
           onClick={() => {
             setAppStatus(prev => ({...prev, route: 'archive'}));
           }}
