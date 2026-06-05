@@ -127,6 +127,22 @@ class QM_Server:
             result = self.queue.build_queue(client_id)
             return web.json_response(result)
 
+        # Update tag for items
+        @PromptServer.instance.routes.post("/queue_manager/tag")
+        async def update_tag(request):
+            json_data = await request.json()
+            if "items" not in json_data or "tag" not in json_data:
+                return web.json_response({"error": "Missing items or tag"}, status=400)
+
+            item_ids = json_data["items"]
+            tag = json_data["tag"]
+
+            if not isinstance(tag, str):
+                return web.json_response({"error": "Tag must be a string"}, status=400)
+
+            updated = self.queue.update_tag(item_ids, tag)
+            return web.json_response({"updated": updated})
+
         # Endpoint to expose __version__ information
         @PromptServer.instance.routes.get("/queue_manager/version")
         async def get_version(request):

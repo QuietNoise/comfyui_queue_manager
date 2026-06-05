@@ -9,6 +9,9 @@ import heapq
 
 from .qm_db import get_conn, read_query, read_single, write_query, write_many
 
+VALID_TAGS = {"none", "new", "main", "priority", "background", "archive", "completed"}
+DEFAULT_TAG = "none"
+
 
 class QM_Queue:
     def __init__(self, queue_manager):
@@ -101,7 +104,7 @@ class QM_Queue:
 
                 rows = read_query(
                     f"""
-                    SELECT id, prompt, number
+                    SELECT id, prompt, number, tag
                     FROM queue
                     WHERE {where_string}
                     {order_string}
@@ -115,6 +118,8 @@ class QM_Queue:
                     item = json.loads(row[1])
                     # Add db_id to the item
                     item[3]["db_id"] = row[0]
+                    # Add tag to the item
+                    item[3]["tag"] = row[3] if row[3] else "none"
 
                     if route == "queue":
                         item[0] = row[2]  # set the number to the one from the database
@@ -212,8 +217,8 @@ class QM_Queue:
             # Add the item to the database with status=4 (new)
             write_query(
                 """
-                INSERT OR REPLACE INTO queue (prompt_id, number, name, workflow_id, prompt, status)
-                VALUES (?, ?, ?, ?, ?, 4)
+                INSERT OR REPLACE INTO queue (prompt_id, number, name, workflow_id, prompt, status, tag)
+                VALUES (?, ?, ?, ?, ?, 4, ?)
             """,
                 (
                     item[1],
@@ -221,6 +226,7 @@ class QM_Queue:
                     item[3]["extra_pnginfo"]["workflow"]["workflow_name"],
                     item[3]["extra_pnginfo"]["workflow"]["id"],
                     json.dumps(item),
+                    DEFAULT_TAG,
                 ),
             )
 
@@ -596,6 +602,37 @@ class QM_Queue:
 
             return moved
 
+    def update_tag(self, item_ids, tag):
+        """
+        Update tag for the specified items.
+        tag: single string from VALID_TAGS set
+        """
+        with self.native_queue.mutex:
+            # Validate tag
+            if tag not in VALID_TAGS:
+                logging.error("[Queue Manager] Invalid tag: %s", tag)
+                return 0
+
+            updated = 0
+            for db_id in item_ids:
+                updated += write_query(
+                    """
+                    UPDATE queue
+                    SET tag = ?
+                    WHERE id = ?
+                """,
+                    (tag, db_id),
+                    False,
+                )
+
+            get_conn().commit()
+
+            if updated > 0:
+                logging.info("[Queue Manager] %d item(s) tag updated to %s", updated, tag)
+                PromptServer.instance.queue_updated()
+
+            return updated
+
     def build_queue(self, client_id=None):
         """
         Build the working queue from categorized items:
@@ -733,13 +770,14 @@ class QM_Queue:
                         item[3]["extra_pnginfo"]["workflow"]["id"],
                         json.dumps(item),
                         status,
+                        DEFAULT_TAG,
                     )
                 )
 
             total = write_many(
                 """
-                    INSERT OR IGNORE INTO queue (prompt_id, number, name, workflow_id, prompt, status)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT OR IGNORE INTO queue (prompt_id, number, name, workflow_id, prompt, status, tag)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 query_params,
             )

@@ -26,7 +26,8 @@ def init_schema():
             name       TEXT,
             workflow_id   VARCHAR(255),
             prompt    TEXT,
-            status     INTEGER DEFAULT 0 -- 0: pending, 1: running, 2: finished, 3: archive, 4: new, 5: priority, 6: main, 7: background, TODO: -1: error, -2: bin
+            status     INTEGER DEFAULT 0, -- 0: pending, 1: running, 2: finished, 3: archive, 4: new, 5: priority, 6: main, 7: background, TODO: -1: error, -2: bin
+            tag        TEXT DEFAULT 'none' CHECK(tag IN ('none', 'new', 'main', 'priority', 'background', 'archive', 'completed'))
         );
 
         CREATE TABLE IF NOT EXISTS options (
@@ -60,6 +61,14 @@ def init_schema():
           WHERE  rowid = NEW.rowid;
         END;
     """)
+
+    # Migration: Add tag column if it doesn't exist (for existing databases)
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA table_info(queue)")
+    columns = [row[1] for row in cursor.fetchall()]
+    if "tag" not in columns:
+        conn.execute("ALTER TABLE queue ADD COLUMN tag TEXT DEFAULT 'none'")
+        conn.commit()
 
 
 # Helper functions to read and write to the database
