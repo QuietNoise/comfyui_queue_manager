@@ -92,7 +92,7 @@ export default function Queue( { data, isLoading, error, progress } ) {
           </button>
         </td>
         <td className={'px-3 py-1 text-right actions'}>
-          {item[3].tag && item[3].tag !== 'none' && (
+          {item[3].tag && item[3].tag !== 'none1' && (
             <span className={"inline-block text-xs px-2 py-0.5 rounded mr-2 dark:bg-neutral-700 bg-neutral-200 dark:text-neutral-200 text-neutral-800"}>
               {item[3].tag}
             </span>

@@ -187,7 +187,7 @@ class QM_Queue:
                 write_query(
                     """
                     UPDATE queue
-                    SET status = 2
+                    SET status = 2, tag = 'completed'
                     WHERE prompt_id = ?
                 """,
                     (item[1],),
@@ -226,7 +226,7 @@ class QM_Queue:
                     item[3]["extra_pnginfo"]["workflow"]["workflow_name"],
                     item[3]["extra_pnginfo"]["workflow"]["id"],
                     json.dumps(item),
-                    DEFAULT_TAG,
+                    "new",
                 ),
             )
 
@@ -394,7 +394,7 @@ class QM_Queue:
             total = write_query(
                 f"""
                 UPDATE queue
-                SET status = 3
+                SET status = 3, tag = 'archive'
                 WHERE {where_string}
             """,
                 params,
@@ -426,7 +426,7 @@ class QM_Queue:
                 archived += write_query(
                     """
                     UPDATE queue
-                    SET status = 3
+                    SET status = 3, tag = 'archive'
                     WHERE id = ?
                 """,
                     (item,),
@@ -576,28 +576,37 @@ class QM_Queue:
     def move_to_category(self, item_ids, category_status):
         """
         Move items from New (status=4) to Priority/Main/Background (status 5/6/7)
+        Also updates the tag to match the category.
         """
         with self.native_queue.mutex:
             if category_status not in [5, 6, 7]:
                 logging.error("[Queue Manager] Invalid category status: %s", category_status)
                 return 0
 
+            # Map status to tag
+            status_to_tag = {
+                5: "priority",
+                6: "main",
+                7: "background",
+            }
+            new_tag = status_to_tag[category_status]
+
             moved = 0
             for db_id in item_ids:
                 moved += write_query(
                     """
                     UPDATE queue
-                    SET status = ?
+                    SET status = ?, tag = ?
                     WHERE id = ? AND status = 4
                 """,
-                    (category_status, db_id),
+                    (category_status, new_tag, db_id),
                     False,
                 )
 
             get_conn().commit()
 
             if moved > 0:
-                logging.info("[Queue Manager] %d item(s) moved to category %d", moved, category_status)
+                logging.info("[Queue Manager] %d item(s) moved to category %d (tag: %s)", moved, category_status, new_tag)
                 PromptServer.instance.send_sync("queue-manager-queue-updated", {"total_moved": moved})
 
             return moved
