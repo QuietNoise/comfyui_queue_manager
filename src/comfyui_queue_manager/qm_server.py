@@ -119,6 +119,15 @@ class QM_Server:
             moved = self.queue.move_to_category(json_data["items"], category_status)
             return web.json_response({"moved": moved})
 
+        # Reorder pending queue items
+        @PromptServer.instance.routes.post("/queue_manager/reorder")
+        async def reorder_queue(request):
+            json_data = await request.json()
+            if "items" not in json_data:
+                return web.json_response({"error": "Missing items"}, status=400)
+            reordered = self.queue.reorder_items(json_data["items"])
+            return web.json_response({"reordered": reordered})
+
         # Build queue from categorized items
         @PromptServer.instance.routes.post("/queue_manager/build-queue")
         async def build_queue(request):

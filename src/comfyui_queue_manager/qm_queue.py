@@ -650,6 +650,53 @@ class QM_Queue:
 
             return updated
 
+    def reorder_items(self, item_ids: list):
+        """
+        Reorder pending queue items by redistributing their current 'number' values.
+        item_ids: list of db_ids in the desired execution order (first = highest priority).
+        Only items on the current page are reordered; items on other pages are unaffected.
+        """
+        with self.native_queue.mutex:
+            # 1. Read current numbers for all items being reordered
+            placeholders = ",".join("?" for _ in item_ids)
+            rows = read_query(
+                f"SELECT id, number FROM queue WHERE id IN ({placeholders})",
+                tuple(item_ids),
+            )
+            if not rows:
+                return 0
+
+            # Build id->number map
+            num_map = {row[0]: row[1] for row in rows}
+
+            # 2. Sort existing numbers ascending
+            sorted_numbers = sorted(num_map.values())
+
+            # 3. Assign numbers in new order (first item gets smallest number = highest priority)
+            for i, db_id in enumerate(item_ids):
+                if db_id in num_map:
+                    write_query(
+                        "UPDATE queue SET number = ? WHERE id = ?",
+                        (sorted_numbers[i], db_id),
+                        commit=False,
+                    )
+
+            get_conn().commit()
+
+            # 4. Clear native queue so next queue_get() picks up the new order
+            self.native_queue.queue = []
+            heapq.heapify(self.native_queue.queue)
+
+            # 5. Notify the queue processing loop
+            PromptServer.instance.prompt_queue.not_empty.notify()
+            PromptServer.instance.send_sync(
+                "queue-manager-queue-updated",
+                {"reordered": len(item_ids)},
+            )
+            PromptServer.instance.queue_updated()
+
+            return len(item_ids)
+
     def _build_queue_step1_archive_pending(self):
         """
         Step 1: Archive all current pending items (status 0 -> 3).

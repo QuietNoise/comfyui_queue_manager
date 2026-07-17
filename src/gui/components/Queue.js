@@ -5,6 +5,23 @@ import {baseURL} from "@/internals/config";
 import {apiCall} from "@/internals/functions";
 import {AppContext} from "@/internals/app-context";
 
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import {CSS} from "@dnd-kit/utilities";
+import {GripVertical} from "lucide-react";
+
 
 // take items from parent component
 export default function Queue( { data, isLoading, error, progress } ) {
@@ -21,6 +38,9 @@ export default function Queue( { data, isLoading, error, progress } ) {
   // Selection state for bulk operations
   const [selectedItems, setSelectedItems] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
+
+  // Drag-and-drop state
+  const [activeId, setActiveId] = useState(null);
 
   // Sync selectedItems to AppContext so footer can access them
   useEffect(() => {
@@ -186,6 +206,131 @@ export default function Queue( { data, isLoading, error, progress } ) {
     );
   }
 
+  // Sortable wrapper for pending items on the queue route
+  function SortableQueueItemRow({item, className, index}) {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({id: item[3].db_id});
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.4 : 1,
+    };
+
+    const dbId = item[3] && item[3].db_id;
+    const isChecked = dbId ? selectedItems.includes(dbId) : false;
+
+    return (
+      <tr
+        ref={setNodeRef}
+        style={style}
+        className={"dark:odd:bg-neutral-900 odd:bg-neutral-100" + (className ? ' ' + className : '')}
+      >
+        {/* Drag handle column (only on queue route) */}
+        {appStatus.route === 'queue' && (
+          <td className="px-2 py-1 text-center w-8 drag-handle" {...attributes} {...listeners}>
+            <GripVertical size={16} />
+          </td>
+        )}
+        {showBulk && (
+          <td className="px-3 py-1 text-left checkbox-cell">
+            <input
+              type="checkbox"
+              checked={isChecked}
+              onChange={() => dbId && toggleSelectItem(dbId)}
+              className="cursor-pointer"
+            />
+          </td>
+        )}
+        <td className="px-3 py-1 serial">
+          <span>{(index === undefined || !data.info)?'':index+1+data.info.page * data.info.page_size}</span>
+        </td>
+        <td className="px-3 py-1 text-left name">
+          <button className={'plain'}>
+            {item[3].extra_pnginfo.workflow.workflow_name ? item[3].extra_pnginfo.workflow.workflow_name : ""}
+          </button>
+        </td>
+        <td className={'px-3 py-1 text-right actions'}>
+          {item[3].tag && item[3].tag !== 'none1' && (
+            <span className={"inline-block text-xs px-2 py-0.5 rounded mr-2 dark:bg-neutral-700 bg-neutral-200 dark:text-neutral-200 text-neutral-800"}>
+              {item[3].tag}
+            </span>
+          )}
+          <Button className={"dark:bg-red-900 bg-rose-200 text-red-900"} onClick={async () => {
+            await apiCall(`api/queue`, {delete: [item[1]]});
+          }}>Delete</Button>
+          <Button className={"dark:bg-green-900 bg-green-300"} onClick={async () => {
+            window.parent.postMessage(
+              { type: "QM_LoadWorkflow", workflow: item[3].extra_pnginfo.workflow, number: item[0] },
+              "*"
+            );
+          }}>Load</Button>
+          {appStatus.route === 'queue' &&
+            <Button className={"dark:bg-orange-900 bg-orange-200"} onClick={async () => {
+              await apiCall(`queue_manager/archive`, {archive: [item[3].db_id]});
+            }}>Archive</Button>
+          }
+        </td>
+      </tr>
+    );
+  }
+
+  // Drag-and-drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5, // 5px movement required to activate drag
+      },
+    })
+  );
+
+  // Compute sortable item IDs from pending items
+  const sortableItems = state.pending
+    .filter(item => item[3] && item[3].db_id)
+    .map(item => item[3].db_id);
+
+  function handleDragStart(event) {
+    setActiveId(event.active.id);
+  }
+
+  function handleDragCancel() {
+    setActiveId(null);
+  }
+
+  async function handleDragEnd(event) {
+    const {active, over} = event;
+    setActiveId(null);
+
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = sortableItems.indexOf(active.id);
+    const newIndex = sortableItems.indexOf(over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const newOrder = arrayMove(sortableItems, oldIndex, newIndex);
+
+    // Optimistically update local state
+    setState(prev => {
+      const reordered = arrayMove(prev.pending, oldIndex, newIndex);
+      return {...prev, pending: reordered};
+    });
+
+    // Persist to backend
+    await apiCall("queue_manager/reorder", {items: newOrder});
+  }
+
+  // Find active item for drag overlay
+  const activeItem = activeId
+    ? state.pending.find(item => item[3] && item[3].db_id === activeId)
+    : null;
+
   useEffect(function () {
     if (!data) return;
     setState({
@@ -202,6 +347,10 @@ export default function Queue( { data, isLoading, error, progress } ) {
       <table className="min-w-full border border-0">
         <thead className="dark:bg-neutral-800 bg-neutral-200 text-xs uppercase">
           <tr>
+            {/* Drag handle column header (only on queue route) */}
+            {appStatus.route === 'queue' && (
+              <th className="px-2 py-2 text-center w-8"></th>
+            )}
             {showBulk && (
               <th className="px-3 py-2 text-left w-10">
                 <input
@@ -217,14 +366,51 @@ export default function Queue( { data, isLoading, error, progress } ) {
             <th className="px-3 py-2 text-right">Actions</th>
           </tr>
         </thead>
-        <tbody>
-          {state.running.map(item => (
-            <QueueItemRow item={item} key={item[1]} className={'running'} loader={true} mode={ item[3].extra_pnginfo ? 'running' : 'external'} />
-          ))}
-          {state.pending.map((item, index) => (
-            <QueueItemRow item={item} key={item[3].db_id} className={'pending'} index={index} />
-          ))}
-        </tbody>
+        {appStatus.route === 'queue' && state.pending.length > 0 ? (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
+          >
+            <SortableContext
+              items={sortableItems}
+              strategy={verticalListSortingStrategy}
+            >
+              <tbody>
+                {state.running.map(item => (
+                  <QueueItemRow item={item} key={item[1]} className={'running'} loader={true} mode={ item[3].extra_pnginfo ? 'running' : 'external'} />
+                ))}
+                {state.pending.map((item, index) => (
+                  <SortableQueueItemRow item={item} key={item[3].db_id} className={'pending'} index={index} />
+                ))}
+              </tbody>
+            </SortableContext>
+            <DragOverlay>
+              {activeItem ? (
+                <tr className="dark:bg-neutral-700 bg-neutral-300 opacity-80">
+                  <td className="px-2 py-1 text-center w-8"><GripVertical size={16} /></td>
+                  {showBulk && <td className="px-3 py-1"></td>}
+                  <td className="px-3 py-1 serial">{activeItem[0]}</td>
+                  <td className="px-3 py-1 text-left name">
+                    {activeItem[3].extra_pnginfo.workflow.workflow_name || ""}
+                  </td>
+                  <td className="px-3 py-1 text-right actions">...</td>
+                </tr>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        ) : (
+          <tbody>
+            {state.running.map(item => (
+              <QueueItemRow item={item} key={item[1]} className={'running'} loader={true} mode={ item[3].extra_pnginfo ? 'running' : 'external'} />
+            ))}
+            {state.pending.map((item, index) => (
+              <QueueItemRow item={item} key={item[3].db_id} className={'pending'} index={index} />
+            ))}
+          </tbody>
+        )}
       </table>
     </div>
   );

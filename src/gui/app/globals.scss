@@ -465,6 +465,21 @@ button {
     }
   }
 }
+.drag-handle {
+  cursor: grab;
+  color: var(--foreground-faded);
+  opacity: 0.4;
+  transition: opacity 0.15s ease;
+
+  &:hover {
+    opacity: 1;
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
 .top-menu-toggle {
   position: fixed;
   top: 0;
