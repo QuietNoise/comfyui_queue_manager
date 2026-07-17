@@ -104,7 +104,7 @@ class QM_Queue:
 
                 rows = read_query(
                     f"""
-                    SELECT id, prompt, number, tag
+                    SELECT id, prompt, number, tag, status
                     FROM queue
                     WHERE {where_string}
                     {order_string}
@@ -120,6 +120,8 @@ class QM_Queue:
                     item[3]["db_id"] = row[0]
                     # Add tag to the item
                     item[3]["tag"] = row[3] if row[3] else "none"
+                    # Add status to the item
+                    item[3]["status"] = row[4]
 
                     if route == "queue":
                         item[0] = row[2]  # set the number to the one from the database
@@ -967,6 +969,16 @@ class QM_Queue:
                 if key == "workflow":
                     where_clauses.append("workflow_id = ?")
                     params.append(the_filter["value"])
+                elif key == "status":
+                    # status filter: value is a list of status numbers (e.g., [5, 6, 7])
+                    placeholders = ", ".join(["?" for _ in the_filter["value"]])
+                    where_clauses.append(f"status IN ({placeholders})")
+                    params.extend(the_filter["value"])
+                elif key == "tag":
+                    # tag filter: value is a list of tag strings (e.g., ["priority", "main", "background"])
+                    placeholders = ", ".join(["?" for _ in the_filter["value"]])
+                    where_clauses.append(f"tag IN ({placeholders})")
+                    params.extend(the_filter["value"])
                 # elif key == "checkpoint":
                 #     where_clauses.append("name LIKE ?")
                 #     params.append(f"%{value}%")
@@ -990,5 +1002,7 @@ class QM_Queue:
                 return "status = 6"  # main
             case "background":
                 return "status = 7"  # background
+            case "waiting":
+                return "status IN (5, 6, 7)"  # waiting (priority, main, background)
 
         return ""

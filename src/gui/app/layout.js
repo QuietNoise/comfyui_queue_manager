@@ -3,6 +3,7 @@ import {Geist, Geist_Mono} from "next/font/google";
 import "./globals.scss";
 import {useEffect, useState} from "react";
 import Queue from "@/components/Queue";
+import WaitingQueue from "@/components/WaitingQueue";
 import {baseURL} from "@/internals/config";
 import useEvent from "react-use-event-hook";
 import {AppContext} from "@/internals/app-context";
@@ -191,7 +192,7 @@ export default function RootLayout({children}) {
 
     switch (event.data.message.name) {
       case "status":
-        if (appStatus.route === 'queue') {
+        if (appStatus.route === 'queue' || appStatus.route === 'waiting') {
           fetchQueueItems((appStatus.queue && appStatus.queue.info) ? appStatus.queue.info.page : 0);
         }
         break;
@@ -489,6 +490,15 @@ export default function RootLayout({children}) {
         >Background
         </button>
 
+        {/* Waiting */}
+        <button
+          className={"tab waiting" + (appStatus.route === 'waiting' ? ' dark:bg-neutral-800 bg-neutral-200 active' : '')}
+          onClick={() => {
+            setAppStatus(prev => ({...prev, route: 'waiting'}));
+          }}
+        >Waiting
+        </button>
+
         {/* Archive */}
         <button
           className={"tab archive" + (appStatus.route === 'archive' ? ' dark:bg-neutral-800 bg-neutral-200 active' : '')}
@@ -547,13 +557,20 @@ export default function RootLayout({children}) {
       }
       <div className={'queue-table' + (appStatus.shiftDown ? ' shift-down' : '')}>
         {/* Tabs for Queue and Archive */}
-        <Queue data={appStatus.queue}
-               error={appStatus.error}
-               isLoading={appStatus.loading}
-               progress={currentJob.progress}
-               route={appStatus.route}
-               shiftDown={appStatus.shiftDown}
-        />
+        {appStatus.route === 'waiting' ? (
+          <WaitingQueue data={appStatus.queue}
+                        error={appStatus.error}
+                        isLoading={appStatus.loading}
+          />
+        ) : (
+          <Queue data={appStatus.queue}
+                 error={appStatus.error}
+                 isLoading={appStatus.loading}
+                 progress={currentJob.progress}
+                 route={appStatus.route}
+                 shiftDown={appStatus.shiftDown}
+          />
+        )}
       </div>
       <footer className={"footer"}>
         <div className={"paging flex"}>
