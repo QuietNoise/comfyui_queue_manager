@@ -15,6 +15,45 @@ export default function WaitingQueue({data, isLoading, error}) {
     tag: ["priority", "main", "background"],  // all checked by default
   });
 
+  // Selection state for bulk operations
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
+
+  // Sync selectedItems to AppContext so footer can access them
+  useEffect(() => {
+    setAppStatus(prev => ({...prev, selectedItems}));
+  }, [selectedItems, setAppStatus]);
+
+  // Reset selection when data changes
+  useEffect(() => {
+    setSelectedItems([]);
+    setSelectAll(false);
+  }, [data]);
+
+  function toggleSelectItem(dbId) {
+    setSelectedItems(prev => {
+      if (prev.includes(dbId)) {
+        return prev.filter(id => id !== dbId);
+      } else {
+        return [...prev, dbId];
+      }
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectAll) {
+      setSelectedItems([]);
+    } else {
+      const allIds = (data && data.pending
+        ? data.pending
+        : []
+      ).filter(item => item[3] && item[3].db_id)
+        .map(item => item[3].db_id);
+      setSelectedItems(allIds);
+    }
+    setSelectAll(!selectAll);
+  }
+
   // Toggle a status value in the filter
   function toggleStatusFilter(value) {
     setFilters(prev => {
@@ -64,6 +103,9 @@ export default function WaitingQueue({data, isLoading, error}) {
   }
 
   function QueueItemRow({item, className, index}) {
+    const dbId = item[3] && item[3].db_id;
+    const isChecked = dbId ? selectedItems.includes(dbId) : false;
+
     async function cancelQueueItem() {
       await apiCall(`api/queue`, {
         delete: [item[1]],
@@ -119,6 +161,14 @@ export default function WaitingQueue({data, isLoading, error}) {
 
     return (
       <tr className={"dark:odd:bg-neutral-900 odd:bg-neutral-100" + (className ? ' ' + className : '')}>
+        <td className="px-3 py-1 text-left checkbox-cell">
+          <input
+            type="checkbox"
+            checked={isChecked}
+            onChange={() => dbId && toggleSelectItem(dbId)}
+            className="cursor-pointer"
+          />
+        </td>
         <td className="px-3 py-1 serial">
           <span>{(index === undefined || !data.info) ? '' : index + 1 + data.info.page * data.info.page_size}</span>
         </td>
@@ -250,6 +300,14 @@ export default function WaitingQueue({data, isLoading, error}) {
       <table className="min-w-full border border-0">
         <thead className="dark:bg-neutral-800 bg-neutral-200 text-xs uppercase">
         <tr>
+          <th className="px-3 py-2 text-left w-10">
+            <input
+              type="checkbox"
+              checked={selectAll && data && data.pending && data.pending.length > 0}
+              onChange={toggleSelectAll}
+              className="cursor-pointer"
+            />
+          </th>
           <th className="px-3 py-2 text-left">#</th>
           <th className="px-3 py-2 text-left">Workflow</th>
           <th className="px-3 py-2 text-left">Tag</th>

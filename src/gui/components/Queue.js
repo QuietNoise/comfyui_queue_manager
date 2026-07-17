@@ -14,7 +14,11 @@ export default function Queue( { data, isLoading, error, progress } ) {
     running:[],
   })
 
-  // Selection state for bulk operations (used on 'new' route)
+  // Routes that support bulk selection (checkbox + move)
+  const bulkRoutes = ['queue', 'new', 'priority', 'main', 'background', 'archive', 'waiting'];
+  const showBulk = bulkRoutes.includes(appStatus.route);
+
+  // Selection state for bulk operations
   const [selectedItems, setSelectedItems] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
 
@@ -116,7 +120,7 @@ export default function Queue( { data, isLoading, error, progress } ) {
 
     return (
       <tr className={"dark:odd:bg-neutral-900 odd:bg-neutral-100" + (className ? ' ' + className : '')}>
-        {appStatus.route === 'new' && mode !== 'running' && mode !== 'external' && (
+        {showBulk && mode !== 'running' && mode !== 'external' && (
           <td className="px-3 py-1 text-left checkbox-cell">
             <input
               type="checkbox"
@@ -198,7 +202,7 @@ export default function Queue( { data, isLoading, error, progress } ) {
       <table className="min-w-full border border-0">
         <thead className="dark:bg-neutral-800 bg-neutral-200 text-xs uppercase">
           <tr>
-            {appStatus.route === 'new' && (
+            {showBulk && (
               <th className="px-3 py-2 text-left w-10">
                 <input
                   type="checkbox"

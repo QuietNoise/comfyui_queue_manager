@@ -582,8 +582,9 @@ class QM_Queue:
 
     def move_to_category(self, item_ids, category_status):
         """
-        Move items from New (status=4) to Priority/Main/Background (status 5/6/7)
+        Move items to Priority/Main/Background (status 5/6/7)
         Also updates the tag to match the category.
+        Works from any source status (New, Waiting, Archive, etc.)
         """
         with self.native_queue.mutex:
             if category_status not in [5, 6, 7]:
@@ -604,7 +605,7 @@ class QM_Queue:
                     """
                     UPDATE queue
                     SET status = ?, tag = ?
-                    WHERE id = ? AND status = 4
+                    WHERE id = ?
                 """,
                     (category_status, new_tag, db_id),
                     False,

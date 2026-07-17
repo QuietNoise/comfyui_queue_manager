@@ -708,8 +708,8 @@ export default function RootLayout({children}) {
 
           }
 
-          {/* Bulk move buttons for 'new' route - left aligned */}
-          {appStatus.route === 'new' && appStatus.selectedItems && appStatus.selectedItems.length > 0 && (
+          {/* Bulk move buttons - left aligned (all routes except completed/settings) */}
+          {!['completed', 'settings'].includes(appStatus.route) && appStatus.selectedItems && appStatus.selectedItems.length > 0 && (
             <>
               <span className="text-xs dark:text-neutral-400 text-neutral-600 mr-2 self-center">
                 {appStatus.selectedItems.length} selected:
