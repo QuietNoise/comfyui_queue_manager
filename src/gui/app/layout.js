@@ -210,7 +210,7 @@ export default function RootLayout({children}) {
 
     switch (event.data.message.name) {
       case "status":
-        if (appStatus.route === 'queue' || appStatus.route === 'waiting') {
+        if (appStatus.route === 'queue' || appStatus.route === 'waiting' || appStatus.route === 'new') {
           fetchQueueItems((appStatus.queue && appStatus.queue.info) ? appStatus.queue.info.page : 0);
         }
         break;
