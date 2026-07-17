@@ -8,10 +8,48 @@ import {AppContext} from "@/internals/app-context";
 
 // take items from parent component
 export default function Queue( { data, isLoading, error, progress } ) {
+  const {appStatus, setAppStatus} = useContext(AppContext);
   const [state, setState] = useState({
     pending:[],
     running:[],
   })
+
+  // Selection state for bulk operations (used on 'new' route)
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
+
+  // Sync selectedItems to AppContext so footer can access them
+  useEffect(() => {
+    setAppStatus(prev => ({...prev, selectedItems}));
+  }, [selectedItems, setAppStatus]);
+
+  // Reset selection when data changes
+  useEffect(() => {
+    setSelectedItems([]);
+    setSelectAll(false);
+  }, [data]);
+
+  function toggleSelectItem(dbId) {
+    setSelectedItems(prev => {
+      if (prev.includes(dbId)) {
+        return prev.filter(id => id !== dbId);
+      } else {
+        return [...prev, dbId];
+      }
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectAll) {
+      setSelectedItems([]);
+    } else {
+      const allIds = state.pending
+        .filter(item => item[3] && item[3].db_id)
+        .map(item => item[3].db_id);
+      setSelectedItems(allIds);
+    }
+    setSelectAll(!selectAll);
+  }
 
 
   function Button({children, className, onClick}) {
@@ -73,8 +111,21 @@ export default function Queue( { data, isLoading, error, progress } ) {
     }
 
 
+    const dbId = item[3] && item[3].db_id;
+    const isChecked = dbId ? selectedItems.includes(dbId) : false;
+
     return (
       <tr className={"dark:odd:bg-neutral-900 odd:bg-neutral-100" + (className ? ' ' + className : '')}>
+        {appStatus.route === 'new' && mode !== 'running' && mode !== 'external' && (
+          <td className="px-3 py-1 text-left checkbox-cell">
+            <input
+              type="checkbox"
+              checked={isChecked}
+              onChange={() => dbId && toggleSelectItem(dbId)}
+              className="cursor-pointer"
+            />
+          </td>
+        )}
         <td className="px-3 py-1 serial">
           <span>{(index === undefined || !data.info)?'':index+1+data.info.page * data.info.page_size}</span>
           {loader &&
@@ -147,6 +198,16 @@ export default function Queue( { data, isLoading, error, progress } ) {
       <table className="min-w-full border border-0">
         <thead className="dark:bg-neutral-800 bg-neutral-200 text-xs uppercase">
           <tr>
+            {appStatus.route === 'new' && (
+              <th className="px-3 py-2 text-left w-10">
+                <input
+                  type="checkbox"
+                  checked={selectAll && state.pending.length > 0}
+                  onChange={toggleSelectAll}
+                  className="cursor-pointer"
+                />
+              </th>
+            )}
             <th className="px-3 py-2 text-left">#</th>
             <th className="px-3 py-2 text-left">Workflow</th>
             <th className="px-3 py-2 text-right">Actions</th>

@@ -30,7 +30,8 @@ export default function RootLayout({children}) {
     route: 'queue', // queue, archive, bin
     shiftDown: false,
     clientId: null,
-    filters: null
+    filters: null,
+    selectedItems: []
   });
 
   const [uiState, setUiState] = useState({
@@ -181,6 +182,22 @@ export default function RootLayout({children}) {
       });
     } catch (error) {
       console.error("Error building queue:", error);
+    }
+  }
+
+  async function moveSelectedToCategory(category) {
+    const items = appStatus.selectedItems;
+    if (!items || items.length === 0) return;
+    try {
+      await apiCall('queue_manager/move-to-category', {
+        items: items,
+        category: category,
+      });
+      // Clear selection after move
+      setAppStatus(prev => ({...prev, selectedItems: []}));
+      fetchQueueItems();
+    } catch (error) {
+      console.error("Error moving items:", error);
     }
   }
 
@@ -690,6 +707,27 @@ export default function RootLayout({children}) {
             </>
 
           }
+
+          {/* Bulk move buttons for 'new' route - left aligned */}
+          {appStatus.route === 'new' && appStatus.selectedItems && appStatus.selectedItems.length > 0 && (
+            <>
+              <span className="text-xs dark:text-neutral-400 text-neutral-600 mr-2 self-center">
+                {appStatus.selectedItems.length} selected:
+              </span>
+              <button onClick={() => moveSelectedToCategory('priority')}
+                      className="hover:bg-neutral-700 dark:bg-purple-900 bg-purple-300 dark:text-neutral-200 text-neutral-900 py-1 px-2 rounded mr-1 border-0 text-sm">
+                ⬆ Priority
+              </button>
+              <button onClick={() => moveSelectedToCategory('main')}
+                      className="hover:bg-neutral-700 dark:bg-blue-900 bg-blue-300 dark:text-neutral-200 text-neutral-900 py-1 px-2 rounded mr-1 border-0 text-sm">
+                ➡ Main
+              </button>
+              <button onClick={() => moveSelectedToCategory('background')}
+                      className="hover:bg-neutral-700 dark:bg-gray-700 bg-gray-300 dark:text-neutral-200 text-neutral-900 py-1 px-2 rounded mr-1 border-0 text-sm">
+                ⬇ Background
+              </button>
+            </>
+          )}
 
           {/* Build Queue button - always visible */}
           <button onClick={buildQueue}
