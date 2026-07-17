@@ -3,6 +3,11 @@ import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
+
+# Используй sync_files.sh в корне, а этот скрипт не работает
+
+
+
 # --- НАСТРОЙКИ ---
 LOCAL_PLUGIN_PATH = "/all/code/ai/comfy/comfyui_queue_manager"
 REMOTE_USER = "will"
