@@ -645,6 +645,7 @@ class QM_Queue:
     def _build_queue_step1_archive_pending(self):
         """
         Step 1: Archive all current pending items (status 0 -> 3).
+        Tags are preserved as-is.
         Returns the number of archived items.
         """
         archived = write_query(
@@ -657,21 +658,28 @@ class QM_Queue:
         logging.info("[Queue Manager] Build Queue Step 1: Archived %d pending items", archived)
         return archived
 
-    def _build_queue_step2_promote_categories(self, client_id=None):
+    def _build_queue_step2_process_tiers(self, client_id=None):
         """
-        Step 2: Move items from Priority/Main/Background categories (status 5/6/7)
-        to pending (status 0) with sequential numbering, ordered by category priority.
-        Returns the number of moved items.
+        Step 2: Process items in priority tiers.
+        For each tier (priority -> main -> background):
+          a. Move items from the category (status 5/6/7) to pending (status 0),
+             keeping their tag (priority/main/background).
+          b. Move items from archive (status 3) with matching tag to pending (status 0),
+             keeping their tag (priority/main/background).
+
+        After this step, only items with non-priority tags (archive, none, new, completed)
+        remain in the archive (status 3).
+        Returns the total number of moved items.
         """
-        categories = [
-            (5, "Priority"),
-            (6, "Main"),
-            (7, "Background"),
+        tiers = [
+            (5, "priority"),
+            (6, "main"),
+            (7, "background"),
         ]
 
         total_moved = 0
-        for category_status, category_name in categories:
-            # Get items in this category
+        for category_status, tag_name in tiers:
+            # Sub-step a: Move items from the category to pending
             rows = read_query(
                 """
                 SELECT id, prompt
@@ -682,7 +690,6 @@ class QM_Queue:
                 (category_status,),
             )
 
-            # Move each item to pending with sequential numbering
             parameters = []
             for row in rows:
                 PromptServer.instance.number += 1
@@ -699,6 +706,7 @@ class QM_Queue:
                 parameters.append(
                     (
                         0,  # status = pending
+                        tag_name,  # keep the tag
                         PromptServer.instance.number,
                         json.dumps(item),
                         row[0],
@@ -709,105 +717,87 @@ class QM_Queue:
                 moved = write_many(
                     """
                     UPDATE queue
-                    SET status = ?, number = ?, prompt = ?
+                    SET status = ?, tag = ?, number = ?, prompt = ?
                     WHERE id = ?
                 """,
                     parameters,
                 )
                 total_moved += moved
-                logging.info("[Queue Manager] Build Queue Step 2: Moved %d items from %s", moved, category_name)
+                logging.info("[Queue Manager] Build Queue: Moved %d items from %s category", moved, tag_name)
+
+            # Sub-step b: Move items from archive with matching tag to pending
+            rows = read_query(
+                """
+                SELECT id, prompt
+                FROM queue
+                WHERE status = 3 AND tag = ?
+                ORDER BY updated_at
+            """,
+                (tag_name,),
+            )
+
+            parameters = []
+            for row in rows:
+                PromptServer.instance.number += 1
+
+                item = json.loads(row[1])
+                if client_id is not None:
+                    item[3]["client_id"] = client_id
+                item[0] = PromptServer.instance.number
+
+                # Backwards compatibility: if item[5] does not exist, create it with empty dict
+                if len(item) < 6:
+                    item.append({})
+
+                parameters.append(
+                    (
+                        0,  # status = pending
+                        tag_name,  # keep the tag
+                        PromptServer.instance.number,
+                        json.dumps(item),
+                        row[0],
+                    )
+                )
+
+            if parameters:
+                moved = write_many(
+                    """
+                    UPDATE queue
+                    SET status = ?, tag = ?, number = ?, prompt = ?
+                    WHERE id = ?
+                """,
+                    parameters,
+                )
+                total_moved += moved
+                logging.info(
+                    "[Queue Manager] Build Queue: Restored %d archived items with tag '%s'", moved, tag_name
+                )
 
         return total_moved
-
-    def _build_queue_step3_restore_archived(self, client_id=None):
-        """
-        Step 3: Restore archived items (status 3) to pending (status 0),
-        ordered by tag priority (priority -> main -> background -> others)
-        and then by updated_at within each tag group.
-        Returns the number of restored items.
-        """
-        # Tag priority order: lower number = higher priority
-        tag_priority = {
-            "priority": 1,
-            "main": 2,
-            "background": 3,
-            "none": 4,
-            "new": 5,
-            "archive": 6,
-            "completed": 7,
-        }
-
-        # Get all archived items ordered by tag priority, then by updated_at
-        rows = read_query(
-            """
-            SELECT id, prompt, tag
-            FROM queue
-            WHERE status = 3
-            ORDER BY
-                CASE tag
-                    WHEN 'priority' THEN 1
-                    WHEN 'main' THEN 2
-                    WHEN 'background' THEN 3
-                END,
-                updated_at
-        """
-        )
-
-        # Move each item to pending with sequential numbering
-        parameters = []
-        for row in rows:
-            PromptServer.instance.number += 1
-
-            item = json.loads(row[1])
-            if client_id is not None:
-                item[3]["client_id"] = client_id
-            item[0] = PromptServer.instance.number
-
-            # Backwards compatibility: if item[5] does not exist, create it with empty dict
-            if len(item) < 6:
-                item.append({})
-
-            parameters.append(
-                (
-                    0,  # status = pending
-                    PromptServer.instance.number,
-                    json.dumps(item),
-                    row[0],
-                )
-            )
-
-        restored = 0
-        if parameters:
-            restored = write_many(
-                """
-                UPDATE queue
-                SET status = ?, number = ?, prompt = ?
-                WHERE id = ?
-            """,
-                parameters,
-            )
-            logging.info("[Queue Manager] Build Queue Step 3: Restored %d archived items", restored)
-
-        return restored
 
     def build_queue(self, client_id=None):
         """
         Build the working queue from categorized items:
-        1. Archive all current pending items (status 0 -> 3)
-        2. Move Priority/Main/Background items (status 5/6/7 -> 0) with sequential numbering
-        3. Restore archived items (status 3 -> 0) ordered by tag priority
+        1. Archive all current pending items (status 0 -> 3), preserving their tags
+        2. Process items in priority tiers:
+           a. Move items from Priority category (status 5) to pending (status 0), keep tag 'priority'
+           b. Move archived items with tag 'priority' (status 3) to pending (status 0), keep tag 'priority'
+           c. Move items from Main category (status 6) to pending (status 0), keep tag 'main'
+           d. Move archived items with tag 'main' (status 3) to pending (status 0), keep tag 'main'
+           e. Move items from Background category (status 7) to pending (status 0), keep tag 'background'
+           f. Move archived items with tag 'background' (status 3) to pending (status 0), keep tag 'background'
+
+        After build, only items with non-priority tags (archive, none, new, completed)
+        remain in the archive (status 3).
         """
         with self.native_queue.mutex:
             # Step 1: Archive all current pending items
             archived = self._build_queue_step1_archive_pending()
 
-            # Step 2: Move items from categories to pending
-            moved = self._build_queue_step2_promote_categories(client_id)
+            # Step 2: Process items in priority tiers (category + archive with matching tag)
+            moved = self._build_queue_step2_process_tiers(client_id)
 
-            # Step 3: Restore archived items ordered by tag priority
-            restored = self._build_queue_step3_restore_archived(client_id)
-
-            total_moved = moved + restored
+            total_moved = moved
 
             # Clear native queue and notify
             self.native_queue.queue = []

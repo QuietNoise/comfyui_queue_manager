@@ -48,11 +48,12 @@ flowchart LR
     A[Внешний запрос<br>без extra_pnginfo] -->|queue_put| B[Нативная очередь<br>ComfyUI]
     C[Запрос из ComfyUI<br>с extra_pnginfo] -->|queue_put| D[status=4, tag='new']
     D -->|move_to_category| E[status=5/6/7<br>tag='priority/main/background']
-    E -->|build_queue| F[status=0, tag='none']
+    E -->|build_queue step 2a| F[status=0, tag сохранён]
+    I[status=3, tag='priority/main/background'] -->|build_queue step 2b| F
     F -->|queue_get| G[status=1, tag='none']
     G -->|task_done| H[status=2, tag='completed']
-    F -->|archive_queue| I[status=3, tag='archive']
-    I -->|play_items / play_archive| F
+    F -->|archive_queue| I
+    I -.->|build_queue step 2b| F
     H -->|archive_items| I
 ```
 
@@ -78,22 +79,26 @@ flowchart LR
 
 Задача всё ещё **не попадает в очередь выполнения**. Она ждёт кнопку **Build Queue**.
 
-### 4.3 Build Queue ([`build_queue`](../src/comfyui_queue_manager/qm_queue.py:793))
+### 4.3 Build Queue ([`build_queue`](../src/comfyui_queue_manager/qm_queue.py:778))
 
-Ключевой механизм. При нажатии кнопки "Build Queue" происходит трёхшаговый процесс:
+Ключевой механизм. При нажатии кнопки "Build Queue" происходит двухшаговый процесс:
 
-**Шаг 1** ([`_build_queue_step1_archive_pending`](../src/comfyui_queue_manager/qm_queue.py:645)): Все текущие pending задачи (status=0) архивируются → status=3. Очередь очищается.
+**Шаг 1** ([`_build_queue_step1_archive_pending`](../src/comfyui_queue_manager/qm_queue.py:645)): Все текущие pending задачи (status=0) архивируются → status=3. **Теги сохраняются** как есть.
 
-**Шаг 2** ([`_build_queue_step2_promote_categories`](../src/comfyui_queue_manager/qm_queue.py:660)): Задачи из категорий (status 5/6/7) перемещаются в pending (status=0) с последовательной нумерацией. Порядок: **сначала priority, потом main, потом background**. Внутри каждой категории — по `updated_at`.
+**Шаг 2** ([`_build_queue_step2_process_tiers`](../src/comfyui_queue_manager/qm_queue.py:661)): Обработка приоритетных уровней. Для каждого уровня (priority → main → background) выполняются два подшага:
 
-**Шаг 3** ([`_build_queue_step3_restore_archived`](../src/comfyui_queue_manager/qm_queue.py:722)): Архивированные задачи (status=3) тоже восстанавливаются в pending (status=0), отсортированные по приоритету тега: `priority` → `main` → `background` → остальные.
+  a. Задачи из категории (status 5/6/7) → status=0 (`pending`), тег сохраняется.
+  b. Задачи из архива (status=3) с соответствующим тегом → status=0 (`pending`), тег сохраняется.
 
-Итоговый порядок очереди после Build Queue:
+Порядок обработки:
 
-1. Задачи из категории **Priority** (status=5)
-2. Задачи из категории **Main** (status=6)
-3. Задачи из категории **Background** (status=7)
-4. Ранее архивированные задачи (status=3), отсортированные по тегам в том же порядке
+1. **Priority**: сначала задачи из категории (status=5), затем из архива с тегом `priority`
+2. **Main**: сначала задачи из категории (status=6), затем из архива с тегом `main`
+3. **Background**: сначала задачи из категории (status=7), затем из архива с тегом `background`
+
+Внутри каждой группы — по `updated_at`.
+
+**Результат**: В архиве (status=3) остаются только задачи с тегами `archive`, `none`, `new`, `completed`. Все задачи с тегами `priority`, `main`, `background` перемещаются в очередь выполнения.
 
 ### 4.4 Выполнение ([`queue_get`](../src/comfyui_queue_manager/qm_queue.py:261))
 
@@ -130,24 +135,13 @@ flowchart LR
 | Move to Priority | 5 | `'priority'` |
 | Move to Main | 6 | `'main'` |
 | Move to Background | 7 | `'background'` |
-| Build Queue → в очередь | 0 (`pending`) | остаётся прежним |
+| Build Queue (из категории) | 0 (`pending`) | сохраняется (`priority`/`main`/`background`) |
+| Build Queue (из архива с тегом) | 0 (`pending`) | сохраняется (`priority`/`main`/`background`) |
 | Начало выполнения | 1 (`running`) | `'none'` |
 | Завершение | 2 (`completed`) | `'completed'` |
 | Архивация | 3 (`archive`) | `'archive'` |
 
-Теги `'priority'`, `'main'`, `'background'` используются для сортировки при сборке очереди (см. [`_build_queue_step3_restore_archived`](../src/comfyui_queue_manager/qm_queue.py:722:730-738)), где определён порядок приоритета тегов:
-
-```python
-tag_priority = {
-    "priority": 1,
-    "main": 2,
-    "background": 3,
-    "none": 4,
-    "new": 5,
-    "archive": 6,
-    "completed": 7,
-}
-```
+**Ключевое правило Build Queue**: В архиве (status=3) после сборки остаются только задачи с тегами `archive`, `none`, `new`, `completed`. Все задачи с тегами `priority`, `main`, `background` перемещаются в очередь выполнения (status=0) с сохранением тега.
 
 ---
 
