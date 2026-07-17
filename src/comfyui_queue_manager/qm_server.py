@@ -364,7 +364,7 @@ class QM_Server:
         Check if the route is valid.
         """
         route = request.query.get("route", "queue")
-        if route not in ["queue", "archive", "completed", "new", "priority", "main", "background", "waiting", "settings"]:
+        if route not in ["queue", "archive", "completed", "new", "waiting", "settings"]:
             raise BadRouteException("Invalid route: " + route)
 
         return route

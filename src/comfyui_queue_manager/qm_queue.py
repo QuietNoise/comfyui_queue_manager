@@ -1049,12 +1049,6 @@ class QM_Queue:
                 return "status = 2"  # completed
             case "new":
                 return "status = 4"  # new
-            case "priority":
-                return "status = 5"  # priority
-            case "main":
-                return "status = 6"  # main
-            case "background":
-                return "status = 7"  # background
             case "waiting":
                 return "status IN (5, 6, 7)"  # waiting (priority, main, background)
 

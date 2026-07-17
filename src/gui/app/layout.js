@@ -485,33 +485,6 @@ export default function RootLayout({children}) {
         >New
         </button>
 
-        {/* Priority */}
-        <button
-          className={"tab priority" + (appStatus.route === 'priority' ? ' dark:bg-neutral-800 bg-neutral-200 active' : '')}
-          onClick={() => {
-            setAppStatus(prev => ({...prev, route: 'priority'}));
-          }}
-        >Priority
-        </button>
-
-        {/* Main */}
-        <button
-          className={"tab main" + (appStatus.route === 'main' ? ' dark:bg-neutral-800 bg-neutral-200 active' : '')}
-          onClick={() => {
-            setAppStatus(prev => ({...prev, route: 'main'}));
-          }}
-        >Main
-        </button>
-
-        {/* Background */}
-        <button
-          className={"tab background" + (appStatus.route === 'background' ? ' dark:bg-neutral-800 bg-neutral-200 active' : '')}
-          onClick={() => {
-            setAppStatus(prev => ({...prev, route: 'background'}));
-          }}
-        >Background
-        </button>
-
         {/* Waiting */}
         <button
           className={"tab waiting" + (appStatus.route === 'waiting' ? ' dark:bg-neutral-800 bg-neutral-200 active' : '')}

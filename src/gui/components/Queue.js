@@ -32,7 +32,7 @@ export default function Queue( { data, isLoading, error, progress } ) {
   })
 
   // Routes that support bulk selection (checkbox + move)
-  const bulkRoutes = ['queue', 'new', 'priority', 'main', 'background', 'archive', 'waiting'];
+  const bulkRoutes = ['queue', 'new', 'archive', 'waiting'];
   const showBulk = bulkRoutes.includes(appStatus.route);
 
   // Selection state for bulk operations
