@@ -23,10 +23,12 @@ class QM_Options:
 
     def get(self, key, default=None, with_timestamp=False):
         if key in self.__options:
+            cached = self.__options[key]
             if with_timestamp:
-                return self.__options[key]
+                return cached
             else:
-                return self.__options[key][0]
+                # cached can be a plain value (set via set()) or a tuple (loaded from DB)
+                return cached if not isinstance(cached, tuple) else cached[0]
 
         value = read_single(
             """
