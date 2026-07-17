@@ -4,6 +4,7 @@ import "./globals.scss";
 import {useEffect, useState} from "react";
 import Queue from "@/components/Queue";
 import WaitingQueue from "@/components/WaitingQueue";
+import Settings from "@/components/Settings";
 import {baseURL} from "@/internals/config";
 import useEvent from "react-use-event-hook";
 import {AppContext} from "@/internals/app-context";
@@ -340,7 +341,9 @@ export default function RootLayout({children}) {
   });
 
   useEffect(() => {
-    fetchQueueItems()
+    if (appStatus.route !== 'settings') {
+      fetchQueueItems()
+    }
   }, [appStatus.filters]);
 
   // when progress data is updated
@@ -397,8 +400,10 @@ export default function RootLayout({children}) {
   }, [appStatus.queue]);
 
   useEffect(() => {
-    setAppStatus(prev => ({ ...prev, queue: null }));
-    fetchQueueItems();
+    if (appStatus.route !== 'settings') {
+      setAppStatus(prev => ({ ...prev, queue: null }));
+      fetchQueueItems();
+    }
   }, [appStatus.route]);
 
   // on mount get the queue items from the server
@@ -516,6 +521,14 @@ export default function RootLayout({children}) {
         >Completed
         </button>
 
+        {/* Settings */}
+        <button className={"tab settings" + (appStatus.route === 'settings' ? ' active' : '')}
+                onClick={() => {
+                  setAppStatus(prev => ({...prev, route: 'settings'}));
+                }}
+        >Settings
+        </button>
+
       </div>
       {isFilterOn() &&
         <div className="filters flex items-center p-2">
@@ -562,6 +575,8 @@ export default function RootLayout({children}) {
                         error={appStatus.error}
                         isLoading={appStatus.loading}
           />
+        ) : appStatus.route === 'settings' ? (
+          <Settings />
         ) : (
           <Queue data={appStatus.queue}
                  error={appStatus.error}

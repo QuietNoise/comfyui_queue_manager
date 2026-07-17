@@ -143,6 +143,32 @@ class QM_Server:
             updated = self.queue.update_tag(item_ids, tag)
             return web.json_response({"updated": updated})
 
+        # Get settings
+        @PromptServer.instance.routes.get("/queue_manager/settings")
+        async def get_settings(request):
+            default_status = self.queue_manager.options.get("default_status", 4)
+            default_tag = self.queue_manager.options.get("default_tag", "main")
+            return web.json_response({
+                "default_status": default_status,
+                "default_tag": default_tag,
+            })
+
+        # Save settings
+        @PromptServer.instance.routes.post("/queue_manager/settings")
+        async def post_settings(request):
+            json_data = await request.json()
+            if "default_status" in json_data:
+                status = int(json_data["default_status"])
+                if status not in [0, 4, 5, 6, 7]:
+                    return web.json_response({"error": "Invalid status value"}, status=400)
+                self.queue_manager.options.set("default_status", status)
+            if "default_tag" in json_data:
+                tag = json_data["default_tag"]
+                if tag not in ["priority", "main", "background", "archive"]:
+                    return web.json_response({"error": "Invalid tag value"}, status=400)
+                self.queue_manager.options.set("default_tag", tag)
+            return web.json_response({"success": True})
+
         # Endpoint to expose __version__ information
         @PromptServer.instance.routes.get("/queue_manager/version")
         async def get_version(request):
@@ -329,7 +355,7 @@ class QM_Server:
         Check if the route is valid.
         """
         route = request.query.get("route", "queue")
-        if route not in ["queue", "archive", "completed", "new", "priority", "main", "background", "waiting"]:
+        if route not in ["queue", "archive", "completed", "new", "priority", "main", "background", "waiting", "settings"]:
             raise BadRouteException("Invalid route: " + route)
 
         return route

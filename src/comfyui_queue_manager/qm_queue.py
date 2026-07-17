@@ -216,11 +216,15 @@ class QM_Queue:
                 self.original_put(tuple(item))
                 return
 
-            # Add the item to the database with status=4 (new)
+            # Get default status and tag from settings
+            default_status = self.queue_manager.options.get("default_status", 4)
+            default_tag = self.queue_manager.options.get("default_tag", "main")
+
+            # Add the item to the database with default status and tag from settings
             write_query(
                 """
                 INSERT OR REPLACE INTO queue (prompt_id, number, name, workflow_id, prompt, status, tag)
-                VALUES (?, ?, ?, ?, ?, 4, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     item[1],
@@ -228,7 +232,8 @@ class QM_Queue:
                     item[3]["extra_pnginfo"]["workflow"]["workflow_name"],
                     item[3]["extra_pnginfo"]["workflow"]["id"],
                     json.dumps(item),
-                    "new",
+                    default_status,
+                    default_tag,
                 ),
             )
 
