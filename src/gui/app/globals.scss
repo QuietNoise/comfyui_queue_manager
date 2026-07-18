@@ -250,6 +250,10 @@ footer.footer {
     padding: 0.4rem 0.8rem 0.2rem;
     border: 1px solid transparent;
     border-bottom: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+
     &.active {
       border-top-left-radius: 0.5rem;
       border-top-right-radius: 0.5rem;
@@ -264,6 +268,24 @@ footer.footer {
         }
       }
     }
+  }
+
+  .tab-spinner {
+    display: inline-flex;
+    align-items: center;
+
+    svg {
+      animation: tab-spin 1s linear infinite;
+    }
+  }
+}
+
+@keyframes tab-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 button {

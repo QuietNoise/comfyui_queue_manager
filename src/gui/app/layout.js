@@ -1,7 +1,7 @@
 "use client";
 import {Geist, Geist_Mono} from "next/font/google";
 import "./globals.scss";
-import {useEffect, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import Queue from "@/components/Queue";
 import WaitingQueue from "@/components/WaitingQueue";
 import Settings from "@/components/Settings";
@@ -34,6 +34,9 @@ export default function RootLayout({children}) {
     selectedItems: []
   });
 
+  // Track the current fetch request to avoid stale responses on tab switch
+  const fetchIdRef = useRef(0);
+
   const [uiState, setUiState] = useState({
     menuOpen: false,
   });
@@ -53,6 +56,8 @@ export default function RootLayout({children}) {
 
 
   const fetchQueueItems = async (page) => {
+    // Increment fetch ID to mark this as the current request
+    const thisFetchId = ++fetchIdRef.current;
     setAppStatus(prev => ({...prev, loading: true, error: null}));
     try {
       // console.log("Fetching queue items from", baseURL);
@@ -70,10 +75,17 @@ export default function RootLayout({children}) {
         throw new Error("Network response was not ok");
       }
       const queue = await response.json();
-      setAppStatus(prev => ({...prev, loading: false, error: null, queue}));
+
+      // Only apply response if it's still the current fetch (not stale)
+      if (thisFetchId === fetchIdRef.current) {
+        setAppStatus(prev => ({...prev, loading: false, error: null, queue}));
+      }
 
     } catch (error) {
-      setAppStatus(prev => ({...prev, loading: false, error: error.message, queue: null}));
+      // Only apply error if it's still the current fetch (not stale)
+      if (thisFetchId === fetchIdRef.current) {
+        setAppStatus(prev => ({...prev, loading: false, error: error.message, queue: null}));
+      }
       console.error("Error fetching " + appStatus.route + " items:", error);
     }
   };
@@ -473,7 +485,11 @@ export default function RootLayout({children}) {
           onClick={() => {
             setAppStatus(prev => ({...prev, route: 'queue'}));
           }}
-        >Queue
+        >
+          {appStatus.loading && appStatus.route === 'queue' && (
+            <span className="tab-spinner"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg></span>
+          )}
+          Queue
         </button>
 
         {/* New */}
@@ -482,7 +498,11 @@ export default function RootLayout({children}) {
           onClick={() => {
             setAppStatus(prev => ({...prev, route: 'new'}));
           }}
-        >New
+        >
+          {appStatus.loading && appStatus.route === 'new' && (
+            <span className="tab-spinner"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg></span>
+          )}
+          New
         </button>
 
         {/* Waiting */}
@@ -491,7 +511,11 @@ export default function RootLayout({children}) {
           onClick={() => {
             setAppStatus(prev => ({...prev, route: 'waiting'}));
           }}
-        >Waiting
+        >
+          {appStatus.loading && appStatus.route === 'waiting' && (
+            <span className="tab-spinner"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg></span>
+          )}
+          Waiting
         </button>
 
         {/* Archive */}
@@ -500,7 +524,11 @@ export default function RootLayout({children}) {
           onClick={() => {
             setAppStatus(prev => ({...prev, route: 'archive'}));
           }}
-        >Archive
+        >
+          {appStatus.loading && appStatus.route === 'archive' && (
+            <span className="tab-spinner"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg></span>
+          )}
+          Archive
         </button>
 
         {/* Completed */}
@@ -508,7 +536,11 @@ export default function RootLayout({children}) {
                 onClick={() => {
                   setAppStatus(prev => ({...prev, route: 'completed'}));
                 }}
-        >Completed
+        >
+          {appStatus.loading && appStatus.route === 'completed' && (
+            <span className="tab-spinner"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg></span>
+          )}
+          Completed
         </button>
 
         {/* Settings */}
