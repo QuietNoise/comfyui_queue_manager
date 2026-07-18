@@ -440,76 +440,85 @@ export default function Queue( { data, isLoading, error, progress } ) {
   if (error)       return <p className="text-red-500 text-center">Loading failed: {error}</p>;
   if (!isLoading && (!data || (!data.running.length && !data.pending.length))) return <p className="italic text-center">No items.</p>;
   if (isLoading && !data)  return <p className="italic text-center">Loading...</p>;
-  return (
-    <div className={"overflow-x-auto" + (isLoading ? ' loading' : '')} style={{"--job-progress": progress + "%"}}>
-      <table className="min-w-full border border-0">
-        <thead className="dark:bg-neutral-800 bg-neutral-200 text-xs uppercase">
-          <tr>
-            {/* Drag handle column header (only on queue route) */}
-            {appStatus.route === 'queue' && (
-              <th className="px-2 py-2 text-center w-8"></th>
-            )}
-            {showBulk && (
-              <th className="px-3 py-2 text-left w-10">
-                <input
-                  type="checkbox"
-                  checked={selectAll && state.pending.length > 0}
-                  onChange={toggleSelectAll}
-                  className="cursor-pointer"
-                />
-              </th>
-            )}
-            <th className="px-3 py-2 text-left">#</th>
-            <th className="px-3 py-2 text-left">Workflow</th>
-            <th className="px-3 py-2 text-right">Actions</th>
-          </tr>
-        </thead>
-        {appStatus.route === 'queue' && state.pending.length > 0 ? (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            onDragCancel={handleDragCancel}
-          >
-            <SortableContext
-              items={sortableItems}
-              strategy={verticalListSortingStrategy}
-            >
-              <tbody>
-                {state.running.map(item => (
-                  <QueueItemRow item={item} key={item[1]} className={'running'} loader={true} mode={ item[3].extra_pnginfo ? 'running' : 'external'} />
-                ))}
-                {state.pending.map((item, index) => (
-                  <SortableQueueItemRow item={item} key={item[3].db_id} className={'pending'} index={index} />
-                ))}
-              </tbody>
-            </SortableContext>
-            <DragOverlay>
-              {activeItem ? (
-                <tr className="dark:bg-neutral-700 bg-neutral-300 opacity-80">
-                  <td className="px-2 py-1 text-center w-8"><GripVertical size={16} /></td>
-                  {showBulk && <td className="px-3 py-1"></td>}
-                  <td className="px-3 py-1 serial">{activeItem[0]}</td>
-                  <td className="px-3 py-1 text-left name">
-                    {activeItem[3].extra_pnginfo.workflow.workflow_name || ""}
-                  </td>
-                  <td className="px-3 py-1 text-right actions">...</td>
-                </tr>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
-        ) : (
+
+  const tableContent = (
+    <table className="min-w-full border border-0">
+      <thead className="dark:bg-neutral-800 bg-neutral-200 text-xs uppercase">
+        <tr>
+          {/* Drag handle column header (only on queue route) */}
+          {appStatus.route === 'queue' && (
+            <th className="px-2 py-2 text-center w-8"></th>
+          )}
+          {showBulk && (
+            <th className="px-3 py-2 text-left w-10">
+              <input
+                type="checkbox"
+                checked={selectAll && state.pending.length > 0}
+                onChange={toggleSelectAll}
+                className="cursor-pointer"
+              />
+            </th>
+          )}
+          <th className="px-3 py-2 text-left">#</th>
+          <th className="px-3 py-2 text-left">Workflow</th>
+          <th className="px-3 py-2 text-right">Actions</th>
+        </tr>
+      </thead>
+      {appStatus.route === 'queue' && state.pending.length > 0 ? (
+        <SortableContext
+          items={sortableItems}
+          strategy={verticalListSortingStrategy}
+        >
           <tbody>
             {state.running.map(item => (
               <QueueItemRow item={item} key={item[1]} className={'running'} loader={true} mode={ item[3].extra_pnginfo ? 'running' : 'external'} />
             ))}
             {state.pending.map((item, index) => (
-              <QueueItemRow item={item} key={item[3].db_id} className={'pending'} index={index} />
+              <SortableQueueItemRow item={item} key={item[3].db_id} className={'pending'} index={index} />
             ))}
           </tbody>
-        )}
-      </table>
+        </SortableContext>
+      ) : (
+        <tbody>
+          {state.running.map(item => (
+            <QueueItemRow item={item} key={item[1]} className={'running'} loader={true} mode={ item[3].extra_pnginfo ? 'running' : 'external'} />
+          ))}
+          {state.pending.map((item, index) => (
+            <QueueItemRow item={item} key={item[3].db_id} className={'pending'} index={index} />
+          ))}
+        </tbody>
+      )}
+    </table>
+  );
+
+  return (
+    <div className={"overflow-x-auto" + (isLoading ? ' loading' : '')} style={{"--job-progress": progress + "%"}}>
+      {appStatus.route === 'queue' && state.pending.length > 0 ? (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
+          {tableContent}
+          <DragOverlay>
+            {activeItem ? (
+              <tr className="dark:bg-neutral-700 bg-neutral-300 opacity-80">
+                <td className="px-2 py-1 text-center w-8"><GripVertical size={16} /></td>
+                {showBulk && <td className="px-3 py-1"></td>}
+                <td className="px-3 py-1 serial">{activeItem[0]}</td>
+                <td className="px-3 py-1 text-left name">
+                  {activeItem[3].extra_pnginfo.workflow.workflow_name || ""}
+                </td>
+                <td className="px-3 py-1 text-right actions">...</td>
+              </tr>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      ) : (
+        tableContent
+      )}
     </div>
   );
 }
