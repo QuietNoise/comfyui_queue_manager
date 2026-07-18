@@ -1,7 +1,7 @@
 "use client";
 import {Geist, Geist_Mono} from "next/font/google";
 import "./globals.scss";
-import {useEffect, useRef, useState} from "react";
+import {useCallback, useEffect, useRef, useState} from "react";
 import Queue from "@/components/Queue";
 import WaitingQueue from "@/components/WaitingQueue";
 import Settings from "@/components/Settings";
@@ -54,8 +54,25 @@ export default function RootLayout({children}) {
     setUiState(prev => ({...prev, menuOpen: !prev.menuOpen}));
   }
 
+  const isFilterOn = useCallback(() => {
+    return appStatus.filters && Object.keys(appStatus.filters).length > 0;
+  }, [appStatus.filters]);
 
-  const fetchQueueItems = async (page) => {
+  const appendFilters = useCallback((queryArgs) => {
+    if (isFilterOn()) {
+      queryArgs += (queryArgs ? '&filters=' : '?filters=') + encodeURIComponent(JSON.stringify(appStatus.filters));
+    }
+    return queryArgs;
+  }, [appStatus.filters, isFilterOn]);
+
+  const appendRoute = useCallback((queryArgs) => {
+    if (appStatus.route) {
+      queryArgs += (queryArgs ? '&route=' : '?route=') + appStatus.route;
+    }
+    return queryArgs;
+  }, [appStatus.route]);
+
+  const fetchQueueItems = useCallback(async (page) => {
     // Increment fetch ID to mark this as the current request
     const thisFetchId = ++fetchIdRef.current;
     setAppStatus(prev => ({...prev, loading: true, error: null}));
@@ -88,7 +105,7 @@ export default function RootLayout({children}) {
       }
       console.error("Error fetching " + appStatus.route + " items:", error);
     }
-  };
+  }, [appStatus.route, appendFilters, appendRoute]);
 
   function getNodeIDs(nodes) {
     const nodeIDs = {};
@@ -123,20 +140,6 @@ export default function RootLayout({children}) {
     }
 
     return null;
-  }
-
-  function appendFilters(queryArgs) {
-    if (isFilterOn()) {
-      queryArgs += (queryArgs ? '&filters=' : '?filters=') + encodeURIComponent(JSON.stringify(appStatus.filters));
-    }
-    return queryArgs;
-  }
-
-  function appendRoute(queryArgs) {
-    if (appStatus.route) {
-      queryArgs += (queryArgs ? '&route=' : '?route=') + appStatus.route;
-    }
-    return queryArgs;
   }
 
   async function archiveAll() {
@@ -211,11 +214,6 @@ export default function RootLayout({children}) {
     } catch (error) {
       console.error("Error moving items:", error);
     }
-  }
-
-
-  function isFilterOn() {
-    return appStatus.filters && Object.keys(appStatus.filters).length > 0;
   }
 
   const onQueueStatusUpdated = (event) => {
@@ -373,7 +371,7 @@ export default function RootLayout({children}) {
     if (appStatus.route !== 'settings') {
       fetchQueueItems()
     }
-  }, [appStatus.filters]);
+  }, [appStatus.filters, appStatus.route, fetchQueueItems]);
 
   // when progress data is updated
   useEffect(() => {
@@ -402,6 +400,10 @@ export default function RootLayout({children}) {
   }, [currentJob.nodes]);
 
   // when new queue items are added to the queue
+  // Intentionally only triggers on appStatus.queue changes — we're checking
+  // "when a fresh queue arrives, do we have a job we're tracking whose
+  // workflow data hasn't loaded yet?" The currentJob deps are excluded
+  // because we don't want to re-run when progress updates.
   useEffect(() => {
     // Are we already tracking a job but have not saved the workflow data yet?
     if (currentJob.id && currentJob.integrity === false) {
@@ -426,6 +428,7 @@ export default function RootLayout({children}) {
         }));
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appStatus.queue]);
 
   useEffect(() => {
@@ -433,9 +436,12 @@ export default function RootLayout({children}) {
       setAppStatus(prev => ({ ...prev, queue: null }));
       fetchQueueItems();
     }
-  }, [appStatus.route]);
+  }, [appStatus.route, fetchQueueItems]);
 
   // on mount get the queue items from the server
+  // Intentionally runs only once on mount. handleMessage is stable (useEvent),
+  // and fetchQueueItems is intentionally excluded to avoid re-running on
+  // filter/route changes — the other effects handle those cases.
   useEffect(() => {
     fetchQueueItems();
 
@@ -454,6 +460,7 @@ export default function RootLayout({children}) {
     );
 
     return () => window.removeEventListener("message", handleMessage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
