@@ -9,7 +9,7 @@ import {baseURL} from "@/internals/config";
 import useEvent from "react-use-event-hook";
 import {AppContext} from "@/internals/app-context";
 import {apiCall} from "@/internals/functions";
-import {EllipsisVertical} from "lucide-react";
+import {EllipsisVertical, List, Sparkles, Clock, Archive, CheckCircle, Settings as SettingsIcon} from "lucide-react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -485,11 +485,12 @@ export default function RootLayout({children}) {
           onClick={() => {
             setAppStatus(prev => ({...prev, route: 'queue'}));
           }}
+          title="Queue"
         >
           {appStatus.loading && appStatus.route === 'queue' && (
             <span className="tab-spinner"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg></span>
           )}
-          Queue
+          <List size={16} />
         </button>
 
         {/* New */}
@@ -498,11 +499,12 @@ export default function RootLayout({children}) {
           onClick={() => {
             setAppStatus(prev => ({...prev, route: 'new'}));
           }}
+          title="New"
         >
           {appStatus.loading && appStatus.route === 'new' && (
             <span className="tab-spinner"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg></span>
           )}
-          New
+          <Sparkles size={16} />
         </button>
 
         {/* Waiting */}
@@ -511,11 +513,12 @@ export default function RootLayout({children}) {
           onClick={() => {
             setAppStatus(prev => ({...prev, route: 'waiting'}));
           }}
+          title="Waiting"
         >
           {appStatus.loading && appStatus.route === 'waiting' && (
             <span className="tab-spinner"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg></span>
           )}
-          Waiting
+          <Clock size={16} />
         </button>
 
         {/* Archive */}
@@ -524,11 +527,12 @@ export default function RootLayout({children}) {
           onClick={() => {
             setAppStatus(prev => ({...prev, route: 'archive'}));
           }}
+          title="Archive"
         >
           {appStatus.loading && appStatus.route === 'archive' && (
             <span className="tab-spinner"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg></span>
           )}
-          Archive
+          <Archive size={16} />
         </button>
 
         {/* Completed */}
@@ -536,11 +540,12 @@ export default function RootLayout({children}) {
                 onClick={() => {
                   setAppStatus(prev => ({...prev, route: 'completed'}));
                 }}
+                title="Completed"
         >
           {appStatus.loading && appStatus.route === 'completed' && (
             <span className="tab-spinner"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-4"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg></span>
           )}
-          Completed
+          <CheckCircle size={16} />
         </button>
 
         {/* Settings */}
@@ -548,7 +553,8 @@ export default function RootLayout({children}) {
                 onClick={() => {
                   setAppStatus(prev => ({...prev, route: 'settings'}));
                 }}
-        >Settings
+                title="Settings"
+        ><SettingsIcon size={16} />
         </button>
 
       </div>
