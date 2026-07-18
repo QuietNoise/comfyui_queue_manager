@@ -397,11 +397,11 @@ class QM_Queue:
         with self.native_queue.mutex:
             where_string, params = self.get_filters(filters, ["status = 0"])
 
-            # Archive the queue from the database
+            # Archive the queue from the database (preserve existing tag)
             total = write_query(
                 f"""
                 UPDATE queue
-                SET status = 3, tag = 'archive'
+                SET status = 3
                 WHERE {where_string}
             """,
                 params,
