@@ -274,12 +274,9 @@ button {
   &.run {
     background-color: rgb(96, 165, 250);
     color: var(--background);
-    position: relative;
-    padding-left: 1.2rem;
 
     svg {
-      position: absolute;
-      left: 0.6rem;
+      display: block;
 
       .run-first {
         opacity: 0;

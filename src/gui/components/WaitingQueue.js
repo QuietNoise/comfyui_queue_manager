@@ -91,11 +91,12 @@ export default function WaitingQueue({data, isLoading, error}) {
     setAppStatus(prev => ({...prev, filters: Object.keys(filterParams).length > 0 ? filterParams : null}));
   }
 
-  function Button({children, className, onClick}) {
+  function Button({children, className, onClick, title}) {
     return (
       <button
         className={"hover:bg-neutral-700 dark:text-neutral-200 rounded inline-flex items-center justify-center" + (className ? ' ' + className : '')}
         onClick={onClick}
+        title={title}
       >
         {children}
       </button>
@@ -181,22 +182,80 @@ export default function WaitingQueue({data, isLoading, error}) {
         </td>
         <td className="px-3 py-1 text-left">
           {item[3].tag && item[3].tag !== 'none1' && (
-            <span
-              className={"inline-block text-xs px-2 py-0.5 rounded dark:bg-neutral-700 bg-neutral-200 dark:text-neutral-200 text-neutral-800"}>
-              {item[3].tag}
-            </span>
+            item[3].tag === 'priority' ? (
+              <span className="inline-flex items-center dark:text-neutral-400 text-neutral-500" title="Priority">
+                <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+                  <line x1="4" y1="22" x2="4" y2="15"></line>
+                </svg>
+              </span>
+            ) : item[3].tag === 'main' ? (
+              <span className="inline-flex items-center dark:text-neutral-400 text-neutral-500" title="Main">
+                <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                  <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
+              </span>
+            ) : item[3].tag === 'background' ? (
+              <span className="inline-flex items-center dark:text-neutral-400 text-neutral-500" title="Background">
+                <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <rect x="7" y="7" width="10" height="10" rx="1" ry="1"></rect>
+                </svg>
+              </span>
+            ) : (
+              <span className="inline-flex items-center text-xs dark:text-neutral-400 text-neutral-500" title={item[3].tag}>{item[3].tag}</span>
+            )
           )}
         </td>
         <td className="px-3 py-1 text-left">
-          <span className={"inline-block text-xs px-2 py-0.5 rounded " + getStatusColor(item[3].status)}>
-            {getStatusLabel(item[3].status)}
-          </span>
+          {item[3].status === 5 ? (
+            <span className="inline-flex items-center dark:text-purple-400 text-purple-600" title="Priority">
+              <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+                <line x1="4" y1="22" x2="4" y2="15"></line>
+              </svg>
+            </span>
+          ) : item[3].status === 6 ? (
+            <span className="inline-flex items-center dark:text-blue-400 text-blue-600" title="Main">
+              <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+              </svg>
+            </span>
+          ) : item[3].status === 7 ? (
+            <span className="inline-flex items-center dark:text-gray-400 text-gray-500" title="Background">
+              <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <rect x="7" y="7" width="10" height="10" rx="1" ry="1"></rect>
+              </svg>
+            </span>
+          ) : (
+            <span className="inline-flex items-center text-xs dark:text-neutral-400 text-neutral-500" title={getStatusLabel(item[3].status)}>{getStatusLabel(item[3].status)}</span>
+          )}
         </td>
         <td className={'px-3 py-1 text-right actions'}>
-          <Button className={"dark:bg-red-900 bg-rose-200 text-red-900"} onClick={cancelQueueItem}>Delete</Button>
-          <Button className={"dark:bg-green-900 bg-green-300"} onClick={loadQueueItem}>Load</Button>
-          <Button className={"dark:bg-orange-900 bg-orange-200"} onClick={archiveQueueItem}>Archive</Button>
-          <Button className={"run"} onClick={playItem}>
+          <Button className={"dark:bg-red-900 bg-rose-200 text-red-900"} onClick={cancelQueueItem} title="Delete">
+            <svg viewBox="0 0 24 24" width="1.2em" height="1.2em" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </Button>
+          <Button className={"dark:bg-green-900 bg-green-300"} onClick={loadQueueItem} title="Load">
+            <svg viewBox="0 0 24 24" width="1.2em" height="1.2em" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+          </Button>
+          <Button className={"dark:bg-orange-900 bg-orange-200"} onClick={archiveQueueItem} title="Archive">
+            <svg viewBox="0 0 24 24" width="1.2em" height="1.2em" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 8v13H3V8"></path>
+              <path d="M1 3h22v5H1z"></path>
+              <line x1="10" y1="12" x2="14" y2="12"></line>
+            </svg>
+          </Button>
+          <Button className={"run"} onClick={playItem} title="Run">
             <svg viewBox="0 0 24 24" width="1.2em" height="1.2em">
               <path className={'run'} fill="none" stroke="currentColor" strokeLinecap="round"
                     strokeLinejoin="round" strokeWidth="2"
@@ -207,7 +266,6 @@ export default function WaitingQueue({data, isLoading, error}) {
                 <path d="m16 8l-2-2l2-2"></path>
               </g>
             </svg>
-            &nbsp;&nbsp;Run
           </Button>
         </td>
       </tr>
