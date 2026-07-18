@@ -9,11 +9,8 @@ import {AppContext} from "@/internals/app-context";
 export default function WaitingQueue({data, isLoading, error}) {
   const {appStatus, setAppStatus} = useContext(AppContext);
 
-  // Filter state
-  const [filters, setFilters] = useState({
-    status: [5, 6, 7],  // all checked by default
-    tag: ["priority", "main", "background"],  // all checked by default
-  });
+  // Filter state — track which categories are active (each sets both status and tag)
+  const [activeCategories, setActiveCategories] = useState(["priority", "main", "background"]); // all checked by default
 
   // Selection state for bulk operations
   const [selectedItems, setSelectedItems] = useState([]);
@@ -54,41 +51,26 @@ export default function WaitingQueue({data, isLoading, error}) {
     setSelectAll(!selectAll);
   }
 
-  // Toggle a status value in the filter
-  function toggleStatusFilter(value) {
-    setFilters(prev => {
-      const current = prev.status;
-      if (current.includes(value)) {
-        return {...prev, status: current.filter(v => v !== value)};
-      } else {
-        return {...prev, status: [...current, value]};
+  // Toggle a category — sets/clears both status and tag at once, and applies immediately
+  function toggleCategory(category) {
+    setActiveCategories(prev => {
+      const newCategories = prev.includes(category)
+        ? prev.filter(c => c !== category)
+        : [...prev, category];
+
+      // Build filter params from the new set
+      const statusMap = {priority: 5, main: 6, background: 7};
+      const filterParams = {};
+      if (newCategories.length > 0 && newCategories.length < 3) {
+        filterParams.status = {type: "status", value: newCategories.map(c => statusMap[c])};
+        filterParams.tag = {type: "tag", value: [...newCategories]};
       }
+
+      // Apply immediately (no separate Apply button)
+      setAppStatus(prev => ({...prev, filters: Object.keys(filterParams).length > 0 ? filterParams : null}));
+
+      return newCategories;
     });
-  }
-
-  // Toggle a tag value in the filter
-  function toggleTagFilter(value) {
-    setFilters(prev => {
-      const current = prev.tag;
-      if (current.includes(value)) {
-        return {...prev, tag: current.filter(v => v !== value)};
-      } else {
-        return {...prev, tag: [...current, value]};
-      }
-    });
-  }
-
-  // Apply filters: fetch data with selected filters
-  function applyFilters() {
-    const filterParams = {};
-    if (filters.status.length > 0 && filters.status.length < 3) {
-      filterParams.status = {type: "status", value: filters.status};
-    }
-    if (filters.tag.length > 0 && filters.tag.length < 3) {
-      filterParams.tag = {type: "tag", value: filters.tag};
-    }
-
-    setAppStatus(prev => ({...prev, filters: Object.keys(filterParams).length > 0 ? filterParams : null}));
   }
 
   function Button({children, className, onClick, title}) {
@@ -278,80 +260,44 @@ export default function WaitingQueue({data, isLoading, error}) {
 
   return (
     <div className={"overflow-x-auto" + (isLoading ? ' loading' : '')}>
-      {/* Filter Row */}
-      <div className="filters-row flex items-center gap-4 p-3 dark:bg-neutral-800 bg-neutral-200 rounded mb-2">
-        {/* Status Filter */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs uppercase font-semibold dark:text-neutral-400 text-neutral-600">Status:</span>
-          <label className="flex items-center gap-1 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={filters.status.includes(5)}
-              onChange={() => toggleStatusFilter(5)}
-              className="cursor-pointer"
-            />
-            <span className="dark:text-neutral-200 text-neutral-800">Priority</span>
-          </label>
-          <label className="flex items-center gap-1 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={filters.status.includes(6)}
-              onChange={() => toggleStatusFilter(6)}
-              className="cursor-pointer"
-            />
-            <span className="dark:text-neutral-200 text-neutral-800">Main</span>
-          </label>
-          <label className="flex items-center gap-1 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={filters.status.includes(7)}
-              onChange={() => toggleStatusFilter(7)}
-              className="cursor-pointer"
-            />
-            <span className="dark:text-neutral-200 text-neutral-800">Background</span>
-          </label>
-        </div>
-
-        <div className="w-px h-6 dark:bg-neutral-600 bg-neutral-400"></div>
-
-        {/* Tag Filter */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs uppercase font-semibold dark:text-neutral-400 text-neutral-600">Tag:</span>
-          <label className="flex items-center gap-1 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={filters.tag.includes("priority")}
-              onChange={() => toggleTagFilter("priority")}
-              className="cursor-pointer"
-            />
-            <span className="dark:text-neutral-200 text-neutral-800">priority</span>
-          </label>
-          <label className="flex items-center gap-1 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={filters.tag.includes("main")}
-              onChange={() => toggleTagFilter("main")}
-              className="cursor-pointer"
-            />
-            <span className="dark:text-neutral-200 text-neutral-800">main</span>
-          </label>
-          <label className="flex items-center gap-1 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={filters.tag.includes("background")}
-              onChange={() => toggleTagFilter("background")}
-              className="cursor-pointer"
-            />
-            <span className="dark:text-neutral-200 text-neutral-800">background</span>
-          </label>
-        </div>
-
-        {/* Apply Button */}
+      {/* Filter Row — toggle buttons that set both status and tag */}
+      <div className="filters-row flex items-center gap-2 p-3 dark:bg-neutral-800 bg-neutral-200 rounded mb-2">
+        <span className="text-xs uppercase font-semibold dark:text-neutral-400 text-neutral-600 mr-1">Filter:</span>
         <button
-          className="ml-auto dark:bg-blue-800 bg-blue-400 dark:text-neutral-200 text-neutral-900 px-3 py-1 rounded text-sm font-medium hover:opacity-80"
-          onClick={applyFilters}
+          className={"inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors cursor-pointer " + (activeCategories.includes("priority")
+            ? "dark:bg-purple-900 bg-purple-300 dark:text-purple-200 text-purple-900"
+            : "dark:bg-neutral-700 bg-neutral-300 dark:text-neutral-300 text-neutral-700 hover:dark:bg-neutral-600 hover:bg-neutral-400")}
+          onClick={() => toggleCategory("priority")}
         >
-          Apply Filters
+          <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+            <line x1="4" y1="22" x2="4" y2="15"></line>
+          </svg>
+          Priority
+        </button>
+        <button
+          className={"inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors cursor-pointer " + (activeCategories.includes("main")
+            ? "dark:bg-blue-900 bg-blue-300 dark:text-blue-200 text-blue-900"
+            : "dark:bg-neutral-700 bg-neutral-300 dark:text-neutral-300 text-neutral-700 hover:dark:bg-neutral-600 hover:bg-neutral-400")}
+          onClick={() => toggleCategory("main")}
+        >
+          <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+          Main
+        </button>
+        <button
+          className={"inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors cursor-pointer " + (activeCategories.includes("background")
+            ? "dark:bg-green-900 bg-green-300 dark:text-green-200 text-green-900"
+            : "dark:bg-neutral-700 bg-neutral-300 dark:text-neutral-300 text-neutral-700 hover:dark:bg-neutral-600 hover:bg-neutral-400")}
+          onClick={() => toggleCategory("background")}
+        >
+          <svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <rect x="7" y="7" width="10" height="10" rx="1" ry="1"></rect>
+          </svg>
+          Background
         </button>
       </div>
 

@@ -730,19 +730,31 @@ export default function RootLayout({children}) {
           {!['completed', 'settings'].includes(appStatus.route) && appStatus.selectedItems && appStatus.selectedItems.length > 0 && (
             <>
               <span className="text-xs dark:text-neutral-400 text-neutral-600 mr-2 self-center">
-                {appStatus.selectedItems.length} selected:
+                {appStatus.selectedItems.length} selected to:
               </span>
               <button onClick={() => moveSelectedToCategory('priority')}
-                      className="hover:bg-neutral-700 dark:bg-purple-900 bg-purple-300 dark:text-neutral-200 text-neutral-900 py-1 px-2 rounded mr-1 border-0 text-sm">
-                ⬆ Priority
+                      title="Move to Priority"
+                      className="hover:bg-neutral-700 dark:bg-purple-900 bg-purple-300 dark:text-neutral-200 text-neutral-900 py-1 px-2 rounded mr-1 border-0 text-sm inline-flex items-center">
+                <svg viewBox="0 0 24 24" width="1.2em" height="1.2em" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+                  <line x1="4" y1="22" x2="4" y2="15"></line>
+                </svg>
               </button>
               <button onClick={() => moveSelectedToCategory('main')}
-                      className="hover:bg-neutral-700 dark:bg-blue-900 bg-blue-300 dark:text-neutral-200 text-neutral-900 py-1 px-2 rounded mr-1 border-0 text-sm">
-                ➡ Main
+                      title="Move to Main"
+                      className="hover:bg-neutral-700 dark:bg-blue-900 bg-blue-300 dark:text-neutral-200 text-neutral-900 py-1 px-2 rounded mr-1 border-0 text-sm inline-flex items-center">
+                <svg viewBox="0 0 24 24" width="1.2em" height="1.2em" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                  <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
               </button>
               <button onClick={() => moveSelectedToCategory('background')}
-                      className="hover:bg-neutral-700 dark:bg-gray-700 bg-gray-300 dark:text-neutral-200 text-neutral-900 py-1 px-2 rounded mr-1 border-0 text-sm">
-                ⬇ Background
+                      title="Move to Background"
+                      className="hover:bg-neutral-700 dark:bg-gray-700 bg-gray-300 dark:text-neutral-200 text-neutral-900 py-1 px-2 rounded mr-1 border-0 text-sm inline-flex items-center">
+                <svg viewBox="0 0 24 24" width="1.2em" height="1.2em" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <rect x="7" y="7" width="10" height="10" rx="1" ry="1"></rect>
+                </svg>
               </button>
             </>
           )}
