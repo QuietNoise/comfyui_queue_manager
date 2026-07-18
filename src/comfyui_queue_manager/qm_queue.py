@@ -423,7 +423,7 @@ class QM_Queue:
 
     def archive_items(self, items):
         """
-        Archive items from the database
+        Archive items from the database (preserve existing tag)
         """
         with self.native_queue.mutex:
             # Archive the item from the database
@@ -433,7 +433,7 @@ class QM_Queue:
                 archived += write_query(
                     """
                     UPDATE queue
-                    SET status = 3, tag = 'archive'
+                    SET status = 3
                     WHERE id = ?
                 """,
                     (item,),
