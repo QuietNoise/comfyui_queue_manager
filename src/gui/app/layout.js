@@ -636,18 +636,62 @@ export default function RootLayout({children}) {
                 disabled={appStatus.queue.info.page === 0}
               > &lt;&lt; </button>
               <div className={'pages flex justify-center flex-1'}>
-                {Array.from({length: (appStatus.queue.info.last_page + 1)}, (_, i) => (
-                  <button
-                    key={i}
-                    className={"page" + (appStatus.queue.info.page === i ? ' active' : '')}
-                    onClick={() => {
-                      setAppStatus(prev => ({...prev, queue: null}));
-                      fetchQueueItems(i);
-                    }}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
+                {(() => {
+                  const totalPages = appStatus.queue.info.last_page + 1;
+                  const currentPage = appStatus.queue.info.page;
+
+                  // Build list of page numbers (0-indexed) with '...' for gaps
+                  function buildPages() {
+                    if (totalPages <= 7) {
+                      return Array.from({length: totalPages}, (_, i) => i);
+                    }
+
+                    const pages = [];
+
+                    // First 3 pages
+                    pages.push(0, 1, 2);
+
+                    const lastStart = totalPages - 3;
+
+                    // If current page is in the middle zone (not in first 3 or last 3)
+                    if (currentPage > 2 && currentPage < lastStart) {
+                      // Gap before current page
+                      if (currentPage > 3) {
+                        pages.push('...');
+                      }
+                      pages.push(currentPage);
+                      // Gap after current page
+                      if (currentPage < lastStart - 1) {
+                        pages.push('...');
+                      }
+                    } else {
+                      // Current page is in first 3 or last 3 — single ellipsis
+                      pages.push('...');
+                    }
+
+                    // Last 3 pages
+                    pages.push(lastStart, lastStart + 1, lastStart + 2);
+
+                    return pages;
+                  }
+
+                  return buildPages().map((page, idx) =>
+                    page === '...' ? (
+                      <span key={`e${idx}`} className="page-ellipsis px-1 select-none">…</span>
+                    ) : (
+                      <button
+                        key={page}
+                        className={"page" + (currentPage === page ? ' active' : '')}
+                        onClick={() => {
+                          setAppStatus(prev => ({...prev, queue: null}));
+                          fetchQueueItems(page);
+                        }}
+                      >
+                        {page + 1}
+                      </button>
+                    )
+                  );
+                })()}
               </div>
               {/* Next page if needed */}
               <button
