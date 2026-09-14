@@ -1,5 +1,6 @@
 import {QueueManagerGalleryURL, QueueManagerOrigin, QueueManagerURL} from './config.js';
 import {settings} from './settings.js';
+import {installWorkflowNameInjection} from './workflow-name.js';
 
 import { app } from '../../../scripts/app.js';
 
@@ -392,16 +393,7 @@ export function registerSidebar() {
 }
 
 export function injectWorkflowName() {
-  const _apiQueuePrompt = app.api.queuePrompt;
-
-  app.api.queuePrompt = async function(n, data, ...args) {
-    // Inject workflow name
-    // SIML: Perhaps add a setting to enable/disable this behaviour (privacy concern? the workflow name will travel all the way to the generated PNG)
-    data.workflow.workflow_name = app.extensionManager.workflow.activeWorkflow.filename;
-
-
-    return await _apiQueuePrompt.call(app.api, n, data, ...args);
-  };
+  installWorkflowNameInjection(app);
 }
 
 function postSettingToIframe(setting, newVal, oldVal) {

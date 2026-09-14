@@ -1,5 +1,15 @@
 # Release Notes
 
+## v0.1.1
+
+_Sep 14, 2026_
+
+### Enhancements
+
+- Enhanced **Workflow Name** node with a single `text` input that accepts a typed value or a connected string. As such **Queue Manager** can now use the first active **Workflow Name** node to name queued jobs.
+
+---
+
 ## v0.1.0
 _Sep 06, 2026_
 ### New features and enhancements

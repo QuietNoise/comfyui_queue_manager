@@ -138,10 +138,30 @@ To restore the client focus, click the three vertical dots menu and select `Take
 ![focus.png](readme-img/focus.png)
 
 ### Workflow Name node
-You can use the Workflow Name node to get the name of the currently running workflow.
-Typical use case is to connect the `workflow_name` output to a node that accepts a string input, like **Save Image**'s `filename_prefix`, to have output images saved with the workflow's name as a prefix.
 
-![workflow_name_use_case.png](web/docs/workflow_name_use_case.png)
+Use Workflow Name to name queue entries and supply a filename prefix to other nodes. Type a value in `text` or connect a string to that same input. Custom values are sanitized for filenames; empty values fall back to the workflow filename, then an empty string if no filename is available.
+
+Non-exhaustive list of typical use cases:
+
+#### Name a queue entry
+
+Enter a custom name such as `Hello`. The output can remain disconnected: Queue Manager still reads the node when queuing and uses the name for the queue entry.
+
+![Workflow Name with Hello entered in the text field and its output disconnected](web/docs/workflow_name_use_case.png)
+
+#### Save images using the workflow filename
+
+Leave `text` empty and connect `workflow_name` to **Save Image**'s `filename_prefix` to use the workflow filename as the prefix for saved images.
+
+![Workflow Name with empty text connected to Save Image's filename_prefix](web/docs/workflow_name_use_case_2.png)
+
+#### Supply a custom name from another node
+
+Connect a string to `text` to supply the name from another node. In this example, `Hello` names the queue entry and provides the filename prefix for Save Image. A connected value replaces the manually entered text.
+
+![A string containing Hello connected through Workflow Name to Save Image's filename_prefix](web/docs/workflow_name_use_case_3.png)
+
+Queue Manager uses the first active Workflow Name node in the submitted prompt, ignoring muted or bypassed nodes. Connected values are read when available at queue time and may differ from the values produced during rendering. See the [node documentation](web/docs/Workflow%20Name.md) for sanitization and fallback details.
 
 ### External jobs
 - Some third parties that queue through API don't supply full ComfyUI workflow context (i.e. ComfyUI plugin for Krita).
@@ -163,10 +183,12 @@ Typical use case is to connect the `workflow_name` output to a node that accepts
 - In the **Completed** tab you can view outputs (images and videos) of finished jobs.
 - **Completed** tab can display results in 3 different modes: List, Cover, Grid.
 - In **List** no media previews are shown, only job details. In **Cover** mode a first image is shown in the table. In **Grid** mode all media outputs (depending on settings) are shown in a grid layout.
+
 ![modes.png](readme-img/modes.png)
 - In every mode a small indicator next to the workflow name shows how many media outputs were produced by the job.
 - Clicking on a thumbnail or outputs indicator opens the Gallery view.
 - In Cover and Grid modes you can adjust size of the thumbnails using the slider on the bottom right of the window.
+
 ![mediaitem.png](readme-img/mediaitem.png)
 #### Gallery view
 - In the **Gallery** view you can see all media outputs from the currently displayed **Completed** page. This is important to note: only outputs from jobs on current page will show in the gallery i.e. if there are 100 jobs per page then only outputs from those 100 jobs will be displayed in the gallery.
@@ -179,6 +201,7 @@ Typical use case is to connect the `workflow_name` output to a node that accepts
   - **Escape**: close Gallery view
   - **T**: toggle thumbnails on / off
 - On the bottom of the Gallery is a progress bar showing your current position in the list of media items. You can also use it to quickly skip to a specific media item by clicking on it.
+
 ![gallery-view.png](readme-img/gallery-view.png)
 - By default videos are played automatically. You can change that in extension settings (see below).
 - When workflow produces both images and video outputs then images are hidden by default to reduce clutter (since most of the time these will be individual frames of the video). You can toggle visibility of these images in extension settings (see below).

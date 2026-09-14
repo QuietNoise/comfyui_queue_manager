@@ -107,3 +107,4 @@ cookiecutter-pypackage-env/
 /queue.json
 /data/
 /node.zip
+/web/.gui/assets/index.js.map
