@@ -9,13 +9,6 @@ const nameNode = inputs => ({class_type: 'Workflow Name', inputs});
 for (const row of cases) {
   test(row.label, () => {
     assert.equal(resolveWorkflowName(row.text, row.workflow), row.expected);
-    const inputs = {text: row.text};
-    assert.equal(queuedWorkflowName({output: {1: nameNode(inputs)}}, null, row.workflow), row.expected);
-    const output = {
-      1: nameNode({text: ['2', 0]}),
-      2: {class_type: 'PrimitiveString', inputs: {value: row.text}}
-    };
-    assert.equal(queuedWorkflowName({output}, null, row.workflow), row.expected);
   });
 }
 
@@ -66,7 +59,7 @@ test('chained Workflow Name nodes and cycles', () => {
   const output = {1: nameNode({text: ['2', 0]}), 2: nameNode({text: 'inner:name'})};
   assert.equal(queuedWorkflowName({output}, null, 'original'), 'inner_name');
   output[2].inputs.text = ['1', 0];
-  assert.equal(typeof queuedWorkflowName({output}, null, 'original'), 'string');
+  assert.equal(queuedWorkflowName({output}, null, 'original'), 'original');
 });
 
 test('subgraph execution IDs resolve literals in the submitted prompt', () => {

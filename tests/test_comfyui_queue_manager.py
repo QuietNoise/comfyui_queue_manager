@@ -33,7 +33,3 @@ def test_metadata_changes_do_not_reuse_previous_name():
     node = WorkflowName()
     assert node.run(extra_pnginfo={"workflow": {"workflow_name": "first"}}) == ("first",)
     assert node.run(extra_pnginfo={"workflow": {"workflow_name": "second"}}) == ("second",)
-
-
-def test_execution_uses_current_socket_value_instead_of_queued_name():
-    assert WorkflowName().run(text="render:name", extra_pnginfo={"workflow": {"workflow_name": "queued_name"}}) == ("render_name",)

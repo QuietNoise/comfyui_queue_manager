@@ -264,8 +264,11 @@ class QM_Queue:
                     )
                     if db_id is None:
                         # Most likely because the item execution was interrupted and the handler deleted the item already
-                        # Call the original task_done method so it clears the native queue
-                        self.original_task_done(item_id, history_result, status)
+                        # Preserve ComfyUI's cleanup callback so sensitive fields stay out of native history.
+                        if process_item is None:
+                            self.original_task_done(item_id, history_result, status)
+                        else:
+                            self.original_task_done(item_id, history_result, status, process_item)
                         return
 
                     db_id = db_id[0]  # get the first element of the tuple

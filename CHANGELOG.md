@@ -1,5 +1,15 @@
 # Release Notes
 
+## v0.1.2
+
+_Sep 27, 2026_
+
+### Bugfixes
+
+- Fixed job history errors after cancelling a running job on recent ComfyUI versions [#31].
+
+---
+
 ## v0.1.1
 
 _Sep 14, 2026_

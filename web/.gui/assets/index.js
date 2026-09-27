@@ -29414,35 +29414,15 @@ function SplashScreen({ onClick }) {
     /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { className: "close", onClick, children: /* @__PURE__ */ jsxRuntimeExports.jsx(CloseSharpIcon, {}) }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "splash-content", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { children: "ComfyUI Queue Manager" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "sub", children: "Version: v0.1.0" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "sub", children: "Version: v0.1.2" }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("h4", { className: "sub", children: [
-        "Released: 25",
+        "Released: 27",
         /* @__PURE__ */ jsxRuntimeExports.jsx("sup", { children: "th" }),
-        " January 2026"
+        " September 2026"
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { children: "What's new?" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { children: "Previews and gallery" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { children: "Release v0.1.0 introduces a big new feature: outputs previews and gallery." }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { children: [
-        "Head over to the ",
-        /* @__PURE__ */ jsxRuntimeExports.jsx("b", { children: "Completed" }),
-        " tab to see previews from generated outputs (only new jobs completed after this release was introduced). Click on media item to see it in ",
-        /* @__PURE__ */ jsxRuntimeExports.jsx("b", { children: "Gallery" }),
-        " mode. Keyboard shortcuts available. "
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { children: "Settings" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { children: [
-        "A new settings panel is available in ",
-        /* @__PURE__ */ jsxRuntimeExports.jsx("b", { children: "ComfyUI Menu -> Settings -> Queue Manager" }),
-        " where you can influence certain features of the extension."
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { children: "New style and UI improvements" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { children: "An attempt to make the UI look less motley. " }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { children: "More functional pagination experience, especially if you hoard tens of pages." }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { children: "Completion Time" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { children: "From now on completed jobs will show total execution time." }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { children: "Bugfixes" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { children: "A couple of minor unreported issues discovered throughout. Check Release Notes for more details." }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { children: "Job cancellation fix" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { children: "Fixed job history errors after cancelling a running job on recent ComfyUI versions." }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("br", {}),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("i", { children: [
