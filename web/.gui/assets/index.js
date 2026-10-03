@@ -19231,7 +19231,8 @@ async function apiCall(endpoint, data, method = "POST") {
     }
     const response = await fetch(url, request);
     if (!response.ok) {
-      throw new Error("Network response was not ok");
+      const result = response.headers.get("content-type")?.includes("application/json") ? await response.json() : null;
+      throw new Error(result?.error || `Request failed (${response.status})`);
     }
     const contentType = response.headers.get("content-type");
     const contentLength = parseInt(response.headers.get("content-length"));
@@ -19529,6 +19530,120 @@ class MediaOutputs {
     }
   }
 }
+const EditOutlinedIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("path", {
+  d: "m14.06 9.02.92.92L5.92 19H5v-.92zM17.66 3c-.25 0-.51.1-.7.29l-1.83 1.83 3.75 3.75 1.83-1.83c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.71-.29m-3.6 3.19L3 17.25V21h3.75L17.81 9.94z"
+}));
+const CheckOutlinedIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("path", {
+  d: "M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
+}));
+const CloseOutlinedIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("path", {
+  d: "M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+}));
+function QueueItemName({ name, dbId, canRename, onFilter, onRenamed }) {
+  const [editing, setEditing] = reactExports.useState(false);
+  const [draftName, setDraftName] = reactExports.useState(name);
+  const [saving, setSaving] = reactExports.useState(false);
+  const [error, setError] = reactExports.useState("");
+  const [editorHeight, setEditorHeight] = reactExports.useState(0);
+  const contentRef = reactExports.useRef(null);
+  const savingRef = reactExports.useRef(false);
+  const cancel = () => {
+    if (savingRef.current) return;
+    setEditing(false);
+    setError("");
+  };
+  const save = async (event) => {
+    event?.preventDefault();
+    if (savingRef.current) return;
+    if (draftName === name) {
+      cancel();
+      return;
+    }
+    if (!draftName.trim()) {
+      setError("Name cannot be empty");
+      return;
+    }
+    savingRef.current = true;
+    setSaving(true);
+    setError("");
+    try {
+      await apiCall("queue_manager/rename", { id: dbId, name: draftName });
+      setEditing(false);
+      onRenamed();
+    } catch (error2) {
+      setError(error2.message || "Could not rename this job. Try again.");
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "workflow-name", children: [
+    editing && canRename ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "form",
+      {
+        className: "workflow-name-content",
+        style: { minHeight: editorHeight },
+        onSubmit: save,
+        onBlur: (event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) {
+            save();
+          }
+        },
+        "aria-busy": saving,
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "input",
+            {
+              className: "workflow-name-input",
+              "aria-label": "Workflow name",
+              "aria-invalid": !!error,
+              value: draftName,
+              disabled: saving,
+              autoFocus: true,
+              onFocus: (event) => event.target.select(),
+              onChange: (event) => {
+                setDraftName(event.target.value);
+                setError("");
+              },
+              onKeyDown: (event) => {
+                if (event.nativeEvent.isComposing) {
+                  if (event.key === "Enter") event.preventDefault();
+                  return;
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  cancel();
+                }
+              }
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "submit", className: "plain workflow-name-action", title: "Save name (Enter)", "aria-label": "Save name", disabled: saving, children: /* @__PURE__ */ jsxRuntimeExports.jsx(CheckOutlinedIcon, { fontSize: "small" }) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "plain workflow-name-action", onClick: cancel, title: "Cancel (Escape)", "aria-label": "Cancel rename", disabled: saving, children: /* @__PURE__ */ jsxRuntimeExports.jsx(CloseOutlinedIcon, { fontSize: "small" }) })
+        ]
+      }
+    ) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "workflow-name-content", ref: contentRef, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "plain workflow-name-label", onClick: onFilter, title: "Filter view by the workflow", children: name }),
+      canRename && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          className: "plain workflow-name-action",
+          title: "Rename workflow",
+          "aria-label": "Rename workflow",
+          onClick: () => {
+            setEditorHeight(contentRef.current?.getBoundingClientRect().height ?? 0);
+            setDraftName(name);
+            setError("");
+            setEditing(true);
+          },
+          children: /* @__PURE__ */ jsxRuntimeExports.jsx(EditOutlinedIcon, { fontSize: "small" })
+        }
+      )
+    ] }),
+    error && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "workflow-name-error", role: "alert", children: error })
+  ] });
+}
 const QueueItemRow = reactExports.memo(
   function QueueItemRow2({
     item,
@@ -19630,7 +19745,20 @@ const QueueItemRow = reactExports.memo(
               children: mediaOutputs.total
             }
           ) : null,
-          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "plain", onClick: filterByWorkflow, title: "Filter view by the workflow", children: mode === "external" ? "External job" : workflow?.workflow_name ? workflow.workflow_name : "" })
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            QueueItemName,
+            {
+              name: mode === "external" ? "External job" : workflow?.workflow_name ?? "",
+              dbId,
+              canRename: !!dbId && mode !== "running" && mode !== "external" && (route === "queue" || route === "archive"),
+              onFilter: filterByWorkflow,
+              onRenamed: () => {
+                if (useAppStore.getState().route === route) {
+                  fetchQueueItems({ page: info?.page });
+                }
+              }
+            }
+          )
         ] }) }),
         route === "completed" && /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "meta-info", children: executionTimeLabel ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "execution-time", title: "Execution time", children: executionTimeLabel }) : null }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-1 text-right actions", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { justifyContent: "flex-end" }, className: "buttons", children: [
@@ -19700,7 +19828,7 @@ const QueueItemRow = reactExports.memo(
     const prevId = prev2.item?.[3]?.db_id;
     const nextId = next2.item?.[3]?.db_id;
     if (prevId !== nextId) return false;
-    return prev2.loader === next2.loader && prev2.index === next2.index && prev2.mode === next2.mode && prev2.route === next2.route && prev2.thumbMode === next2.thumbMode && prev2.galleryOptions === next2.galleryOptions && prev2.filters === next2.filters && prev2.info?.page === next2.info?.page && prev2.info?.page_size === next2.info?.page_size;
+    return prev2.loader === next2.loader && prev2.index === next2.index && prev2.mode === next2.mode && prev2.route === next2.route && prev2.thumbMode === next2.thumbMode && prev2.galleryOptions === next2.galleryOptions && prev2.filters === next2.filters && prev2.info?.page === next2.info?.page && prev2.info?.page_size === next2.info?.page_size && prev2.item?.[3]?.extra_pnginfo?.workflow?.workflow_name === next2.item?.[3]?.extra_pnginfo?.workflow?.workflow_name;
   }
 );
 const useOptionsStore = create((set) => ({
@@ -29733,7 +29861,7 @@ function Home() {
         }
         break;
       case "queue-manager-queue-updated":
-        fetchQueueItems();
+        fetchQueueItems(event.data.message.detail?.renamed ? { page: appStatus.queue?.info?.page ?? 0 } : {});
         break;
     }
   };

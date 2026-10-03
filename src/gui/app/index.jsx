@@ -401,7 +401,9 @@ export default function Home() {
         break;
 
       case "queue-manager-queue-updated":
-        fetchQueueItems()
+        fetchQueueItems(event.data.message.detail?.renamed
+          ? {page: appStatus.queue?.info?.page ?? 0}
+          : {})
         break;
     }
   }

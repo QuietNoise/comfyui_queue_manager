@@ -241,6 +241,73 @@ header.header {
           align-items: center;
         }
 
+        .workflow-name {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .workflow-name-content {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+        }
+
+        .workflow-name-label {
+          flex: 1;
+          min-width: 0;
+          text-align: left;
+          overflow-wrap: anywhere;
+        }
+
+        .workflow-name-input {
+          box-sizing: border-box;
+          flex: 1;
+          width: 0;
+          min-width: 3rem;
+          height: 1.5rem;
+          padding: 0 0.4rem;
+          border: 1px solid var(--color-neutral-500);
+          border-radius: 4px;
+          background-color: var(--background);
+          color: var(--foreground);
+          font: inherit;
+          font-size: 0.8rem;
+
+          @media (prefers-color-scheme: light) {
+            background-color: var(--background-light);
+          }
+
+          &:focus,
+          &:focus-visible {
+            outline: none;
+          }
+        }
+
+        .workflow-name-action {
+          flex-shrink: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 1.5rem;
+          height: 1.5rem;
+          border-radius: 4px;
+
+          &:focus-visible {
+            outline: 2px solid var(--color-neutral-400);
+          }
+
+          &:disabled {
+            opacity: 0.5;
+            cursor: wait;
+          }
+        }
+
+        .workflow-name-error {
+          color: #ef4444;
+          font-size: 0.8rem;
+          margin-top: 0.25rem;
+        }
+
         .total {
           display: inline-block;
           outline: 1px solid var(--color-neutral-400);

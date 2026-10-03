@@ -15,6 +15,7 @@ An extension supporting more streamlined prompt queue management.
   - [Archive](#archive)
   - [Export and Import](#export-and-import)
   - [Filter by workflow](#filter-by-workflow)
+  - [Rename queued workflows](#rename-queued-workflows)
   - [Restore client focus](#restore-client-focus)
   - [Workflow Name node](#workflow-name-node)
   - [External jobs](#external-jobs)
@@ -67,7 +68,7 @@ In no particular order, just some ideas I have for the future of this extension.
 - [ ] Bin. Can't think of a use case for it yet but I feel like it should be there at some stage.
 - [ ] More columns in the queue table. Suggest your favourites.
 - [ ] Better user and dev docs.
-- [ ] Ability to rename worklows in the queue.
+- [x] Ability to rename workflows in the queue.
 - [x] ~~Better progress feedback for longer running actions (like import).~~
 - [x] ~~Options. Toggles, big red buttons, levers and valves to control Queue Manager's behavior. Now everything is hardcoded.~~
 - [x] ~~Cover images, thumbnails, previews of rendered images in the queue. In other words what we have in core queue History with some spices added.~~
@@ -129,6 +130,11 @@ Once filtered out the group actions on the bottom of the window (like `Archive A
 Asterisk `*` next to the button label indicates that the action will be applied to the filtered items only.
 
 ![filters.png](readme-img/filters.png)
+
+### Rename queued workflows
+Click the pencil at the right edge of a pending or archived job's Workflow cell to edit its name. Moving focus outside the editor saves a changed name. You can also press **Enter** or click the checkmark to save; press **Escape** or click the cross to cancel. Empty names are rejected. Running, completed, and external jobs cannot be renamed.
+
+The change applies to that saved job, including its workflow-name metadata, and survives a restart or queue export/import. Names use the same filename sanitization as the Workflow Name node. Node text inputs and connections remain unchanged; a Workflow Name node with empty text uses the renamed metadata as its fallback during execution.
 
 ### Restore client focus
 When you restart ComfyUI or browser, you might lose the client focus. When that happens the progress of running renders in ComfyUI will no longer update (no progress view, no previews, no highlights which nodes is being executed).

@@ -62,6 +62,21 @@ class QM_Server:
             # Return the archive object as JSON
             return web.json_response({"running": running, "pending": pending, "info": info})
 
+        @PromptServer.instance.routes.post("/queue_manager/rename")
+        async def rename_item(request):
+            json_data = await requestJson(request)
+            if not isinstance(json_data, dict):
+                return web.json_response({"error": "Expected a JSON object"}, status=400)
+            try:
+                name = self.queue.rename_item(json_data.get("id"), json_data.get("name"))
+            except ValueError as error:
+                return web.json_response({"error": str(error)}, status=400)
+            except LookupError as error:
+                return web.json_response({"error": str(error)}, status=404)
+            except RuntimeError as error:
+                return web.json_response({"error": str(error)}, status=409)
+            return web.json_response({"id": json_data["id"], "name": name})
+
         # Archive POSTed items
         @PromptServer.instance.routes.post("/queue_manager/archive")
         async def post_archive(request):

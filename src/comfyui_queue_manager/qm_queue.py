@@ -12,6 +12,7 @@ import os
 from .helpers import reveal_file
 from .qm_db import get_conn, read_query, read_single, write_query, write_many
 from .qm_log import qm_log
+from .nodes import resolve_workflow_name
 
 
 class QM_Queue:
@@ -452,6 +453,44 @@ class QM_Queue:
     # ===========================================================
     # ================== NON-HIJACK METHODS =====================
     # ===========================================================
+
+    def rename_item(self, db_id, name):
+        """Rename a pending or archived job, including its saved workflow metadata."""
+        if type(db_id) is not int or db_id < 1:
+            raise ValueError("Invalid queue item ID")
+        if not isinstance(name, str):
+            raise ValueError("Name must be a string")
+        name = resolve_workflow_name(name)
+        if not name:
+            raise ValueError("Name cannot be empty")
+
+        with self.native_queue.mutex:
+            row = read_single("SELECT prompt_id, prompt, status, updated_at FROM queue WHERE id = ?", (db_id,))
+            if row is None:
+                raise LookupError("Queue item no longer exists")
+            if row["status"] not in (0, 3) or any(item[1] == row["prompt_id"] for item in self.native_queue.currently_running.values()):
+                raise RuntimeError("Only pending or archived jobs can be renamed")
+
+            prompt = json.loads(row["prompt"])
+            prompt[3]["extra_pnginfo"]["workflow"]["workflow_name"] = name
+            with get_conn():
+                write_query("UPDATE queue SET name = ?, prompt = ? WHERE id = ?", (name, json.dumps(prompt), db_id), False)
+                # The update trigger changes this timestamp, but a rename should not
+                # reorder the archive or change the client-takeover cutoff.
+                write_query(
+                    "UPDATE queue SET updated_at = ? WHERE id = ? AND updated_at != ?",
+                    (row["updated_at"], db_id, row["updated_at"]),
+                    False,
+                )
+
+            # The next job may already have a separate copy in ComfyUI's pending heap.
+            # Keep it in sync without replacing node inputs, priority, or sensitive data.
+            for item in self.native_queue.queue:
+                if item[1] == row["prompt_id"]:
+                    item[3]["extra_pnginfo"]["workflow"]["workflow_name"] = name
+
+            PromptServer.instance.send_sync("queue-manager-queue-updated", {"renamed": db_id})
+            return name
 
     def toggle_playback(self):
         with self.pause_lock:

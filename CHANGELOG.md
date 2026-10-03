@@ -1,5 +1,11 @@
 # Release Notes
 
+## Unreleased
+
+### Enhancements
+
+- Rename pending and archived jobs directly in the Workflow column using an inline editor.
+
 ## v0.1.2
 
 _Sep 27, 2026_
