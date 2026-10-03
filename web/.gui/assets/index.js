@@ -19058,6 +19058,9 @@ const UploadSharpIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("pat
 const Inventory2SharpIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("path", {
   d: "M2 2v6.7h1V22h18V8.7h1V2zm13 12H9v-2h6zm5-7H4V4h16z"
 }));
+const CheckBoxOutlinedIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("path", {
+  d: "M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m0 16H5V5h14zM17.99 9l-1.41-1.42-6.59 6.59-2.58-2.57-1.42 1.41 4 3.99z"
+}));
 function ThemeProviderNoVars({
   theme: themeInput,
   ...props
@@ -19706,11 +19709,14 @@ const QueueItemRow = reactExports.memo(
     thumbMode,
     galleryOptions,
     filters,
-    workflowFilterMode
+    workflowFilterMode,
+    selecting,
+    selected
   }) {
     const { onMediaItemClick, fetchQueueItems } = reactExports.useContext(AppContext);
     const dbId = item?.[3]?.db_id;
     const workflow = item?.[3]?.extra_pnginfo?.workflow;
+    const selectable = !!dbId && mode !== "running" && mode !== "external";
     const mediaOutputs = reactExports.useMemo(() => {
       if (item?.[3]?.outputs && route === "completed") {
         return new MediaOutputs(item[3], galleryOptions);
@@ -19738,7 +19744,7 @@ const QueueItemRow = reactExports.memo(
       });
     }, [dbId]);
     const filterByWorkflow = reactExports.useCallback(() => {
-      if (!workflow) return;
+      if (!workflow || selecting) return;
       const nextFilters = withWorkflowFilter(filters, { id: workflow.id, name: workflow.workflow_name ?? "" }, workflowFilterMode);
       if (nextFilters === filters) return;
       fetchQueueItems({
@@ -19746,7 +19752,7 @@ const QueueItemRow = reactExports.memo(
         filters: nextFilters,
         reload: true
       });
-    }, [fetchQueueItems, filters, workflow, workflowFilterMode]);
+    }, [fetchQueueItems, filters, workflow, workflowFilterMode, selecting]);
     const executionTimeLabel = reactExports.useMemo(() => {
       const t = item?.[3]?.execution_time;
       if (t == null) return null;
@@ -19767,117 +19773,147 @@ const QueueItemRow = reactExports.memo(
     const showGrid = item?.[3]?.total_files > 0 && route === "completed" && thumbMode === "grid" && (galleryOptions.ShowImages || galleryOptions.ShowVideos);
     const rowIndex = index === void 0 || !info ? "" : index + 1 + info.page * info.page_size;
     return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("tr", { className: className ? ` ${className}` : "", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("td", { className: "px-3 py-1 serial", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: rowIndex }),
-          loader ? /* @__PURE__ */ jsxRuntimeExports.jsx(LoaderSpinner, {}) : null
-        ] }),
-        showCover ? /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-1 cover", children: mediaOutputs?.cover ? /* @__PURE__ */ jsxRuntimeExports.jsx(
-          MediaItem,
-          {
-            file: mediaOutputs.cover,
-            controls: false,
-            autoplay: false,
-            onClick: () => onMediaItemClick({ dbID: dbId, fileIndex: 0 }),
-            className: "play-button",
-            title: "Open gallery"
-          }
-        ) : null }) : null,
-        /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-1 text-left name", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "name-cell", children: [
-          mediaOutputs && item[3].total_files > 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "span",
-            {
-              className: "total shiny-button",
-              title: `Total file outputs: ${mediaOutputs.total}`,
-              onClick: () => onMediaItemClick({ dbID: dbId, fileIndex: 0 }),
-              children: mediaOutputs.total
-            }
-          ) : null,
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            QueueItemName,
-            {
-              name: mode === "external" ? "External job" : workflow?.workflow_name ?? "",
-              dbId,
-              canRename: !!dbId && mode !== "running" && mode !== "external" && (route === "queue" || route === "archive"),
-              onFilter: filterByWorkflow,
-              filterTitle: workflowFilterMode === "workflow_name" ? "Filter view by this exact workflow name" : "Filter view by the workflow",
-              onRenamed: () => {
-                if (useAppStore.getState().route === route) {
-                  fetchQueueItems({ page: info?.page });
-                }
-              }
-            }
-          )
-        ] }) }),
-        route === "completed" && /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "meta-info", children: executionTimeLabel ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "execution-time", title: "Execution time", children: executionTimeLabel }) : null }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-1 text-right actions", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { justifyContent: "flex-end" }, className: "buttons", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
-            {
-              className: "delete red-button shiny-button",
-              onClick: cancelQueueItem,
-              title: "Delete workflow from queue",
-              children: "Delete"
-            }
-          ),
-          mode !== "external" ? /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
-            {
-              className: "load green-button shiny-button",
-              onClick: loadQueueItem,
-              title: "Load workflow",
-              children: "Load"
-            }
-          ) : null,
-          route === "queue" && mode !== "running" ? /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
-            {
-              className: "archive yellow-button shiny-button",
-              onClick: archiveQueueItem,
-              title: "Move to the archive",
-              children: "Archive"
-            }
-          ) : null,
-          route === "archive" ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
-            "button",
-            {
-              className: "run blue-button shiny-button",
-              onClick: playItem,
-              title: "Move to queue",
-              children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx(PlayArrowOutlinedIcon, { fontSize: "small" }),
-                "Run"
-              ]
-            }
-          ) : null,
-          route === "completed" ? /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
-            {
-              className: "view violet-button shiny-button",
-              onClick: () => onMediaItemClick({ dbID: dbId, fileIndex: 0 }),
-              title: "View outputs in gallery",
-              children: "View"
-            }
-          ) : null
-        ] }) })
-      ] }),
-      showGrid ? /* @__PURE__ */ jsxRuntimeExports.jsx("tr", { className: "dark:odd:bg-neutral-900 odd:bg-neutral-100 gallery", children: /* @__PURE__ */ jsxRuntimeExports.jsx("td", { colSpan: 4, className: "px-3 py-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-2 items", children: mediaOutputs?.files?.length ? mediaOutputs.files.map((file, fileIndex) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-        MediaItem,
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "tr",
         {
-          file,
-          autoplay: false,
-          onClick: () => onMediaItemClick({ dbID: dbId, fileIndex }),
-          title: "Open gallery"
-        },
-        `${file.filename}-${file.subfolder}`
-      )) : null }) }) }) : null
+          className: (className ?? "") + (selected ? " selected" : ""),
+          "data-selection-id": selecting && selectable ? dbId : void 0,
+          "aria-selected": selecting && selectable ? selected : void 0,
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("td", { className: "px-3 py-1 serial", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: rowIndex }),
+              loader ? /* @__PURE__ */ jsxRuntimeExports.jsx(LoaderSpinner, {}) : null
+            ] }),
+            showCover ? /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-1 cover", children: mediaOutputs?.cover ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+              MediaItem,
+              {
+                file: mediaOutputs.cover,
+                controls: false,
+                autoplay: false,
+                onClick: () => onMediaItemClick({ dbID: dbId, fileIndex: 0 }),
+                className: "play-button",
+                title: "Open gallery"
+              }
+            ) : null }) : null,
+            /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-1 text-left name", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "name-cell", children: [
+              mediaOutputs && item[3].total_files > 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "span",
+                {
+                  className: "total shiny-button",
+                  title: `Total file outputs: ${mediaOutputs.total}`,
+                  onClick: () => onMediaItemClick({ dbID: dbId, fileIndex: 0 }),
+                  children: mediaOutputs.total
+                }
+              ) : null,
+              selecting ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "selection-name", children: mode === "external" ? "External job" : workflow?.workflow_name ?? "" }) : /* @__PURE__ */ jsxRuntimeExports.jsx(
+                QueueItemName,
+                {
+                  name: mode === "external" ? "External job" : workflow?.workflow_name ?? "",
+                  dbId,
+                  canRename: !!dbId && mode !== "running" && mode !== "external" && (route === "queue" || route === "archive"),
+                  onFilter: filterByWorkflow,
+                  filterTitle: workflowFilterMode === "workflow_name" ? "Filter view by this exact workflow name" : "Filter view by the workflow",
+                  onRenamed: () => {
+                    if (useAppStore.getState().route === route) {
+                      fetchQueueItems({ page: info?.page });
+                    }
+                  }
+                }
+              )
+            ] }) }),
+            route === "completed" && /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "meta-info", children: executionTimeLabel ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "execution-time", title: "Execution time", children: executionTimeLabel }) : null }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-1 text-right actions", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { justifyContent: "flex-end" }, className: "buttons", children: [
+              !selecting && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "button",
+                {
+                  className: "delete red-button shiny-button",
+                  onClick: cancelQueueItem,
+                  title: "Delete workflow from queue",
+                  children: "Delete"
+                }
+              ),
+              mode !== "external" ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "button",
+                {
+                  className: "load green-button shiny-button",
+                  onClick: loadQueueItem,
+                  title: "Load workflow",
+                  "data-selection-ignore": true,
+                  children: "Load"
+                }
+              ) : null,
+              !selecting && route === "queue" && mode !== "running" ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "button",
+                {
+                  className: "archive yellow-button shiny-button",
+                  onClick: archiveQueueItem,
+                  title: "Move to the archive",
+                  children: "Archive"
+                }
+              ) : null,
+              !selecting && route === "archive" ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "button",
+                {
+                  className: "run blue-button shiny-button",
+                  onClick: playItem,
+                  title: "Move to queue",
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(PlayArrowOutlinedIcon, { fontSize: "small" }),
+                    "Run"
+                  ]
+                }
+              ) : null,
+              route === "completed" ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "button",
+                {
+                  className: "view violet-button shiny-button",
+                  onClick: () => onMediaItemClick({ dbID: dbId, fileIndex: 0 }),
+                  title: "View outputs in gallery",
+                  "data-selection-ignore": true,
+                  children: "View"
+                }
+              ) : null,
+              selecting && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "input",
+                {
+                  type: "checkbox",
+                  className: "row-selection",
+                  "aria-label": `Select ${workflow?.workflow_name || "job"}`,
+                  title: selectable ? "Select job (Shift: range, Alt: deselect)" : "Running and external jobs cannot be selected",
+                  disabled: !selectable,
+                  checked: selected,
+                  onChange: () => {
+                  }
+                }
+              )
+            ] }) })
+          ]
+        }
+      ),
+      showGrid ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "tr",
+        {
+          className: "dark:odd:bg-neutral-900 odd:bg-neutral-100 gallery" + (selected ? " selected" : ""),
+          "data-selection-id": selecting && selectable ? dbId : void 0,
+          children: /* @__PURE__ */ jsxRuntimeExports.jsx("td", { colSpan: 4, className: "px-3 py-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-2 items", children: mediaOutputs?.files?.length ? mediaOutputs.files.map((file, fileIndex) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+            MediaItem,
+            {
+              file,
+              autoplay: false,
+              onClick: () => onMediaItemClick({ dbID: dbId, fileIndex }),
+              title: "Open gallery"
+            },
+            `${file.filename}-${file.subfolder}`
+          )) : null }) })
+        }
+      ) : null
     ] });
   },
   (prev2, next2) => {
     const prevId = prev2.item?.[3]?.db_id;
     const nextId = next2.item?.[3]?.db_id;
     if (prevId !== nextId) return false;
-    return prev2.loader === next2.loader && prev2.index === next2.index && prev2.mode === next2.mode && prev2.route === next2.route && prev2.thumbMode === next2.thumbMode && prev2.galleryOptions === next2.galleryOptions && prev2.filters === next2.filters && prev2.workflowFilterMode === next2.workflowFilterMode && prev2.info?.page === next2.info?.page && prev2.info?.page_size === next2.info?.page_size && prev2.item?.[3]?.extra_pnginfo?.workflow?.workflow_name === next2.item?.[3]?.extra_pnginfo?.workflow?.workflow_name;
+    return prev2.loader === next2.loader && prev2.index === next2.index && prev2.mode === next2.mode && prev2.route === next2.route && prev2.thumbMode === next2.thumbMode && prev2.galleryOptions === next2.galleryOptions && prev2.filters === next2.filters && prev2.workflowFilterMode === next2.workflowFilterMode && prev2.selecting === next2.selecting && prev2.selected === next2.selected && prev2.info?.page === next2.info?.page && prev2.info?.page_size === next2.info?.page_size && prev2.item?.[3]?.extra_pnginfo?.workflow?.workflow_name === next2.item?.[3]?.extra_pnginfo?.workflow?.workflow_name;
   }
 );
 const useOptionsStore = create((set) => ({
@@ -19923,10 +19959,163 @@ const useOptionsStore = create((set) => ({
     [key]: value
   }))
 }));
+function selectRow(selected, anchor, ids, id, { shiftKey = false, altKey = false } = {}) {
+  const end = ids.indexOf(id);
+  if (end < 0) return { selected, anchor };
+  const start = shiftKey ? ids.indexOf(anchor) : -1;
+  const affected = start < 0 ? [id] : ids.slice(Math.min(start, end), Math.max(start, end) + 1);
+  const next2 = new Set(selected);
+  const remove = altKey || !shiftKey && next2.has(id);
+  for (const value of affected) {
+    if (remove) next2.delete(value);
+    else next2.add(value);
+  }
+  return { selected: next2, anchor: start < 0 ? id : anchor };
+}
+function selectRectangle(selected, rows, rectangle, deselect = false) {
+  const next2 = new Set(selected);
+  for (const { id, left, right, top, bottom } of rows) {
+    if (left <= rectangle.right && right >= rectangle.left && top <= rectangle.bottom && bottom >= rectangle.top) {
+      if (deselect) next2.delete(id);
+      else next2.add(id);
+    }
+  }
+  return next2;
+}
+const useSelectionStore = create((set) => ({
+  active: false,
+  selected: /* @__PURE__ */ new Set(),
+  anchor: null,
+  toggle: () => set((state) => ({ active: !state.active, selected: /* @__PURE__ */ new Set(), anchor: null })),
+  reset: () => set({ active: false, selected: /* @__PURE__ */ new Set(), anchor: null }),
+  setSelected: (selected) => set({ selected }),
+  selectAll: (ids) => set((state) => ({
+    selected: ids.every((id) => state.selected.has(id)) ? /* @__PURE__ */ new Set() : new Set(ids),
+    anchor: null
+  })),
+  click: (ids, id, modifiers) => set((state) => state.active ? selectRow(state.selected, state.anchor, ids, id, modifiers) : state)
+}));
+function useQueueSelection(containerRef, active, ids) {
+  const [rectangle, setRectangle] = reactExports.useState(null);
+  const suppressClick = reactExports.useRef(false);
+  reactExports.useEffect(() => {
+    const container = containerRef.current;
+    if (!active || !container) {
+      setRectangle(null);
+      return;
+    }
+    let drag = null;
+    let frame;
+    let clickTimer;
+    const point = (event) => {
+      const bounds = container.getBoundingClientRect();
+      return {
+        x: event.clientX - bounds.left + container.scrollLeft,
+        y: event.clientY - bounds.top + container.scrollTop
+      };
+    };
+    const update = () => {
+      if (!drag?.moved) return;
+      const end2 = point(drag.pointer);
+      const box = {
+        left: Math.min(drag.start.x, end2.x),
+        right: Math.max(drag.start.x, end2.x),
+        top: Math.min(drag.start.y, end2.y),
+        bottom: Math.max(drag.start.y, end2.y)
+      };
+      const bounds = container.getBoundingClientRect();
+      const rows = [...container.querySelectorAll("[data-selection-id]")].map((row) => {
+        const rect = row.getBoundingClientRect();
+        return {
+          id: Number(row.dataset.selectionId),
+          left: rect.left - bounds.left + container.scrollLeft,
+          right: rect.right - bounds.left + container.scrollLeft,
+          top: rect.top - bounds.top + container.scrollTop,
+          bottom: rect.bottom - bounds.top + container.scrollTop
+        };
+      });
+      setRectangle(box);
+      useSelectionStore.getState().setSelected(selectRectangle(drag.initial, rows, box, drag.pointer.altKey));
+    };
+    const autoScroll = () => {
+      if (!drag?.moved) return;
+      const bounds = container.getBoundingClientRect();
+      const y = drag.pointer.clientY;
+      const previousScrollTop = container.scrollTop;
+      if (y < bounds.top + 32) container.scrollTop -= 12;
+      else if (y > bounds.bottom - 32) container.scrollTop += 12;
+      if (previousScrollTop !== container.scrollTop) update();
+      frame = requestAnimationFrame(autoScroll);
+    };
+    const down = (event) => {
+      if (event.button !== 0 || event.target.closest("[data-selection-ignore], thead, input, button")) return;
+      suppressClick.current = false;
+      drag = { start: point(event), pointer: event, initial: useSelectionStore.getState().selected, moved: false };
+    };
+    const move = (event) => {
+      if (!drag) return;
+      drag.pointer = event;
+      if (!drag.moved && Math.hypot(point(event).x - drag.start.x, point(event).y - drag.start.y) >= 4) {
+        drag.moved = true;
+        container.setPointerCapture(event.pointerId);
+        frame = requestAnimationFrame(autoScroll);
+      }
+      if (drag.moved) {
+        event.preventDefault();
+        update();
+      }
+    };
+    const end = (event) => {
+      if (!drag) return;
+      if (drag.moved && event.type === "pointerup") {
+        drag.pointer = event;
+        update();
+      }
+      if (event.type === "pointercancel") useSelectionStore.getState().setSelected(drag.initial);
+      suppressClick.current = drag.moved;
+      if (container.hasPointerCapture(event.pointerId)) container.releasePointerCapture(event.pointerId);
+      drag = null;
+      cancelAnimationFrame(frame);
+      setRectangle(null);
+      clickTimer = setTimeout(() => {
+        suppressClick.current = false;
+      }, 0);
+    };
+    container.addEventListener("pointerdown", down);
+    container.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+    return () => {
+      if (drag && container.hasPointerCapture(drag.pointer.pointerId)) container.releasePointerCapture(drag.pointer.pointerId);
+      cancelAnimationFrame(frame);
+      clearTimeout(clickTimer);
+      suppressClick.current = false;
+      container.removeEventListener("pointerdown", down);
+      container.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+    };
+  }, [active, containerRef]);
+  const onClickCapture = (event) => {
+    if (!active || event.target.closest("[data-selection-ignore]")) return;
+    const row = event.target.closest("tbody tr");
+    if (!row && !suppressClick.current) return;
+    event.stopPropagation();
+    if (suppressClick.current) {
+      event.preventDefault();
+      return;
+    }
+    const id = Number(row?.dataset.selectionId);
+    if (ids.includes(id)) useSelectionStore.getState().click(ids, id, event);
+  };
+  return { rectangle, onClickCapture };
+}
 const QueueItems = reactExports.memo(function QueueItems2({ running, pending, info }) {
   const route = useAppStore((state) => state.route);
   const filters = useAppStore((state) => state.filters);
   const workflowFilterMode = useAppStore((state) => state.workflowFilterMode);
+  const selecting = useSelectionStore((state) => state.active);
+  const selected = useSelectionStore((state) => state.selected);
   const thumbMode = useOptionsStore((state) => state.thumb_mode);
   const galleryOptions = useOptionsStore((state) => state.Gallery);
   const stableGalleryOptions = reactExports.useMemo(() => galleryOptions, [galleryOptions]);
@@ -19943,7 +20132,9 @@ const QueueItems = reactExports.memo(function QueueItems2({ running, pending, in
         thumbMode,
         galleryOptions: stableGalleryOptions,
         filters,
-        workflowFilterMode
+        workflowFilterMode,
+        selecting,
+        selected: false
       },
       item?.[3]?.db_id ?? item?.[1]
     )),
@@ -19958,7 +20149,9 @@ const QueueItems = reactExports.memo(function QueueItems2({ running, pending, in
         thumbMode,
         galleryOptions: stableGalleryOptions,
         filters,
-        workflowFilterMode
+        workflowFilterMode,
+        selecting,
+        selected: selected.has(item?.[3]?.db_id)
       },
       item?.[3]?.db_id ?? `${item?.[1]}-${index}`
     ))
@@ -19969,6 +20162,12 @@ const Queue = reactExports.memo(function Queue2({ data, isLoading, error, progre
   const thumbMode = useOptionsStore((state) => state.thumb_mode);
   const options = useOptionsStore((state) => state.Completed);
   const galleryOptions = useOptionsStore((state) => state.Gallery);
+  const selecting = useSelectionStore((state) => state.active);
+  const selected = useSelectionStore((state) => state.selected);
+  const containerRef = reactExports.useRef(null);
+  const ids = reactExports.useMemo(() => (data?.pending ?? []).map((item) => item?.[3]?.db_id).filter(Number.isInteger), [data]);
+  const { rectangle, onClickCapture } = useQueueSelection(containerRef, selecting, ids);
+  const allSelected = ids.length > 0 && ids.every((id) => selected.has(id));
   const coverMode = String(options.CoverThumbMode ?? "Cropped").toLowerCase().replace(/\s+/g, "_");
   const gridMode = String(options.GridThumbMode ?? "Square Fit").toLowerCase().replace(/\s+/g, "_");
   const running = data?.running ?? [];
@@ -19976,29 +20175,52 @@ const Queue = reactExports.memo(function Queue2({ data, isLoading, error, progre
   return /* @__PURE__ */ jsxRuntimeExports.jsx(
     "div",
     {
-      className: "overflow-x-auto table-wrapper" + (isLoading ? " loading" : "") + " cover-" + coverMode + " grid-" + gridMode + " mode-",
+      className: "overflow-x-auto table-wrapper" + (selecting ? " selecting" : "") + (isLoading ? " loading" : "") + " cover-" + coverMode + " grid-" + gridMode + " mode-",
       style: { "--job-progress": progress + "%" },
-      children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "table-container", children: /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs("table", { className: "min-w-full border border-0", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("thead", { className: "dark:bg-neutral-800 bg-neutral-200 text-xs uppercase", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("tr", { children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 text-left", children: "#" }),
-          route === "completed" && thumbMode === "cover" && (galleryOptions.ShowImages || galleryOptions.ShowVideos) && /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 cover", children: "Thumbnail" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 text-left workflow-column", children: "Workflow" }),
-          route === "completed" && /* @__PURE__ */ jsxRuntimeExports.jsx("th", {}),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2", align: "right", children: "Actions" })
-        ] }) }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("tbody", { children: [
-          error && /* @__PURE__ */ jsxRuntimeExports.jsx("tr", { children: /* @__PURE__ */ jsxRuntimeExports.jsxs("td", { colSpan: 100, className: "text-red-500 text-center info-cell", children: [
-            "Loading failed: ",
-            error
+      children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "table-container", ref: containerRef, onClickCapture, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("table", { className: "min-w-full border border-0", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("thead", { className: "dark:bg-neutral-800 bg-neutral-200 text-xs uppercase", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("tr", { children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 text-left", children: "#" }),
+            route === "completed" && thumbMode === "cover" && (galleryOptions.ShowImages || galleryOptions.ShowVideos) && /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 cover", children: "Thumbnail" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 text-left workflow-column", children: "Workflow" }),
+            route === "completed" && /* @__PURE__ */ jsxRuntimeExports.jsx("th", {}),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2", align: "right", children: selecting ? /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "selection-heading", "data-selection-ignore": true, children: [
+              "Select",
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "input",
+                {
+                  type: "checkbox",
+                  "aria-label": "Select all visible jobs",
+                  checked: allSelected,
+                  disabled: !ids.length,
+                  ref: (input) => {
+                    if (input) input.indeterminate = selected.size > 0 && !allSelected;
+                  },
+                  onChange: () => useSelectionStore.getState().selectAll(ids)
+                }
+              )
+            ] }) : "Actions" })
           ] }) }),
-          !isLoading && (!data || !running.length && !pending.length) && /* @__PURE__ */ jsxRuntimeExports.jsx("tr", { children: /* @__PURE__ */ jsxRuntimeExports.jsx("td", { colSpan: 100, className: "italic text-center info-cell", children: "No items." }) }),
-          isLoading && !data && /* @__PURE__ */ jsxRuntimeExports.jsxs("tr", { children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-1 serial", children: /* @__PURE__ */ jsxRuntimeExports.jsx(LoaderSpinner, {}) }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("td", { colSpan: 100, className: "italic text-center info-cell", children: "Loading..." })
-          ] }),
-          data && /* @__PURE__ */ jsxRuntimeExports.jsx(QueueItems, { running, pending, info: data.info })
-        ] })
-      ] }) }) })
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("tbody", { children: [
+            error && /* @__PURE__ */ jsxRuntimeExports.jsx("tr", { children: /* @__PURE__ */ jsxRuntimeExports.jsxs("td", { colSpan: 100, className: "text-red-500 text-center info-cell", children: [
+              "Loading failed: ",
+              error
+            ] }) }),
+            !isLoading && (!data || !running.length && !pending.length) && /* @__PURE__ */ jsxRuntimeExports.jsx("tr", { children: /* @__PURE__ */ jsxRuntimeExports.jsx("td", { colSpan: 100, className: "italic text-center info-cell", children: "No items." }) }),
+            isLoading && !data && /* @__PURE__ */ jsxRuntimeExports.jsxs("tr", { children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-1 serial", children: /* @__PURE__ */ jsxRuntimeExports.jsx(LoaderSpinner, {}) }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("td", { colSpan: 100, className: "italic text-center info-cell", children: "Loading..." })
+            ] }),
+            data && /* @__PURE__ */ jsxRuntimeExports.jsx(QueueItems, { running, pending, info: data.info })
+          ] })
+        ] }),
+        selecting && rectangle && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "selection-rectangle", style: {
+          left: rectangle.left,
+          top: rectangle.top,
+          width: rectangle.right - rectangle.left,
+          height: rectangle.bottom - rectangle.top
+        } })
+      ] }) })
     }
   );
 });
@@ -29638,6 +29860,11 @@ const VisuallyHiddenInput = styled("input")({
   width: 1
 });
 function Home() {
+  const selecting = useSelectionStore((state) => state.active);
+  const selected = useSelectionStore((state) => state.selected);
+  const [selectionBusy, setSelectionBusy] = reactExports.useState(false);
+  const [selectionError, setSelectionError] = reactExports.useState("");
+  const selectionBusyRef = reactExports.useRef(false);
   const [appStatus, setAppStatus] = reactExports.useState({
     loading: true,
     reloading: false,
@@ -29741,6 +29968,7 @@ function Home() {
     }
   }, [setAllOptions, updateCoverSize, updateThumbnailSize]);
   const fetchQueueItems = reactExports.useCallback(async ({ page, route: requestedRoute, filters: filters2, reload = false } = {}) => {
+    useSelectionStore.getState().reset();
     const fetchId = ++fetchIdRef.current;
     let queryArgs = "";
     if (page !== void 0 && page !== null) queryArgs = `?page=${page}`;
@@ -29825,6 +30053,60 @@ function Home() {
       console.error("Error fetching queue items:", error);
     }
   }
+  async function actOnSelection(action) {
+    if (!selecting || !selected.size || selectionBusyRef.current) return;
+    selectionBusyRef.current = true;
+    setSelectionBusy(true);
+    setSelectionError("");
+    try {
+      const response = await fetch(`${baseURL}queue_manager/selection`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          route,
+          ids: [...selected],
+          client_id: useAppStore.getState().clientId,
+          front: useAppStore.getState().shiftDown === true
+        })
+      });
+      if (!response.ok) {
+        if (response.status === 404) throw new Error("Selection actions require the updated backend. Restart ComfyUI and try again.");
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.error || `Selection action failed (${response.status})`);
+      }
+      const result = await response.json();
+      useSelectionStore.getState().reset();
+      if (action === "export") {
+        const url = URL.createObjectURL(new Blob([JSON.stringify(result)], { type: "application/json" }));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `comfyui-${route}-selected-export-${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-")}.json`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1e3);
+      } else if (useAppStore.getState().route === route) {
+        await fetchQueueItems({ page: appStatus.queue?.info?.page ?? 0 });
+      }
+    } catch (error) {
+      setSelectionError(error.message);
+    } finally {
+      selectionBusyRef.current = false;
+      setSelectionBusy(false);
+    }
+  }
+  reactExports.useEffect(() => {
+    if (!selecting) return;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        useSelectionStore.getState().reset();
+        event.preventDefault();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selecting]);
   async function playAllArchive() {
     await apiCall("queue_manager/play-archive", {
       client_id: useAppStore.getState().clientId,
@@ -29967,6 +30249,7 @@ function Home() {
       return;
     }
     const file = e.target.files[0];
+    useSelectionStore.getState().reset();
     const formData = new FormData();
     formData.append("queue_json", file);
     formData.append("client_id", useAppStore.getState().clientId);
@@ -29994,6 +30277,7 @@ function Home() {
   });
   const openGallery = reactExports.useCallback((galleryData2 = null) => {
     if (galleryData2) {
+      useSelectionStore.getState().reset();
       window.parent.postMessage({
         type: "QM_Gallery_Show"
       }, "*");
@@ -30155,11 +30439,35 @@ function Home() {
             children: "Completed"
           }
         ),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "selection-toolbar", children: [
+          selecting && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "selection-count", role: "status", children: [
+            selected.size,
+            " selected"
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              className: "selection-toggle shiny-button",
+              "aria-label": "Select queue items",
+              "aria-pressed": selecting,
+              title: selecting ? "Exit selection mode (Escape)" : "Select queue items",
+              disabled: appStatus.loading || selectionBusy,
+              onClick: () => {
+                setSelectionError("");
+                useSelectionStore.getState().toggle();
+              },
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx(CheckBoxOutlinedIcon, {})
+            }
+          )
+        ] }),
         shiftDown && route === "archive" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "play-first", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(UploadSharpIcon, {}),
           " Press Run to queue at front"
         ] })
       ] }),
+      selecting && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "selection-help", children: "Click or drag to select · Shift: range · Alt: deselect · Esc: exit" }),
+      selectionError && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "selection-error", role: "alert", children: selectionError }),
       isFilterOn() && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "filters", children: [
         workflowFilter && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "workflow-filter-mode", role: "group", "aria-label": "Filter mode", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Filter by:" }),
@@ -30171,7 +30479,7 @@ function Home() {
             {
               type: "button",
               "aria-pressed": workflowFilter.mode === filterMode,
-              disabled: appStatus.loading || filterMode === "workflow" && !workflowFilter.id,
+              disabled: selecting || appStatus.loading || filterMode === "workflow" && !workflowFilter.id,
               title: description,
               onClick: () => {
                 if (workflowFilter.mode === filterMode) return;
@@ -30213,6 +30521,7 @@ function Home() {
                 "button",
                 {
                   className: "shiny-button close ",
+                  disabled: selecting,
                   "aria-label": `Remove ${filter.type === "workflow_name" ? "workflow name" : filter.type} filter`,
                   onClick: () => {
                     const prev2 = useAppStore.getState().filters;
@@ -30234,6 +30543,7 @@ function Home() {
             "button",
             {
               className: "close close-all ml-auto shiny-button",
+              disabled: selecting,
               onClick: () => {
                 fetchQueueItems({ filters: {} });
               },
@@ -30321,6 +30631,7 @@ function Home() {
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             Pagination,
             {
+              disabled: selecting,
               shape: "rounded",
               variant: "outlined",
               boundaryCount: 2,
@@ -30335,6 +30646,7 @@ function Home() {
           appStatus.queue.info.last_page > 10 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "page-selector", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
             Select,
             {
+              disabled: selecting,
               value: appStatus.queue.info.page,
               onChange: (event) => {
                 const pageNum = event.target.value;
@@ -30353,7 +30665,49 @@ function Home() {
           ) })
         ] }) }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-2 flex actions", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(Stack, { direction: "row", spacing: 1, className: "min-w-full buttons", children: [
-          appStatus.queue && (appStatus.queue.running.length > 0 || appStatus.queue.pending.length > 0) && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+          selecting && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+            route === "queue" && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "button",
+              {
+                className: "shiny-button yellow-button",
+                disabled: !selected.size || selectionBusy,
+                onClick: () => actOnSelection("archive"),
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(Inventory2SharpIcon, {}),
+                  " Archive Selected"
+                ]
+              }
+            ),
+            route === "archive" && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "button",
+              {
+                className: "shiny-button blue-button",
+                disabled: !selected.size || selectionBusy,
+                onClick: () => actOnSelection("play"),
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(PlayArrowOutlinedIcon, {}),
+                  " Run Selected"
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { className: "shiny-button", disabled: !selected.size || selectionBusy, onClick: () => actOnSelection("export"), children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(FileDownloadOutlinedIcon, {}),
+              " Export Selected"
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "button",
+              {
+                className: "shiny-button red-button delete order-last",
+                disabled: !selected.size || selectionBusy,
+                onClick: () => actOnSelection("delete"),
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(DeleteOutlineSharpIcon, {}),
+                  " Delete Selected"
+                ]
+              }
+            )
+          ] }),
+          !selecting && appStatus.queue && (appStatus.queue.running.length > 0 || appStatus.queue.pending.length > 0) && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
             route === "queue" && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
               /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { onClick: archiveAll, className: "shiny-button yellow-button", children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsx(Inventory2SharpIcon, {}),
@@ -30451,7 +30805,7 @@ function Home() {
               )
             ] })
           ] }),
-          ["queue", "archive"].includes(route) && /* @__PURE__ */ jsxRuntimeExports.jsx(
+          !selecting && ["queue", "archive"].includes(route) && /* @__PURE__ */ jsxRuntimeExports.jsx(
             "form",
             {
               method: "post",

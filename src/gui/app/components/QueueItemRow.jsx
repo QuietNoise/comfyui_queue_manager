@@ -26,11 +26,14 @@ export const QueueItemRow = memo(
     galleryOptions,
     filters,
     workflowFilterMode,
+    selecting,
+    selected,
   }) {
     const { onMediaItemClick, fetchQueueItems } = useContext(AppContext);
 
     const dbId = item?.[3]?.db_id;
     const workflow = item?.[3]?.extra_pnginfo?.workflow;
+    const selectable = !!dbId && mode !== "running" && mode !== "external";
 
     const mediaOutputs = useMemo(() => {
       if (item?.[3]?.outputs && route === "completed") {
@@ -65,7 +68,7 @@ export const QueueItemRow = memo(
     }, [dbId]);
 
     const filterByWorkflow = useCallback(() => {
-      if (!workflow) return;
+      if (!workflow || selecting) return;
 
       const nextFilters = withWorkflowFilter(filters, {id: workflow.id, name: workflow.workflow_name ?? ""}, workflowFilterMode);
       if (nextFilters === filters) return;
@@ -75,7 +78,7 @@ export const QueueItemRow = memo(
         filters: nextFilters,
         reload: true,
       });
-    }, [fetchQueueItems, filters, workflow, workflowFilterMode]);
+    }, [fetchQueueItems, filters, workflow, workflowFilterMode, selecting]);
 
 const executionTimeLabel = useMemo(() => {
   const t = item?.[3]?.execution_time;
@@ -120,7 +123,9 @@ const executionTimeLabel = useMemo(() => {
         * Queue Item Details
         *
         */}
-        <tr className={className ? ` ${className}` : ""}>
+        <tr className={(className ?? "") + (selected ? " selected" : "")}
+            data-selection-id={selecting && selectable ? dbId : undefined}
+            aria-selected={selecting && selectable ? selected : undefined}>
           <td className="px-3 py-1 serial">
             <span>{rowIndex}</span>
             {loader ? <LoaderSpinner /> : null}
@@ -155,7 +160,7 @@ const executionTimeLabel = useMemo(() => {
                 </span>
               ) : null}
 
-              <QueueItemName
+              {selecting ? <span className="selection-name">{mode === "external" ? "External job" : workflow?.workflow_name ?? ""}</span> : <QueueItemName
                 name={mode === "external" ? "External job" : workflow?.workflow_name ?? ""}
                 dbId={dbId}
                 canRename={!!dbId && mode !== "running" && mode !== "external" && (route === "queue" || route === "archive")}
@@ -166,7 +171,7 @@ const executionTimeLabel = useMemo(() => {
                     fetchQueueItems({page: info?.page});
                   }
                 }}
-              />
+              />}
             </div>
           </td>
 
@@ -184,25 +189,26 @@ const executionTimeLabel = useMemo(() => {
           {/* Item Actions */}
           <td className="px-3 py-1 text-right actions">
             <div style={{ justifyContent: "flex-end" }}  className="buttons">
-              <button
+              {!selecting && <button
                 className="delete red-button shiny-button"
                 onClick={cancelQueueItem}
                 title="Delete workflow from queue"
               >
                 Delete
-              </button>
+              </button>}
 
               {mode !== "external" ? (
                 <button
                   className="load green-button shiny-button"
                   onClick={loadQueueItem}
                   title="Load workflow"
+                  data-selection-ignore
                 >
                   Load
                 </button>
               ) : null}
 
-              {route === "queue" && mode !== "running" ? (
+              {!selecting && route === "queue" && mode !== "running" ? (
                 <button
                   className="archive yellow-button shiny-button"
                   onClick={archiveQueueItem}
@@ -212,7 +218,7 @@ const executionTimeLabel = useMemo(() => {
                 </button>
               ) : null}
 
-              {route === "archive" ? (
+              {!selecting && route === "archive" ? (
                 <button
                   className="run blue-button shiny-button"
                   onClick={playItem}
@@ -229,10 +235,15 @@ const executionTimeLabel = useMemo(() => {
                   className="view violet-button shiny-button"
                   onClick={() => onMediaItemClick({ dbID: dbId, fileIndex: 0 })}
                   title="View outputs in gallery"
+                  data-selection-ignore
                 >
                   View
                 </button>
               ) : null}
+              {selecting && <input type="checkbox" className="row-selection"
+                aria-label={`Select ${workflow?.workflow_name || "job"}`}
+                title={selectable ? "Select job (Shift: range, Alt: deselect)" : "Running and external jobs cannot be selected"}
+                disabled={!selectable} checked={selected} onChange={() => {}} />}
             </div>
           </td>
         </tr>
@@ -243,7 +254,8 @@ const executionTimeLabel = useMemo(() => {
         *
         */}
         {showGrid ? (
-          <tr className="dark:odd:bg-neutral-900 odd:bg-neutral-100 gallery">
+          <tr className={"dark:odd:bg-neutral-900 odd:bg-neutral-100 gallery" + (selected ? " selected" : "")}
+              data-selection-id={selecting && selectable ? dbId : undefined}>
             <td colSpan={4} className="px-3 py-1">
               <div className="flex flex-wrap gap-2 items">
                 {mediaOutputs?.files?.length
@@ -279,6 +291,8 @@ const executionTimeLabel = useMemo(() => {
       prev.galleryOptions === next.galleryOptions &&
       prev.filters === next.filters &&
       prev.workflowFilterMode === next.workflowFilterMode &&
+      prev.selecting === next.selecting &&
+      prev.selected === next.selected &&
       prev.info?.page === next.info?.page &&
       prev.info?.page_size === next.info?.page_size &&
       prev.item?.[3]?.extra_pnginfo?.workflow?.workflow_name === next.item?.[3]?.extra_pnginfo?.workflow?.workflow_name

@@ -4,6 +4,7 @@
 
 ### Enhancements
 
+- Select visible queue items using checkboxes, row clicks, Shift ranges, or a drag rectangle; hold Alt to deselect. Apply archive, run, export, and delete actions to selected jobs only. Selection clears whenever the list reloads.
 - Rename pending and archived jobs directly in the Workflow column using an inline editor.
 - Switch filtered views between workflow identity and an exact workflow name, with the same selection applied to exports and bulk actions.
 

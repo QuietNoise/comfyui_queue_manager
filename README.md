@@ -136,6 +136,18 @@ Once filtered out the group actions on the bottom of the window (like `Archive A
 
 Asterisk `*` next to the button label indicates that the action will be applied to the filtered items only.
 
+### Select queue items
+Click the checkbox icon to the right of the Queue / Archive / Completed tabs to enter selection mode. The count beside it shows how many jobs are selected. Running and external jobs have disabled checkboxes.
+
+- Click a row or its checkbox to select or deselect it. **Load** and **View** keep their usual behavior.
+- **Shift-click** selects a range from the last row clicked without Shift; **Shift+Alt-click** deselects that range.
+- Drag a rectangle to add every row it touches. Hold **Alt** while dragging to deselect those rows. The list scrolls when you drag near its top or bottom edge.
+- Use the checkbox in the column header to select or clear the visible page. Press **Escape** or click the selection toggle again to exit.
+
+While selecting, filters and paging are disabled. Footer actions become **Archive Selected**, **Run Selected**, **Export Selected**, and **Delete Selected**, as appropriate for the current tab. They stay disabled until at least one job is selected. Renaming is hidden during selection.
+
+Selection is temporary: changing tabs, reloading the list (including automatic queue updates), or completing an action clears it and exits selection mode. Jobs that have started running or moved to another tab before an action reaches the server are skipped.
+
 ### Rename queued workflows
 Click the pencil at the right edge of a pending or archived job's Workflow cell to edit its name. Moving focus outside the editor saves a changed name. You can also press **Enter** or click the checkmark to save; press **Escape** or click the cross to cancel. Empty names are rejected. Running, completed, and external jobs cannot be renamed.
 

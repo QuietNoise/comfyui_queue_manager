@@ -144,3 +144,82 @@ def test_running_rows_respect_both_modes_and_remain_visible_when_unfiltered(filt
     assert {item[1] for item in running} == {"match", "renamed"}
     running, _ = filtered_queue.get_current_queue(page_size=100)
     assert running == jobs
+
+
+@pytest.mark.parametrize(
+    "route,status,action",
+    [
+        ("queue", 0, "archive"),
+        ("queue", 0, "delete"),
+        ("queue", 0, "export"),
+        ("archive", 3, "play"),
+        ("archive", 3, "delete"),
+        ("archive", 3, "export"),
+        ("completed", 2, "delete"),
+        ("completed", 2, "export"),
+    ],
+)
+def test_selection_actions_only_affect_selected_jobs_in_the_current_tab(filtered_queue, route, status, action):
+    selected_prompt = add_job("selected", "same name", "same workflow", status)
+    untouched = add_job("untouched", "same name", "same workflow", status)
+    add_job("other-tab", "same name", "same workflow", 3 if status == 0 else 0)
+    add_job("started-running", "same name", "same workflow", 1)
+    ids = {row["prompt_id"]: row["id"] for row in qm_db.read_query("SELECT id, prompt_id FROM queue")}
+    # Exports must also remove the optional sensitive-data field.
+    selected_prompt.append({"api_key_comfy_org": "example-secret"})
+    qm_db.write_query("UPDATE queue SET prompt = ? WHERE id = ?", (json.dumps(selected_prompt), ids["selected"]))
+    filtered_queue.native_queue.queue = [tuple(selected_prompt), tuple(untouched)] if status == 0 else []
+
+    result = filtered_queue.selection_action(
+        action, route, [ids["selected"], ids["selected"], ids["other-tab"], ids["started-running"], 9999]
+    )
+    rows = {row["prompt_id"]: row["status"] for row in qm_db.read_query("SELECT prompt_id, status FROM queue")}
+    assert rows["untouched"] == status
+    assert rows["other-tab"] == (3 if status == 0 else 0)
+    assert rows["started-running"] == 1
+    if action == "export":
+        assert result == [selected_prompt[:5]]
+        assert rows["selected"] == status
+    else:
+        assert result == 1
+        if action == "delete":
+            assert "selected" not in rows
+        else:
+            assert rows["selected"] == (3 if action == "archive" else 0)
+        if status == 0:
+            assert [item[1] for item in filtered_queue.native_queue.queue] == ["untouched"]
+
+
+@pytest.mark.parametrize("ids", [None, [], "1", [True], [0], ["1) OR 1=1"], list(range(1, 202))])
+def test_invalid_selection_never_expands_to_all_jobs(filtered_queue, ids):
+    add_job("keep", "name", "workflow")
+    with pytest.raises(ValueError):
+        filtered_queue.selection_action("delete", "queue", ids)
+    assert len(qm_db.read_query("SELECT id FROM queue")) == 1
+    assert filtered_queue.get_full_queue("queue", {"items": ids}) == []
+
+
+def test_stale_selection_and_wrong_actions_cannot_touch_other_tabs(filtered_queue):
+    add_job("running", "name", "workflow", 1)
+    db_id = qm_db.read_single("SELECT id FROM queue")[0]
+    assert filtered_queue.selection_action("delete", "queue", [db_id]) == 0
+    assert filtered_queue.selection_action("export", "queue", [db_id]) == []
+    for action, route in [("archive", "completed"), ("play", "queue"), ("delete", "unknown")]:
+        with pytest.raises(ValueError):
+            filtered_queue.selection_action(action, route, [db_id])
+    assert len(qm_db.read_query("SELECT id FROM queue")) == 1
+
+
+def test_run_selected_at_front_keeps_order_and_external_native_jobs(filtered_queue):
+    pending = add_job("prefetched", "pending", "workflow")
+    add_job("first", "first", "workflow", 3)
+    add_job("second", "second", "workflow", 3)
+    qm_db.write_query("UPDATE queue SET number = 2 WHERE prompt_id = 'second'")
+    ids = [row[0] for row in qm_db.read_query("SELECT id FROM queue WHERE status = 3 ORDER BY number")]
+    external = [5, "external", {}, {"extra_pnginfo": {"other": "metadata"}}, []]
+    filtered_queue.native_queue.queue = [tuple(pending), tuple(external)]
+    assert filtered_queue.selection_action("play", "archive", ids, client_id="client", front=True) == 2
+    assert filtered_queue.native_queue.queue == [tuple(external)]
+    rows = qm_db.read_query("SELECT prompt_id, prompt FROM queue WHERE status = 0 ORDER BY number")
+    assert [row[0] for row in rows] == ["first", "second", "prefetched"]
+    assert all(json.loads(row[1])[3]["client_id"] == "client" for row in rows[:2])

@@ -757,6 +757,45 @@ class QM_Queue:
                 PromptServer.instance.queue_updated()
             return moved
 
+    def selection_action(self, action, route, ids, client_id=None, front=False):
+        """Act only on explicitly selected jobs still belonging to this tab."""
+        allowed = {"queue": {"archive", "delete", "export"}, "archive": {"play", "delete", "export"}, "completed": {"delete", "export"}}
+        if not isinstance(route, str) or route not in allowed or not isinstance(action, str) or action not in allowed[route]:
+            raise ValueError("Invalid selection action or tab")
+        if not isinstance(ids, list) or not 1 <= len(ids) <= 200 or any(type(item) is not int or item <= 0 for item in ids):
+            raise ValueError("Select between 1 and 200 valid jobs")
+
+        with self.native_queue.mutex:
+            filters = {"items": list(dict.fromkeys(ids))}
+            where, params = self.get_filters(filters, [self.get_route_query(route)])
+            rows = read_query(f"SELECT id, prompt_id FROM queue WHERE {where}", params)
+            # A selected pending job may have started since the browser loaded it.
+            # Never act on a running job, or on a job that moved to another tab.
+            if action == "export":
+                if not rows:
+                    return []
+                return [item[:5] for item in self.get_full_queue(route, {"items": [row["id"] for row in rows]})]
+            if not rows:
+                return 0
+            if action == "play":
+                moved = self.play_archive(client_id, filters, front)
+                if front and moved:
+                    # Discard prefetched managed jobs so the new priority is used.
+                    self.native_queue.queue = [
+                        item for item in self.native_queue.queue if "workflow" not in item[3].get("extra_pnginfo", {})
+                    ]
+                    heapq.heapify(self.native_queue.queue)
+                return moved
+
+            sql = "UPDATE queue SET status = 3" if action == "archive" else "DELETE FROM queue"
+            affected = write_query(f"{sql} WHERE {where}", params)
+            prompt_ids = {row["prompt_id"] for row in rows}
+            self.native_queue.queue = [item for item in self.native_queue.queue if item[1] not in prompt_ids]
+            heapq.heapify(self.native_queue.queue)
+            PromptServer.instance.queue_updated()
+            PromptServer.instance.send_sync("queue-manager-queue-updated", {"selected": affected})
+            return affected
+
     def delete_from_queue(self, route="queue", filters=None):
         with self.native_queue.mutex:
             where_string, params = self.get_filters(filters, [self.get_route_query(route)])
@@ -916,6 +955,16 @@ class QM_Queue:
                 elif key == "workflow_name":
                     where_clauses.append("name = ? COLLATE BINARY")
                     params.append(the_filter["value"])
+                elif key == "items":
+                    if (
+                        not isinstance(the_filter, list)
+                        or not 1 <= len(the_filter) <= 200
+                        or any(type(item) is not int or item <= 0 for item in the_filter)
+                    ):
+                        where_clauses.append("0")
+                    else:
+                        where_clauses.append(f"queue.id IN ({', '.join('?' for _ in the_filter)})")
+                        params.extend(the_filter)
                 # elif key == "checkpoint":
                 #     where_clauses.append("name LIKE ?")
                 #     params.append(f"%{value}%")

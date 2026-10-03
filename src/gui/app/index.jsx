@@ -9,6 +9,7 @@ import WallpaperSharpIcon from '@mui/icons-material/WallpaperSharp';
 import ViewModuleSharpIcon from '@mui/icons-material/ViewModuleSharp';
 import UploadSharpIcon from '@mui/icons-material/UploadSharp';
 import Inventory2SharpIcon from '@mui/icons-material/Inventory2Sharp';
+import CheckBoxOutlinedIcon from '@mui/icons-material/CheckBoxOutlined';
 import { styled } from '@mui/material/styles';
 
 import TopMenu from "./components/TopMenu";
@@ -32,6 +33,7 @@ import {useAppStore} from "./stores/appStore";
 import {MenuItem, Pagination, Select} from "@mui/material";
 import {LoaderSpinner} from "@/app/components/LoaderSpinner";
 import {getWorkflowFilter, withWorkflowFilter} from "./internals/workflowFilters.mjs";
+import {useSelectionStore} from "./stores/selectionStore";
 
 const VisuallyHiddenInput = styled('input')({
   clip: 'rect(0 0 0 0)',
@@ -46,6 +48,11 @@ const VisuallyHiddenInput = styled('input')({
 });
 
 export default function Home() {
+  const selecting = useSelectionStore((state) => state.active);
+  const selected = useSelectionStore((state) => state.selected);
+  const [selectionBusy, setSelectionBusy] = useState(false);
+  const [selectionError, setSelectionError] = useState("");
+  const selectionBusyRef = useRef(false);
   const [appStatus, setAppStatus] = useState({
     loading: true,
     reloading: false,
@@ -182,7 +189,7 @@ export default function Home() {
   }, [setAllOptions, updateCoverSize, updateThumbnailSize]);
 
   const fetchQueueItems = useCallback(async ({page, route: requestedRoute, filters, reload = false} = {}) => {
-
+    useSelectionStore.getState().reset();
     const fetchId = ++fetchIdRef.current;
 
     let queryArgs = "";
@@ -293,6 +300,57 @@ export default function Home() {
       console.error("Error fetching queue items:", error);
     }
   }
+
+  async function actOnSelection(action) {
+    if (!selecting || !selected.size || selectionBusyRef.current) return;
+    selectionBusyRef.current = true;
+    setSelectionBusy(true);
+    setSelectionError("");
+    try {
+      const response = await fetch(`${baseURL}queue_manager/selection`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({action, route, ids: [...selected],
+          client_id: useAppStore.getState().clientId, front: useAppStore.getState().shiftDown === true}),
+      });
+      if (!response.ok) {
+        if (response.status === 404) throw new Error("Selection actions require the updated backend. Restart ComfyUI and try again.");
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.error || `Selection action failed (${response.status})`);
+      }
+      const result = await response.json();
+      useSelectionStore.getState().reset();
+      if (action === "export") {
+        const url = URL.createObjectURL(new Blob([JSON.stringify(result)], {type: "application/json"}));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `comfyui-${route}-selected-export-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } else if (useAppStore.getState().route === route) {
+        await fetchQueueItems({page: appStatus.queue?.info?.page ?? 0});
+      }
+    } catch (error) {
+      setSelectionError(error.message);
+    } finally {
+      selectionBusyRef.current = false;
+      setSelectionBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!selecting) return;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        useSelectionStore.getState().reset();
+        event.preventDefault();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selecting]);
 
   async function playAllArchive() {
     await apiCall('queue_manager/play-archive', {
@@ -468,6 +526,7 @@ export default function Home() {
     }
 
     const file = e.target.files[0];
+    useSelectionStore.getState().reset();
 
 
     const formData = new FormData();
@@ -506,6 +565,7 @@ export default function Home() {
 
   const openGallery = useCallback((galleryData = null) => {
     if (galleryData) {
+      useSelectionStore.getState().reset();
       window.parent.postMessage({
         type: "QM_Gallery_Show",
       }, "*");
@@ -720,12 +780,25 @@ export default function Home() {
           >Completed
           </button>
 
+          <div className="selection-toolbar">
+            {selecting && <span className="selection-count" role="status">{selected.size} selected</span>}
+            <button type="button" className="selection-toggle shiny-button"
+              aria-label="Select queue items" aria-pressed={selecting}
+              title={selecting ? "Exit selection mode (Escape)" : "Select queue items"}
+              disabled={appStatus.loading || selectionBusy}
+              onClick={() => {setSelectionError(""); useSelectionStore.getState().toggle();}}>
+              <CheckBoxOutlinedIcon />
+            </button>
+          </div>
+
           {shiftDown && route === "archive" &&
             <div className={"play-first"}>
               <UploadSharpIcon/> Press Run to queue at front
             </div>
           }
         </div>
+        {selecting && <div className="selection-help">Click or drag to select · Shift: range · Alt: deselect · Esc: exit</div>}
+        {selectionError && <div className="selection-error" role="alert">{selectionError}</div>}
 
         {/*
         *
@@ -746,7 +819,7 @@ export default function Home() {
                       key={filterMode}
                       type="button"
                       aria-pressed={workflowFilter.mode === filterMode}
-                      disabled={appStatus.loading || (filterMode === "workflow" && !workflowFilter.id)}
+                      disabled={selecting || appStatus.loading || (filterMode === "workflow" && !workflowFilter.id)}
                       title={description}
                       onClick={() => {
                         if (workflowFilter.mode === filterMode) return;
@@ -772,6 +845,7 @@ export default function Home() {
                 </span>
                 <button
                   className="shiny-button close "
+                  disabled={selecting}
                   aria-label={`Remove ${filter.type === "workflow_name" ? "workflow name" : filter.type} filter`}
                   onClick={() => {
                     // remove the filter from the filters object
@@ -791,6 +865,7 @@ export default function Home() {
             {/*  Clear all  */}
             <button
               className="close close-all ml-auto shiny-button"
+              disabled={selecting}
               onClick={() => {
                 fetchQueueItems({filters: {}});
               }}
@@ -864,6 +939,7 @@ export default function Home() {
             <>
               <div className={"pagination"}>
                 <Pagination
+                  disabled={selecting}
                   shape="rounded"
                   variant="outlined"
                   boundaryCount={2}
@@ -878,6 +954,7 @@ export default function Home() {
                 {appStatus.queue.info.last_page > 10 &&
                   <div className="page-selector">
                     <Select
+                      disabled={selecting}
                       value={appStatus.queue.info.page}
                       onChange={(event) => {
                         const pageNum = event.target.value;
@@ -906,7 +983,24 @@ export default function Home() {
           {/* Footer Actions */}
           <div className="p-2 flex actions">
             <Stack direction="row" spacing={1} className={'min-w-full buttons'}>
-              {appStatus.queue && (appStatus.queue.running.length > 0 || appStatus.queue.pending.length > 0) &&
+              {selecting && <>
+                {route === "queue" && <button className="shiny-button yellow-button"
+                  disabled={!selected.size || selectionBusy} onClick={() => actOnSelection("archive")}>
+                  <Inventory2SharpIcon />&nbsp;Archive Selected
+                </button>}
+                {route === "archive" && <button className="shiny-button blue-button"
+                  disabled={!selected.size || selectionBusy} onClick={() => actOnSelection("play")}>
+                  <PlayArrowOutlinedIcon />&nbsp;Run Selected
+                </button>}
+                <button className="shiny-button" disabled={!selected.size || selectionBusy} onClick={() => actOnSelection("export")}>
+                  <FileDownloadOutlinedIcon />&nbsp;Export Selected
+                </button>
+                <button className="shiny-button red-button delete order-last"
+                  disabled={!selected.size || selectionBusy} onClick={() => actOnSelection("delete")}>
+                  <DeleteOutlineSharpIcon />&nbsp;Delete Selected
+                </button>
+              </>}
+              {!selecting && appStatus.queue && (appStatus.queue.running.length > 0 || appStatus.queue.pending.length > 0) &&
                 <>
 
 
@@ -962,7 +1056,7 @@ export default function Home() {
                 </>
               }
 
-              {['queue', 'archive'].includes(route) &&
+              {!selecting && ['queue', 'archive'].includes(route) &&
                 <form
                   method="post"
                   encType="multipart/form-data"

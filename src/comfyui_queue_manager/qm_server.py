@@ -77,6 +77,25 @@ class QM_Server:
                 return web.json_response({"error": str(error)}, status=409)
             return web.json_response({"id": json_data["id"], "name": name})
 
+        @PromptServer.instance.routes.post("/queue_manager/selection")
+        async def selection_action(request):
+            data = await requestJson(request)
+            if not isinstance(data, dict):
+                return web.json_response({"error": "Expected a JSON object"}, status=400)
+            try:
+                result = self.queue.selection_action(
+                    data.get("action"),
+                    data.get("route"),
+                    data.get("ids"),
+                    data.get("client_id"),
+                    data.get("front") is True,
+                )
+            except ValueError as error:
+                return web.json_response({"error": str(error)}, status=400)
+            if data["action"] == "export":
+                return web.json_response(result)
+            return web.json_response({"affected": result})
+
         # Archive POSTed items
         @PromptServer.instance.routes.post("/queue_manager/archive")
         async def post_archive(request):
