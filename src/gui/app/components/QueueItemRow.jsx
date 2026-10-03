@@ -10,6 +10,7 @@ import { MediaOutputs } from "../models/MediaOutputs";
 import { LoaderSpinner } from "../components/LoaderSpinner";
 import {useAppStore} from "@/app/stores/appStore";
 import { QueueItemName } from "./QueueItemName";
+import {withWorkflowFilter} from "../internals/workflowFilters.mjs";
 
 export const QueueItemRow = memo(
   function QueueItemRow({
@@ -24,6 +25,7 @@ export const QueueItemRow = memo(
     thumbMode,
     galleryOptions,
     filters,
+    workflowFilterMode,
   }) {
     const { onMediaItemClick, fetchQueueItems } = useContext(AppContext);
 
@@ -63,19 +65,17 @@ export const QueueItemRow = memo(
     }, [dbId]);
 
     const filterByWorkflow = useCallback(() => {
-      if (!workflow?.id) return;
+      if (!workflow) return;
+
+      const nextFilters = withWorkflowFilter(filters, {id: workflow.id, name: workflow.workflow_name ?? ""}, workflowFilterMode);
+      if (nextFilters === filters) return;
 
       fetchQueueItems({
-        filters: {
-          ...filters,
-          workflow: {
-            type: "workflow",
-            value: workflow.id,
-            valueLabel: workflow.workflow_name,
-          },
-        },
+        page: 0,
+        filters: nextFilters,
+        reload: true,
       });
-    }, [fetchQueueItems, filters, workflow]);
+    }, [fetchQueueItems, filters, workflow, workflowFilterMode]);
 
 const executionTimeLabel = useMemo(() => {
   const t = item?.[3]?.execution_time;
@@ -160,6 +160,7 @@ const executionTimeLabel = useMemo(() => {
                 dbId={dbId}
                 canRename={!!dbId && mode !== "running" && mode !== "external" && (route === "queue" || route === "archive")}
                 onFilter={filterByWorkflow}
+                filterTitle={workflowFilterMode === "workflow_name" ? "Filter view by this exact workflow name" : "Filter view by the workflow"}
                 onRenamed={() => {
                   if (useAppStore.getState().route === route) {
                     fetchQueueItems({page: info?.page});
@@ -277,6 +278,7 @@ const executionTimeLabel = useMemo(() => {
       prev.thumbMode === next.thumbMode &&
       prev.galleryOptions === next.galleryOptions &&
       prev.filters === next.filters &&
+      prev.workflowFilterMode === next.workflowFilterMode &&
       prev.info?.page === next.info?.page &&
       prev.info?.page_size === next.info?.page_size &&
       prev.item?.[3]?.extra_pnginfo?.workflow?.workflow_name === next.item?.[3]?.extra_pnginfo?.workflow?.workflow_name

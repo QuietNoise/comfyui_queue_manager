@@ -19338,13 +19338,63 @@ const createImpl = (createState) => {
   return useBoundStore;
 };
 const create = ((createState) => createState ? createImpl(createState) : createImpl);
+const WORKFLOW_FILTER_MODE_KEY = "queue-manager.workflow-filter-mode";
+function readWorkflowFilterMode(storage) {
+  try {
+    const mode = (storage ?? globalThis.localStorage)?.getItem(WORKFLOW_FILTER_MODE_KEY);
+    return mode === "workflow_name" ? mode : "workflow";
+  } catch {
+    return "workflow";
+  }
+}
+function saveWorkflowFilterMode(mode, storage) {
+  if (!["workflow", "workflow_name"].includes(mode)) return;
+  try {
+    (storage ?? globalThis.localStorage)?.setItem(WORKFLOW_FILTER_MODE_KEY, mode);
+  } catch {
+  }
+}
+function getWorkflowFilter(filters) {
+  if (filters?.workflow_name) {
+    const filter = filters.workflow_name;
+    return { mode: "workflow_name", id: filter.workflowId, name: filter.value };
+  }
+  if (filters?.workflow) {
+    const filter = filters.workflow;
+    return { mode: "workflow", id: filter.value, name: filter.valueLabel ?? "" };
+  }
+  return null;
+}
+function withWorkflowFilter(filters, selection, mode = getWorkflowFilter(filters)?.mode ?? "workflow") {
+  if (!selection || !["workflow", "workflow_name"].includes(mode)) return filters;
+  if (mode === "workflow" && !selection.id) return filters;
+  if (typeof selection.name !== "string") return filters;
+  const next2 = { ...filters };
+  delete next2.workflow;
+  delete next2.workflow_name;
+  next2[mode] = {
+    type: mode,
+    value: mode === "workflow" ? selection.id : selection.name,
+    valueLabel: selection.name,
+    // Retain the clicked workflow so switching back does not need another row.
+    ...mode === "workflow_name" ? { workflowId: selection.id } : {}
+  };
+  return next2;
+}
 const useAppStore = create((set) => ({
   filters: null,
+  workflowFilterMode: readWorkflowFilterMode(),
   route: "queue",
   mode: "queue",
   clientId: null,
   shiftDown: false,
-  setFilters: (filters) => set((state) => ({ ...state, filters })),
+  setFilters: (filters) => set((state) => {
+    const workflowFilterMode = getWorkflowFilter(filters)?.mode ?? state.workflowFilterMode;
+    if (workflowFilterMode !== state.workflowFilterMode) {
+      saveWorkflowFilterMode(workflowFilterMode);
+    }
+    return { ...state, filters, workflowFilterMode };
+  }),
   setRoute: (route) => set((state) => ({ ...state, route })),
   setMode: (mode) => set((state) => ({ ...state, mode })),
   setClientId: (clientId) => set((state) => ({ ...state, clientId })),
@@ -19539,7 +19589,7 @@ const CheckOutlinedIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("p
 const CloseOutlinedIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("path", {
   d: "M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
 }));
-function QueueItemName({ name, dbId, canRename, onFilter, onRenamed }) {
+function QueueItemName({ name, dbId, canRename, onFilter, onRenamed, filterTitle = "Filter view by the workflow" }) {
   const [editing, setEditing] = reactExports.useState(false);
   const [draftName, setDraftName] = reactExports.useState(name);
   const [saving, setSaving] = reactExports.useState(false);
@@ -19623,7 +19673,7 @@ function QueueItemName({ name, dbId, canRename, onFilter, onRenamed }) {
         ]
       }
     ) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "workflow-name-content", ref: contentRef, children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "plain workflow-name-label", onClick: onFilter, title: "Filter view by the workflow", children: name }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "plain workflow-name-label", onClick: onFilter, title: filterTitle, children: name }),
       canRename && /* @__PURE__ */ jsxRuntimeExports.jsx(
         "button",
         {
@@ -19655,7 +19705,8 @@ const QueueItemRow = reactExports.memo(
     route,
     thumbMode,
     galleryOptions,
-    filters
+    filters,
+    workflowFilterMode
   }) {
     const { onMediaItemClick, fetchQueueItems } = reactExports.useContext(AppContext);
     const dbId = item?.[3]?.db_id;
@@ -19687,18 +19738,15 @@ const QueueItemRow = reactExports.memo(
       });
     }, [dbId]);
     const filterByWorkflow = reactExports.useCallback(() => {
-      if (!workflow?.id) return;
+      if (!workflow) return;
+      const nextFilters = withWorkflowFilter(filters, { id: workflow.id, name: workflow.workflow_name ?? "" }, workflowFilterMode);
+      if (nextFilters === filters) return;
       fetchQueueItems({
-        filters: {
-          ...filters,
-          workflow: {
-            type: "workflow",
-            value: workflow.id,
-            valueLabel: workflow.workflow_name
-          }
-        }
+        page: 0,
+        filters: nextFilters,
+        reload: true
       });
-    }, [fetchQueueItems, filters, workflow]);
+    }, [fetchQueueItems, filters, workflow, workflowFilterMode]);
     const executionTimeLabel = reactExports.useMemo(() => {
       const t = item?.[3]?.execution_time;
       if (t == null) return null;
@@ -19752,6 +19800,7 @@ const QueueItemRow = reactExports.memo(
               dbId,
               canRename: !!dbId && mode !== "running" && mode !== "external" && (route === "queue" || route === "archive"),
               onFilter: filterByWorkflow,
+              filterTitle: workflowFilterMode === "workflow_name" ? "Filter view by this exact workflow name" : "Filter view by the workflow",
               onRenamed: () => {
                 if (useAppStore.getState().route === route) {
                   fetchQueueItems({ page: info?.page });
@@ -19828,7 +19877,7 @@ const QueueItemRow = reactExports.memo(
     const prevId = prev2.item?.[3]?.db_id;
     const nextId = next2.item?.[3]?.db_id;
     if (prevId !== nextId) return false;
-    return prev2.loader === next2.loader && prev2.index === next2.index && prev2.mode === next2.mode && prev2.route === next2.route && prev2.thumbMode === next2.thumbMode && prev2.galleryOptions === next2.galleryOptions && prev2.filters === next2.filters && prev2.info?.page === next2.info?.page && prev2.info?.page_size === next2.info?.page_size && prev2.item?.[3]?.extra_pnginfo?.workflow?.workflow_name === next2.item?.[3]?.extra_pnginfo?.workflow?.workflow_name;
+    return prev2.loader === next2.loader && prev2.index === next2.index && prev2.mode === next2.mode && prev2.route === next2.route && prev2.thumbMode === next2.thumbMode && prev2.galleryOptions === next2.galleryOptions && prev2.filters === next2.filters && prev2.workflowFilterMode === next2.workflowFilterMode && prev2.info?.page === next2.info?.page && prev2.info?.page_size === next2.info?.page_size && prev2.item?.[3]?.extra_pnginfo?.workflow?.workflow_name === next2.item?.[3]?.extra_pnginfo?.workflow?.workflow_name;
   }
 );
 const useOptionsStore = create((set) => ({
@@ -19877,6 +19926,7 @@ const useOptionsStore = create((set) => ({
 const QueueItems = reactExports.memo(function QueueItems2({ running, pending, info }) {
   const route = useAppStore((state) => state.route);
   const filters = useAppStore((state) => state.filters);
+  const workflowFilterMode = useAppStore((state) => state.workflowFilterMode);
   const thumbMode = useOptionsStore((state) => state.thumb_mode);
   const galleryOptions = useOptionsStore((state) => state.Gallery);
   const stableGalleryOptions = reactExports.useMemo(() => galleryOptions, [galleryOptions]);
@@ -19892,7 +19942,8 @@ const QueueItems = reactExports.memo(function QueueItems2({ running, pending, in
         route,
         thumbMode,
         galleryOptions: stableGalleryOptions,
-        filters
+        filters,
+        workflowFilterMode
       },
       item?.[3]?.db_id ?? item?.[1]
     )),
@@ -19906,7 +19957,8 @@ const QueueItems = reactExports.memo(function QueueItems2({ running, pending, in
         route,
         thumbMode,
         galleryOptions: stableGalleryOptions,
-        filters
+        filters,
+        workflowFilterMode
       },
       item?.[3]?.db_id ?? `${item?.[1]}-${index}`
     ))
@@ -29601,6 +29653,7 @@ function Home() {
   const setOption = useOptionsStore((state) => state.setOption);
   const setDirectOption = useOptionsStore((state) => state.setDirectOption);
   const filters = useAppStore((state) => state.filters);
+  const workflowFilter = getWorkflowFilter(filters);
   const route = useAppStore((state) => state.route);
   const mode = useAppStore((state) => state.mode);
   const shiftDown = useAppStore((state) => state.shiftDown);
@@ -30107,68 +30160,96 @@ function Home() {
           " Press Run to queue at front"
         ] })
       ] }),
-      isFilterOn() && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "filters flex items-center p-2", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { children: "Filters:" }),
-        Object.values(filters).map(
-          (filter) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "filter flex items-center", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs(
-              "span",
-              {
-                className: "inline-flex text-neutral-800 dark:text-neutral-200 close label",
-                children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                    "span",
+      isFilterOn() && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "filters", children: [
+        workflowFilter && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "workflow-filter-mode", role: "group", "aria-label": "Filter mode", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Filter by:" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "workflow-filter-mode-buttons", children: [
+            ["workflow", "Workflow", "All jobs from this workflow, including renamed jobs"],
+            ["workflow_name", "Workflow name", "Jobs with this exact name, including matching names from other workflows"]
+          ].map(([filterMode, label, description]) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              "aria-pressed": workflowFilter.mode === filterMode,
+              disabled: appStatus.loading || filterMode === "workflow" && !workflowFilter.id,
+              title: description,
+              onClick: () => {
+                if (workflowFilter.mode === filterMode) return;
+                fetchQueueItems({
+                  page: 0,
+                  filters: withWorkflowFilter(filters, workflowFilter, filterMode),
+                  reload: true
+                });
+              },
+              children: label
+            },
+            filterMode
+          )) })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "filters-summary", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { children: "Filters:" }),
+          Object.values(filters).map(
+            (filter) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "filter flex items-center", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "span",
+                {
+                  className: "inline-flex text-neutral-800 dark:text-neutral-200 close label",
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                      "span",
+                      {
+                        className: "type",
+                        children: [
+                          (filter.type === "workflow_name" ? "workflow name" : filter.type) + ": ",
+                          " "
+                        ]
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "filter-value", title: filter.valueLabel, children: filter.valueLabel })
+                  ]
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "button",
+                {
+                  className: "shiny-button close ",
+                  "aria-label": `Remove ${filter.type === "workflow_name" ? "workflow name" : filter.type} filter`,
+                  onClick: () => {
+                    const prev2 = useAppStore.getState().filters;
+                    const newFilters = (({ [filter.type]: _, ...f }) => f)(prev2);
+                    fetchQueueItems({ filters: newFilters });
+                  },
+                  children: /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { viewBox: "0 0 24 24", width: "1.2em", height: "1.2em", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "path",
                     {
-                      className: "type",
-                      children: [
-                        filter.type + ": ",
-                        " "
-                      ]
+                      fill: "currentColor",
+                      d: "M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z"
                     }
-                  ),
-                  filter.valueLabel
-                ]
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "button",
-              {
-                className: "shiny-button close ",
-                onClick: () => {
-                  const prev2 = useAppStore.getState().filters;
-                  const newFilters = (({ [filter.type]: _, ...f }) => f)(prev2);
-                  fetchQueueItems({ filters: newFilters });
-                },
-                children: /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { viewBox: "0 0 24 24", width: "1.2em", height: "1.2em", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  ) })
+                }
+              )
+            ] }, filter.type)
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "button",
+            {
+              className: "close close-all ml-auto shiny-button",
+              onClick: () => {
+                fetchQueueItems({ filters: {} });
+              },
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { viewBox: "0 0 24 24", width: "1.2em", height: "1.2em", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
                   "path",
                   {
                     fill: "currentColor",
                     d: "M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z"
                   }
-                ) })
-              }
-            )
-          ] }, filter.type)
-        ),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs(
-          "button",
-          {
-            className: "close close-all ml-auto shiny-button",
-            onClick: () => {
-              fetchQueueItems({ filters: {} });
-            },
-            children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { viewBox: "0 0 24 24", width: "1.2em", height: "1.2em", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "path",
-                {
-                  fill: "currentColor",
-                  d: "M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z"
-                }
-              ) }),
-              "Clear filters"
-            ]
-          }
-        )
+                ) }),
+                "Clear filters"
+              ]
+            }
+          )
+        ] })
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "queue-table", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
         Queue,

@@ -112,6 +112,17 @@ class QM_Queue:
 
             where_string, params = self.get_filters(filters, where_clauses)
 
+            # Apply the same selection to native running rows, which are not
+            # part of the paginated database query below.
+            if running and filters:
+                running_where, running_params = self.get_filters(filters, [])
+                if running_where:
+                    placeholders = ", ".join("?" for _ in running)
+                    running_where = f"prompt_id IN ({placeholders}) AND {running_where}"
+                    running_params = tuple(item[1] for item in running) + running_params
+                    matching_ids = {row[0] for row in read_query(f"SELECT prompt_id FROM queue WHERE {running_where}", running_params)}
+                    running = [item for item in running if item[1] in matching_ids]
+
             if page_size > 0:
                 total_rows = read_single(f"""SELECT COUNT(*) FROM queue WHERE {where_string}""", params)[0]
 
@@ -901,6 +912,9 @@ class QM_Queue:
             for key, the_filter in filters.items():
                 if key == "workflow":
                     where_clauses.append("workflow_id = ?")
+                    params.append(the_filter["value"])
+                elif key == "workflow_name":
+                    where_clauses.append("name = ? COLLATE BINARY")
                     params.append(the_filter["value"])
                 # elif key == "checkpoint":
                 #     where_clauses.append("name LIKE ?")

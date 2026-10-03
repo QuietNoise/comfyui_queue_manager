@@ -35,5 +35,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Test queue-time workflow names
-        run: node --test tests/workflow-name.test.mjs
+      - name: Test workflow names and filters
+        run: node --test tests/workflow-name.test.mjs tests/workflow-filters.test.mjs

@@ -31,6 +31,7 @@ import {useOptionsStore} from "./stores/optionsStore";
 import {useAppStore} from "./stores/appStore";
 import {MenuItem, Pagination, Select} from "@mui/material";
 import {LoaderSpinner} from "@/app/components/LoaderSpinner";
+import {getWorkflowFilter, withWorkflowFilter} from "./internals/workflowFilters.mjs";
 
 const VisuallyHiddenInput = styled('input')({
   clip: 'rect(0 0 0 0)',
@@ -62,6 +63,7 @@ export default function Home() {
   const setDirectOption = useOptionsStore((state) => state.setDirectOption);
 
   const filters = useAppStore((state) => state.filters);
+  const workflowFilter = getWorkflowFilter(filters);
   const route = useAppStore((state) => state.route);
   const mode = useAppStore((state) => state.mode);
   const shiftDown = useAppStore((state) => state.shiftDown);
@@ -731,15 +733,46 @@ export default function Home() {
         *
         */}
         {isFilterOn() &&
-          <div className="filters flex items-center p-2">
+          <div className="filters">
+            {workflowFilter && (
+              <div className="workflow-filter-mode" role="group" aria-label="Filter mode">
+                <span>Filter by:</span>
+                <div className="workflow-filter-mode-buttons">
+                  {[
+                    ["workflow", "Workflow", "All jobs from this workflow, including renamed jobs"],
+                    ["workflow_name", "Workflow name", "Jobs with this exact name, including matching names from other workflows"],
+                  ].map(([filterMode, label, description]) => (
+                    <button
+                      key={filterMode}
+                      type="button"
+                      aria-pressed={workflowFilter.mode === filterMode}
+                      disabled={appStatus.loading || (filterMode === "workflow" && !workflowFilter.id)}
+                      title={description}
+                      onClick={() => {
+                        if (workflowFilter.mode === filterMode) return;
+                        fetchQueueItems({
+                          page: 0,
+                          filters: withWorkflowFilter(filters, workflowFilter, filterMode),
+                          reload: true,
+                        });
+                      }}
+                    >{label}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="filters-summary">
             <h2>Filters:</h2>
             {Object.values(filters).map(filter =>
               <div className="filter flex items-center" key={filter.type}>
                 <span
                   className="inline-flex text-neutral-800 dark:text-neutral-200 close label"><span
-                  className={'type'}>{filter.type + ": "}&nbsp;</span>{filter.valueLabel}</span>
+                  className={'type'}>{(filter.type === "workflow_name" ? "workflow name" : filter.type) + ": "}&nbsp;</span>
+                  <span className="filter-value" title={filter.valueLabel}>{filter.valueLabel}</span>
+                </span>
                 <button
                   className="shiny-button close "
+                  aria-label={`Remove ${filter.type === "workflow_name" ? "workflow name" : filter.type} filter`}
                   onClick={() => {
                     // remove the filter from the filters object
                     const prev = useAppStore.getState().filters;
@@ -768,6 +801,7 @@ export default function Home() {
               </svg>
               Clear filters
             </button>
+            </div>
           </div>
         }
 

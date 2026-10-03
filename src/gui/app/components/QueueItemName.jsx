@@ -4,7 +4,7 @@ import CheckOutlinedIcon from "@mui/icons-material/CheckOutlined";
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
 import { apiCall } from "../internals/functions";
 
-export function QueueItemName({ name, dbId, canRename, onFilter, onRenamed }) {
+export function QueueItemName({ name, dbId, canRename, onFilter, onRenamed, filterTitle = "Filter view by the workflow" }) {
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState(name);
   const [saving, setSaving] = useState(false);
@@ -93,7 +93,7 @@ export function QueueItemName({ name, dbId, canRename, onFilter, onRenamed }) {
         </form>
       ) : (
         <div className="workflow-name-content" ref={contentRef}>
-          <button type="button" className="plain workflow-name-label" onClick={onFilter} title="Filter view by the workflow">
+          <button type="button" className="plain workflow-name-label" onClick={onFilter} title={filterTitle}>
             {name}
           </button>
           {canRename && (

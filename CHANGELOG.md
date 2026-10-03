@@ -5,6 +5,7 @@
 ### Enhancements
 
 - Rename pending and archived jobs directly in the Workflow column using an inline editor.
+- Switch filtered views between workflow identity and an exact workflow name, with the same selection applied to exports and bulk actions.
 
 ## v0.1.2
 

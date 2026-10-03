@@ -12,6 +12,7 @@ const QueueItems = memo(function QueueItems({ running, pending, info }) {
   // Read global state ONCE here (parent of many rows)
   const route = useAppStore((state) => state.route);
   const filters = useAppStore((state) => state.filters);
+  const workflowFilterMode = useAppStore((state) => state.workflowFilterMode);
 
   const thumbMode = useOptionsStore((state) => state.thumb_mode);
   const galleryOptions = useOptionsStore((state) => state.Gallery);
@@ -33,6 +34,7 @@ const QueueItems = memo(function QueueItems({ running, pending, info }) {
           thumbMode={thumbMode}
           galleryOptions={stableGalleryOptions}
           filters={filters}
+          workflowFilterMode={workflowFilterMode}
         />
       ))}
 
@@ -47,6 +49,7 @@ const QueueItems = memo(function QueueItems({ running, pending, info }) {
           thumbMode={thumbMode}
           galleryOptions={stableGalleryOptions}
           filters={filters}
+          workflowFilterMode={workflowFilterMode}
         />
       ))}
     </>

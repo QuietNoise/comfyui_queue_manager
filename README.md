@@ -122,17 +122,24 @@ When holding Shift pressed a small indicator message will appear on top of the w
 You can export items from any tab (Queue, Archive, Completed) to a file by clicking the Export Queue/Archive/Completed button on the bottom of the window.
 You can import items from a file to the Queue or to the Archive by clicking the Import Queue/Archive button on the bottom of the window.
 
-### Filter by workflow
-You can filter the currently displayed list of items by workflow by clicking on the name in the workflow column.
+### Filter by workflow or name
+Click a name in the Workflow column to filter the list. Above the active filters, use **Filter by: Workflow / Workflow name** to switch modes:
+
+- **Workflow** shows jobs with the same workflow ID, including jobs that have been renamed.
+- **Workflow name** matches the selected saved name exactly, including case, across workflows.
+
+Note: renaming a job can remove it from an exact-name view if it no longer matches.
+
+![Dark-mode Queue Manager with an arrow highlighting the Workflow / Workflow name filter switch](readme-img/workflow-filter-modes-dark.jpg)
 
 Once filtered out the group actions on the bottom of the window (like `Archive All *`, `Run All *`, `Delete All *`) will only apply to the filtered items.
 
 Asterisk `*` next to the button label indicates that the action will be applied to the filtered items only.
 
-![filters.png](readme-img/filters.png)
-
 ### Rename queued workflows
 Click the pencil at the right edge of a pending or archived job's Workflow cell to edit its name. Moving focus outside the editor saves a changed name. You can also press **Enter** or click the checkmark to save; press **Escape** or click the cross to cancel. Empty names are rejected. Running, completed, and external jobs cannot be renamed.
+
+![Dark-mode Queue Manager with arrows pointing to the rename pencil and inline name editor](readme-img/rename-queue-items-dark.jpg)
 
 The change applies to that saved job, including its workflow-name metadata, and survives a restart or queue export/import. Names use the same filename sanitization as the Workflow Name node. Node text inputs and connections remain unchanged; a Workflow Name node with empty text uses the renamed metadata as its fallback during execution.
 
