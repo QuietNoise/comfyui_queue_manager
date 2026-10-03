@@ -1,6 +1,25 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {selectRow, selectRectangle} from '../src/gui/app/internals/queueSelection.mjs';
+import {reconcileSelection, selectRow, selectRectangle} from '../src/gui/app/internals/queueSelection.mjs';
+
+test('refresh retains visible selected jobs, drops missing IDs and does not select new rows', () => {
+  const state = {active: true, selected: new Set([1, 3, 5]), anchor: 3};
+  const next = reconcileSelection(state, [1, 4, 5, 6]);
+  assert.deepEqual([...next.selected], [1, 5]);
+  assert.equal(next.anchor, null);
+  assert.deepEqual([...state.selected], [1, 3, 5]);
+  assert.equal(reconcileSelection(state, [3, 5, 1]).anchor, 3);
+});
+
+test('refresh with no remaining selected jobs stays active, but cannot reactivate an exited selection', () => {
+  const state = {active: true, selected: new Set([1]), anchor: 1};
+  const next = {...state, ...reconcileSelection(state, [])};
+  assert.equal(next.active, true);
+  assert.equal(next.selected.size, 0);
+  assert.equal(next.anchor, null);
+  const exited = {active: false, selected: new Set(), anchor: null};
+  assert.equal(reconcileSelection(exited, [1, 2]), exited);
+});
 
 test('row clicks toggle; Shift adds a range and Shift+Alt removes it without changing the anchor', () => {
   const ids = [11, 24, 39, 48, 52];

@@ -1,3 +1,12 @@
+export function reconcileSelection(state, ids) {
+  if (!state.active) return state;
+  const visible = new Set(ids);
+  return {
+    selected: new Set([...state.selected].filter((id) => visible.has(id))),
+    anchor: visible.has(state.anchor) ? state.anchor : null,
+  };
+}
+
 export function selectRow(selected, anchor, ids, id, {shiftKey = false, altKey = false} = {}) {
   const end = ids.indexOf(id);
   if (end < 0) return {selected, anchor};

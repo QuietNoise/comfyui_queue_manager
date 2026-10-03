@@ -74,7 +74,7 @@ export const Queue = memo(function Queue({ data, isLoading, error, progress }) {
   const selected = useSelectionStore((state) => state.selected);
   const containerRef = useRef(null);
   const ids = useMemo(() => (data?.pending ?? []).map((item) => item?.[3]?.db_id).filter(Number.isInteger), [data]);
-  const {rectangle, onClickCapture} = useQueueSelection(containerRef, selecting, ids);
+  const {rectangle, onClickCapture} = useQueueSelection(containerRef, selecting && !isLoading, ids);
   const allSelected = ids.length > 0 && ids.every((id) => selected.has(id));
 
   const coverMode = String(options.CoverThumbMode ?? "Cropped")
@@ -119,9 +119,9 @@ export const Queue = memo(function Queue({ data, isLoading, error, progress }) {
                 }
                 <th className="px-3 py-2" align="right">
                   {selecting ? <label className="selection-heading" data-selection-ignore>
-                    Select
+                    Actions
                     <input type="checkbox" aria-label="Select all visible jobs"
-                      checked={allSelected} disabled={!ids.length}
+                      checked={allSelected} disabled={!ids.length || isLoading}
                       ref={(input) => {if (input) input.indeterminate = selected.size > 0 && !allSelected;}}
                       onChange={() => useSelectionStore.getState().selectAll(ids)} />
                   </label> : "Actions"}

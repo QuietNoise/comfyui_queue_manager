@@ -19823,12 +19823,13 @@ const QueueItemRow = reactExports.memo(
             ] }) }),
             route === "completed" && /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "meta-info", children: executionTimeLabel ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "execution-time", title: "Execution time", children: executionTimeLabel }) : null }),
             /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-1 text-right actions", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { justifyContent: "flex-end" }, className: "buttons", children: [
-              !selecting && /* @__PURE__ */ jsxRuntimeExports.jsx(
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
                 "button",
                 {
                   className: "delete red-button shiny-button",
                   onClick: cancelQueueItem,
                   title: "Delete workflow from queue",
+                  "data-selection-ignore": true,
                   children: "Delete"
                 }
               ),
@@ -19842,21 +19843,23 @@ const QueueItemRow = reactExports.memo(
                   children: "Load"
                 }
               ) : null,
-              !selecting && route === "queue" && mode !== "running" ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+              route === "queue" && mode !== "running" ? /* @__PURE__ */ jsxRuntimeExports.jsx(
                 "button",
                 {
                   className: "archive yellow-button shiny-button",
                   onClick: archiveQueueItem,
                   title: "Move to the archive",
+                  "data-selection-ignore": true,
                   children: "Archive"
                 }
               ) : null,
-              !selecting && route === "archive" ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              route === "archive" ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
                 "button",
                 {
                   className: "run blue-button shiny-button",
                   onClick: playItem,
                   title: "Move to queue",
+                  "data-selection-ignore": true,
                   children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsx(PlayArrowOutlinedIcon, { fontSize: "small" }),
                     "Run"
@@ -19959,6 +19962,14 @@ const useOptionsStore = create((set) => ({
     [key]: value
   }))
 }));
+function reconcileSelection(state, ids) {
+  if (!state.active) return state;
+  const visible = new Set(ids);
+  return {
+    selected: new Set([...state.selected].filter((id) => visible.has(id))),
+    anchor: visible.has(state.anchor) ? state.anchor : null
+  };
+}
 function selectRow(selected, anchor, ids, id, { shiftKey = false, altKey = false } = {}) {
   const end = ids.indexOf(id);
   if (end < 0) return { selected, anchor };
@@ -19988,6 +19999,8 @@ const useSelectionStore = create((set) => ({
   anchor: null,
   toggle: () => set((state) => ({ active: !state.active, selected: /* @__PURE__ */ new Set(), anchor: null })),
   reset: () => set({ active: false, selected: /* @__PURE__ */ new Set(), anchor: null }),
+  clear: () => set({ selected: /* @__PURE__ */ new Set(), anchor: null }),
+  reconcile: (ids) => set((state) => reconcileSelection(state, ids)),
   setSelected: (selected) => set({ selected }),
   selectAll: (ids) => set((state) => ({
     selected: ids.every((id) => state.selected.has(id)) ? /* @__PURE__ */ new Set() : new Set(ids),
@@ -20166,7 +20179,7 @@ const Queue = reactExports.memo(function Queue2({ data, isLoading, error, progre
   const selected = useSelectionStore((state) => state.selected);
   const containerRef = reactExports.useRef(null);
   const ids = reactExports.useMemo(() => (data?.pending ?? []).map((item) => item?.[3]?.db_id).filter(Number.isInteger), [data]);
-  const { rectangle, onClickCapture } = useQueueSelection(containerRef, selecting, ids);
+  const { rectangle, onClickCapture } = useQueueSelection(containerRef, selecting && !isLoading, ids);
   const allSelected = ids.length > 0 && ids.every((id) => selected.has(id));
   const coverMode = String(options.CoverThumbMode ?? "Cropped").toLowerCase().replace(/\s+/g, "_");
   const gridMode = String(options.GridThumbMode ?? "Square Fit").toLowerCase().replace(/\s+/g, "_");
@@ -20185,14 +20198,14 @@ const Queue = reactExports.memo(function Queue2({ data, isLoading, error, progre
             /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 text-left workflow-column", children: "Workflow" }),
             route === "completed" && /* @__PURE__ */ jsxRuntimeExports.jsx("th", {}),
             /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2", align: "right", children: selecting ? /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "selection-heading", "data-selection-ignore": true, children: [
-              "Select",
+              "Actions",
               /* @__PURE__ */ jsxRuntimeExports.jsx(
                 "input",
                 {
                   type: "checkbox",
                   "aria-label": "Select all visible jobs",
                   checked: allSelected,
-                  disabled: !ids.length,
+                  disabled: !ids.length || isLoading,
                   ref: (input) => {
                     if (input) input.indeterminate = selected.size > 0 && !allSelected;
                   },
@@ -29901,6 +29914,7 @@ function Home() {
   const [showSplash, setShowSplash] = reactExports.useState(false);
   const latestThumbSizePxRef = reactExports.useRef(150);
   const fetchIdRef = reactExports.useRef(0);
+  const latestViewRef = reactExports.useRef({ route: "queue", page: 0 });
   reactExports.useMemo(() => {
     const f = filters ? JSON.stringify(filters) : "";
     const order = route === "completed" ? String(completedListOrder ?? "") : "";
@@ -29967,9 +29981,10 @@ function Home() {
       console.error("Failed to fetch options");
     }
   }, [setAllOptions, updateCoverSize, updateThumbnailSize]);
-  const fetchQueueItems = reactExports.useCallback(async ({ page, route: requestedRoute, filters: filters2, reload = false } = {}) => {
-    useSelectionStore.getState().reset();
+  const fetchQueueItems = reactExports.useCallback(async ({ page, route: requestedRoute, filters: filters2, reload = false, preserveSelection = false } = {}) => {
+    if (!preserveSelection) useSelectionStore.getState().clear();
     const fetchId = ++fetchIdRef.current;
+    latestViewRef.current = { route: requestedRoute || route, page: page ?? 0 };
     let queryArgs = "";
     if (page !== void 0 && page !== null) queryArgs = `?page=${page}`;
     queryArgs = appendFilters(queryArgs, filters2);
@@ -29987,6 +30002,11 @@ function Home() {
       if (!response.ok) throw new Error("Network response was not ok");
       const queue = await response.json();
       if (fetchId !== fetchIdRef.current) return;
+      latestViewRef.current.page = queue.info?.page ?? 0;
+      if (preserveSelection) {
+        if (page != null && queue.info?.page !== page) useSelectionStore.getState().clear();
+        else useSelectionStore.getState().reconcile((queue.pending ?? []).map((item) => item?.[3]?.db_id).filter(Number.isInteger));
+      }
       if (requestedRoute) {
         setRoute(requestedRoute);
         if (requestedRoute === "completed") {
@@ -30001,6 +30021,7 @@ function Home() {
       setAppStatus((prev2) => ({ ...prev2, loading: false, error: null, queue, reloading: false }));
     } catch (error) {
       if (fetchId !== fetchIdRef.current) return;
+      useSelectionStore.getState().clear();
       setAppStatus((prev2) => ({
         ...prev2,
         loading: false,
@@ -30055,6 +30076,7 @@ function Home() {
   }
   async function actOnSelection(action) {
     if (!selecting || !selected.size || selectionBusyRef.current) return;
+    const actionFetchId = fetchIdRef.current;
     selectionBusyRef.current = true;
     setSelectionBusy(true);
     setSelectionError("");
@@ -30076,7 +30098,6 @@ function Home() {
         throw new Error(error?.error || `Selection action failed (${response.status})`);
       }
       const result = await response.json();
-      useSelectionStore.getState().reset();
       if (action === "export") {
         const url = URL.createObjectURL(new Blob([JSON.stringify(result)], { type: "application/json" }));
         const link = document.createElement("a");
@@ -30086,8 +30107,8 @@ function Home() {
         link.click();
         link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 1e3);
-      } else if (useAppStore.getState().route === route) {
-        await fetchQueueItems({ page: appStatus.queue?.info?.page ?? 0 });
+      } else if (useAppStore.getState().route === route && fetchIdRef.current === actionFetchId) {
+        await fetchQueueItems({ page: appStatus.queue?.info?.page ?? 0, preserveSelection: true });
       }
     } catch (error) {
       setSelectionError(error.message);
@@ -30140,8 +30161,8 @@ function Home() {
   const onQueueStatusUpdated = (event) => {
     switch (event.data.message.name) {
       case "status":
-        if (route === "queue" || route === "completed") {
-          fetchQueueItems(appStatus.queue && appStatus.queue.info ? appStatus.queue.info.page : 0);
+        if (latestViewRef.current.route === "queue" || latestViewRef.current.route === "completed") {
+          fetchQueueItems({ ...latestViewRef.current, preserveSelection: true });
         }
         break;
       case "execution_start":
@@ -30196,7 +30217,7 @@ function Home() {
         }
         break;
       case "queue-manager-queue-updated":
-        fetchQueueItems(event.data.message.detail?.renamed ? { page: appStatus.queue?.info?.page ?? 0 } : {});
+        fetchQueueItems({ ...latestViewRef.current, preserveSelection: true });
         break;
     }
   };
@@ -30249,7 +30270,7 @@ function Home() {
       return;
     }
     const file = e.target.files[0];
-    useSelectionStore.getState().reset();
+    useSelectionStore.getState().clear();
     const formData = new FormData();
     formData.append("queue_json", file);
     formData.append("client_id", useAppStore.getState().clientId);
@@ -30277,7 +30298,7 @@ function Home() {
   });
   const openGallery = reactExports.useCallback((galleryData2 = null) => {
     if (galleryData2) {
-      useSelectionStore.getState().reset();
+      useSelectionStore.getState().clear();
       window.parent.postMessage({
         type: "QM_Gallery_Show"
       }, "*");
@@ -30631,7 +30652,7 @@ function Home() {
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             Pagination,
             {
-              disabled: selecting,
+              disabled: appStatus.loading,
               shape: "rounded",
               variant: "outlined",
               boundaryCount: 2,
@@ -30646,7 +30667,7 @@ function Home() {
           appStatus.queue.info.last_page > 10 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "page-selector", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
             Select,
             {
-              disabled: selecting,
+              disabled: appStatus.loading,
               value: appStatus.queue.info.page,
               onChange: (event) => {
                 const pageNum = event.target.value;
@@ -30670,7 +30691,7 @@ function Home() {
               "button",
               {
                 className: "shiny-button yellow-button",
-                disabled: !selected.size || selectionBusy,
+                disabled: !selected.size || selectionBusy || appStatus.loading,
                 onClick: () => actOnSelection("archive"),
                 children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsx(Inventory2SharpIcon, {}),
@@ -30682,7 +30703,7 @@ function Home() {
               "button",
               {
                 className: "shiny-button blue-button",
-                disabled: !selected.size || selectionBusy,
+                disabled: !selected.size || selectionBusy || appStatus.loading,
                 onClick: () => actOnSelection("play"),
                 children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsx(PlayArrowOutlinedIcon, {}),
@@ -30690,7 +30711,7 @@ function Home() {
                 ]
               }
             ),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { className: "shiny-button", disabled: !selected.size || selectionBusy, onClick: () => actOnSelection("export"), children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { className: "shiny-button", disabled: !selected.size || selectionBusy || appStatus.loading, onClick: () => actOnSelection("export"), children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx(FileDownloadOutlinedIcon, {}),
               " Export Selected"
             ] }),
@@ -30698,7 +30719,7 @@ function Home() {
               "button",
               {
                 className: "shiny-button red-button delete order-last",
-                disabled: !selected.size || selectionBusy,
+                disabled: !selected.size || selectionBusy || appStatus.loading,
                 onClick: () => actOnSelection("delete"),
                 children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsx(DeleteOutlineSharpIcon, {}),

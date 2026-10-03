@@ -96,6 +96,7 @@ export default function Home() {
   const latestThumbSizePxRef = useRef(150);
 
   const fetchIdRef = useRef(0);
+  const latestViewRef = useRef({route: "queue", page: 0});
 
   const queryKey = useMemo(() => {
     const f = filters ? JSON.stringify(filters) : "";
@@ -188,9 +189,10 @@ export default function Home() {
     }
   }, [setAllOptions, updateCoverSize, updateThumbnailSize]);
 
-  const fetchQueueItems = useCallback(async ({page, route: requestedRoute, filters, reload = false} = {}) => {
-    useSelectionStore.getState().reset();
+  const fetchQueueItems = useCallback(async ({page, route: requestedRoute, filters, reload = false, preserveSelection = false} = {}) => {
+    if (!preserveSelection) useSelectionStore.getState().clear();
     const fetchId = ++fetchIdRef.current;
+    latestViewRef.current = {route: requestedRoute || route, page: page ?? 0};
 
     let queryArgs = "";
     if (page !== undefined && page !== null) queryArgs = `?page=${page}`;
@@ -216,6 +218,13 @@ export default function Home() {
 
       // If a newer fetch started after this one, ignore this response
       if (fetchId !== fetchIdRef.current) return;
+      latestViewRef.current.page = queue.info?.page ?? 0;
+
+      if (preserveSelection) {
+        // A page that disappeared after removing its last job is a page change too.
+        if (page != null && queue.info?.page !== page) useSelectionStore.getState().clear();
+        else useSelectionStore.getState().reconcile((queue.pending ?? []).map((item) => item?.[3]?.db_id).filter(Number.isInteger));
+      }
 
       if (requestedRoute) {
         setRoute(requestedRoute);
@@ -234,6 +243,7 @@ export default function Home() {
       setAppStatus((prev) => ({ ...prev, loading: false, error: null, queue, reloading: false }));
     } catch (error) {
       if (fetchId !== fetchIdRef.current) return;
+      useSelectionStore.getState().clear();
 
       setAppStatus((prev) => ({
         ...prev,
@@ -303,6 +313,7 @@ export default function Home() {
 
   async function actOnSelection(action) {
     if (!selecting || !selected.size || selectionBusyRef.current) return;
+    const actionFetchId = fetchIdRef.current;
     selectionBusyRef.current = true;
     setSelectionBusy(true);
     setSelectionError("");
@@ -319,7 +330,6 @@ export default function Home() {
         throw new Error(error?.error || `Selection action failed (${response.status})`);
       }
       const result = await response.json();
-      useSelectionStore.getState().reset();
       if (action === "export") {
         const url = URL.createObjectURL(new Blob([JSON.stringify(result)], {type: "application/json"}));
         const link = document.createElement("a");
@@ -329,8 +339,8 @@ export default function Home() {
         link.click();
         link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
-      } else if (useAppStore.getState().route === route) {
-        await fetchQueueItems({page: appStatus.queue?.info?.page ?? 0});
+      } else if (useAppStore.getState().route === route && fetchIdRef.current === actionFetchId) {
+        await fetchQueueItems({page: appStatus.queue?.info?.page ?? 0, preserveSelection: true});
       }
     } catch (error) {
       setSelectionError(error.message);
@@ -391,8 +401,8 @@ export default function Home() {
 
     switch (event.data.message.name) {
       case "status":
-        if (route === 'queue' || route === 'completed') {
-          fetchQueueItems((appStatus.queue && appStatus.queue.info) ? appStatus.queue.info.page : 0);
+        if (latestViewRef.current.route === 'queue' || latestViewRef.current.route === 'completed') {
+          fetchQueueItems({...latestViewRef.current, preserveSelection: true});
         }
         break;
       case "execution_start": {
@@ -461,9 +471,7 @@ export default function Home() {
         break;
 
       case "queue-manager-queue-updated":
-        fetchQueueItems(event.data.message.detail?.renamed
-          ? {page: appStatus.queue?.info?.page ?? 0}
-          : {})
+        fetchQueueItems({...latestViewRef.current, preserveSelection: true});
         break;
     }
   }
@@ -526,7 +534,7 @@ export default function Home() {
     }
 
     const file = e.target.files[0];
-    useSelectionStore.getState().reset();
+    useSelectionStore.getState().clear();
 
 
     const formData = new FormData();
@@ -565,7 +573,7 @@ export default function Home() {
 
   const openGallery = useCallback((galleryData = null) => {
     if (galleryData) {
-      useSelectionStore.getState().reset();
+      useSelectionStore.getState().clear();
       window.parent.postMessage({
         type: "QM_Gallery_Show",
       }, "*");
@@ -939,7 +947,7 @@ export default function Home() {
             <>
               <div className={"pagination"}>
                 <Pagination
-                  disabled={selecting}
+                  disabled={appStatus.loading}
                   shape="rounded"
                   variant="outlined"
                   boundaryCount={2}
@@ -954,7 +962,7 @@ export default function Home() {
                 {appStatus.queue.info.last_page > 10 &&
                   <div className="page-selector">
                     <Select
-                      disabled={selecting}
+                      disabled={appStatus.loading}
                       value={appStatus.queue.info.page}
                       onChange={(event) => {
                         const pageNum = event.target.value;
@@ -985,18 +993,18 @@ export default function Home() {
             <Stack direction="row" spacing={1} className={'min-w-full buttons'}>
               {selecting && <>
                 {route === "queue" && <button className="shiny-button yellow-button"
-                  disabled={!selected.size || selectionBusy} onClick={() => actOnSelection("archive")}>
+                  disabled={!selected.size || selectionBusy || appStatus.loading} onClick={() => actOnSelection("archive")}>
                   <Inventory2SharpIcon />&nbsp;Archive Selected
                 </button>}
                 {route === "archive" && <button className="shiny-button blue-button"
-                  disabled={!selected.size || selectionBusy} onClick={() => actOnSelection("play")}>
+                  disabled={!selected.size || selectionBusy || appStatus.loading} onClick={() => actOnSelection("play")}>
                   <PlayArrowOutlinedIcon />&nbsp;Run Selected
                 </button>}
-                <button className="shiny-button" disabled={!selected.size || selectionBusy} onClick={() => actOnSelection("export")}>
+                <button className="shiny-button" disabled={!selected.size || selectionBusy || appStatus.loading} onClick={() => actOnSelection("export")}>
                   <FileDownloadOutlinedIcon />&nbsp;Export Selected
                 </button>
                 <button className="shiny-button red-button delete order-last"
-                  disabled={!selected.size || selectionBusy} onClick={() => actOnSelection("delete")}>
+                  disabled={!selected.size || selectionBusy || appStatus.loading} onClick={() => actOnSelection("delete")}>
                   <DeleteOutlineSharpIcon />&nbsp;Delete Selected
                 </button>
               </>}

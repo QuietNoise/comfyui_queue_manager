@@ -189,13 +189,14 @@ const executionTimeLabel = useMemo(() => {
           {/* Item Actions */}
           <td className="px-3 py-1 text-right actions">
             <div style={{ justifyContent: "flex-end" }}  className="buttons">
-              {!selecting && <button
+              <button
                 className="delete red-button shiny-button"
                 onClick={cancelQueueItem}
                 title="Delete workflow from queue"
+                data-selection-ignore
               >
                 Delete
-              </button>}
+              </button>
 
               {mode !== "external" ? (
                 <button
@@ -208,21 +209,23 @@ const executionTimeLabel = useMemo(() => {
                 </button>
               ) : null}
 
-              {!selecting && route === "queue" && mode !== "running" ? (
+              {route === "queue" && mode !== "running" ? (
                 <button
                   className="archive yellow-button shiny-button"
                   onClick={archiveQueueItem}
                   title="Move to the archive"
+                  data-selection-ignore
                 >
                   Archive
                 </button>
               ) : null}
 
-              {!selecting && route === "archive" ? (
+              {route === "archive" ? (
                 <button
                   className="run blue-button shiny-button"
                   onClick={playItem}
                   title="Move to queue"
+                  data-selection-ignore
                 >
                   <PlayArrowOutlinedIcon fontSize="small" />
                   Run

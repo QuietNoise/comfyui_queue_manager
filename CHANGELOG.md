@@ -4,7 +4,7 @@
 
 ### Enhancements
 
-- Select visible queue items using checkboxes, row clicks, Shift ranges, or a drag rectangle; hold Alt to deselect. Apply archive, run, export, and delete actions to selected jobs only. Selection clears whenever the list reloads.
+- Select visible queue items using checkboxes, row clicks, Shift ranges, or a drag rectangle; hold Alt to deselect. Apply footer actions to selected jobs while keeping individual row actions available. Same-page refreshes retain visible selections; changing pages clears selected items while keeping selection mode on until explicitly exited or the browser reloads.
 - Rename pending and archived jobs directly in the Workflow column using an inline editor.
 - Switch filtered views between workflow identity and an exact workflow name, with the same selection applied to exports and bulk actions.
 

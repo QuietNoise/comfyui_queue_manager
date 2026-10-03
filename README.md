@@ -35,11 +35,12 @@ An extension supporting more streamlined prompt queue management.
 3. Look up this extension in ComfyUI-Manager (ComfyUI Queue Manager). If you are installing manually, clone this repository under `ComfyUI/custom_nodes`.
 4. Restart ComfyUI.
 
-## Important
+## Note
 
-- EARLY ACCESS RELEASE, PROOF OF CONCEPT, PROTOTYPE. This is an early access release of the ComfyUI Queue Manager. While fully functional, things will change, a lot.
-- Releasing just because I want to get feedback and free labour for testing. Been using it for a while now, and it helped me immensely to manage my renders.
-- Many features still not implemented, but the core functionality is there and roadmap is set.
+- As of October 2026 I consider this project to be completed.
+- All intended features work as expected and no new major features are planned.
+- Fixes and compatibility adjustment will happed as needed.
+- New features might appear whenever I deem them useful for managing the queue.
 
 ## Features
 - Persistence. Queue is now saved in a local database and restored on ComfyUI restart.
@@ -68,7 +69,7 @@ In no particular order, just some ideas I have for the future of this extension.
 - [ ] Bin. Can't think of a use case for it yet but I feel like it should be there at some stage.
 - [ ] More columns in the queue table. Suggest your favourites.
 - [ ] Better user and dev docs.
-- [x] Ability to rename workflows in the queue.
+- [x] ~~Ability to rename workflows in the queue.~~
 - [x] ~~Better progress feedback for longer running actions (like import).~~
 - [x] ~~Options. Toggles, big red buttons, levers and valves to control Queue Manager's behavior. Now everything is hardcoded.~~
 - [x] ~~Cover images, thumbnails, previews of rendered images in the queue. In other words what we have in core queue History with some spices added.~~
@@ -139,14 +140,20 @@ Asterisk `*` next to the button label indicates that the action will be applied 
 ### Select queue items
 Click the checkbox icon to the right of the Queue / Archive / Completed tabs to enter selection mode. The count beside it shows how many jobs are selected. Running and external jobs have disabled checkboxes.
 
-- Click a row or its checkbox to select or deselect it. **Load** and **View** keep their usual behavior.
+- Click a row or its checkbox to select or deselect it. All individual action buttons stay available: **Archive**, **Delete**, **Run**, **Load**, and **View** work on that row without toggling its selection.
 - **Shift-click** selects a range from the last row clicked without Shift; **Shift+Alt-click** deselects that range.
 - Drag a rectangle to add every row it touches. Hold **Alt** while dragging to deselect those rows. The list scrolls when you drag near its top or bottom edge.
 - Use the checkbox in the column header to select or clear the visible page. Press **Escape** or click the selection toggle again to exit.
 
-While selecting, filters and paging are disabled. Footer actions become **Archive Selected**, **Run Selected**, **Export Selected**, and **Delete Selected**, as appropriate for the current tab. They stay disabled until at least one job is selected. Renaming is hidden during selection.
+While selecting, filters are disabled. Paging stays available; changing pages clears the selected items but keeps selection mode on. Footer actions become **Archive Selected**, **Run Selected**, **Export Selected**, and **Delete Selected**, as appropriate for the current tab. They stay disabled until at least one job is selected. Renaming is hidden during selection.
 
-Selection is temporary: changing tabs, reloading the list (including automatic queue updates), or completing an action clears it and exits selection mode. Jobs that have started running or moved to another tab before an action reaches the server are skipped.
+![Dark-mode Queue selection with individual actions, three selected jobs, and enabled paging](readme-img/selection-queue-dark.jpg)
+
+When an item action or automatic queue update refreshes the current page, only selected jobs still displayed on that page remain selected; newly displayed jobs are not selected automatically. Changing pages or tabs, changing the page size or list order, importing jobs, or opening the gallery clears the selected items while keeping selection mode on. Selection mode stays on until you click its toggle, press **Escape**, or reload the browser. Jobs that have started running or moved to another tab before an action reaches the server are skipped.
+
+In Archive, **Run** moves an individual job to the queue while the remaining visible selections stay selected. **Run Selected** applies to the selected group.
+
+![Dark-mode Archive selection after running one job, with two remaining jobs selected and individual Run buttons available](readme-img/selection-archive-dark.jpg)
 
 ### Rename queued workflows
 Click the pencil at the right edge of a pending or archived job's Workflow cell to edit its name. Moving focus outside the editor saves a changed name. You can also press **Enter** or click the checkmark to save; press **Escape** or click the cross to cancel. Empty names are rejected. Running, completed, and external jobs cannot be renamed.
