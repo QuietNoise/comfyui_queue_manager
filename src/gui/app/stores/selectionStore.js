@@ -7,6 +7,7 @@ export const useSelectionStore = create((set) => ({
   selected: new Set(),
   anchor: null,
   toggle: () => set((state) => ({active: !state.active, selected: new Set(), anchor: null})),
+  enable: () => set({active: true}),
   reset: () => set({active: false, selected: new Set(), anchor: null}),
   clear: () => set({selected: new Set(), anchor: null}),
   reconcile: (ids) => set((state) => reconcileSelection(state, ids)),

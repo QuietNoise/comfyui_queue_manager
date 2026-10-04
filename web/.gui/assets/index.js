@@ -19061,6 +19061,9 @@ const Inventory2SharpIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx(
 const CheckBoxOutlinedIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("path", {
   d: "M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m0 16H5V5h14zM17.99 9l-1.41-1.42-6.59 6.59-2.58-2.57-1.42 1.41 4 3.99z"
 }));
+const CloseIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("path", {
+  d: "M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+}));
 function ThemeProviderNoVars({
   theme: themeInput,
   ...props
@@ -19777,7 +19780,7 @@ const QueueItemRow = reactExports.memo(
         "tr",
         {
           className: (className ?? "") + (selected ? " selected" : ""),
-          "data-selection-id": selecting && selectable ? dbId : void 0,
+          "data-selection-id": selectable ? dbId : void 0,
           "aria-selected": selecting && selectable ? selected : void 0,
           children: [
             /* @__PURE__ */ jsxRuntimeExports.jsxs("td", { className: "px-3 py-1 serial", children: [
@@ -19897,7 +19900,7 @@ const QueueItemRow = reactExports.memo(
         "tr",
         {
           className: "dark:odd:bg-neutral-900 odd:bg-neutral-100 gallery" + (selected ? " selected" : ""),
-          "data-selection-id": selecting && selectable ? dbId : void 0,
+          "data-selection-id": selectable ? dbId : void 0,
           children: /* @__PURE__ */ jsxRuntimeExports.jsx("td", { colSpan: 4, className: "px-3 py-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex flex-wrap gap-2 items", children: mediaOutputs?.files?.length ? mediaOutputs.files.map((file, fileIndex) => /* @__PURE__ */ jsxRuntimeExports.jsx(
             MediaItem,
             {
@@ -19920,7 +19923,7 @@ const QueueItemRow = reactExports.memo(
   }
 );
 const useOptionsStore = create((set) => ({
-  Basic: {},
+  Basic: { ShowSelectionHints: true },
   Completed: {
     CoverThumbMode: "Cropped",
     GridThumbMode: "Square Fit",
@@ -19998,6 +20001,7 @@ const useSelectionStore = create((set) => ({
   selected: /* @__PURE__ */ new Set(),
   anchor: null,
   toggle: () => set((state) => ({ active: !state.active, selected: /* @__PURE__ */ new Set(), anchor: null })),
+  enable: () => set({ active: true }),
   reset: () => set({ active: false, selected: /* @__PURE__ */ new Set(), anchor: null }),
   clear: () => set({ selected: /* @__PURE__ */ new Set(), anchor: null }),
   reconcile: (ids) => set((state) => reconcileSelection(state, ids)),
@@ -20008,117 +20012,157 @@ const useSelectionStore = create((set) => ({
   })),
   click: (ids, id, modifiers) => set((state) => state.active ? selectRow(state.selected, state.anchor, ids, id, modifiers) : state)
 }));
-function useQueueSelection(containerRef, active, ids) {
+function bindQueueSelectionDrag(container, store, setRectangle, suppressClick) {
+  const view = container.ownerDocument.defaultView;
+  let drag = null;
+  let frame;
+  let clickTimer;
+  const point = (event) => {
+    const bounds = container.getBoundingClientRect();
+    return {
+      x: event.clientX - bounds.left + container.scrollLeft,
+      y: event.clientY - bounds.top + container.scrollTop
+    };
+  };
+  const update = () => {
+    if (!drag?.moved) return;
+    const end2 = point(drag.pointer);
+    const box = {
+      left: Math.min(drag.start.x, end2.x),
+      right: Math.max(drag.start.x, end2.x),
+      top: Math.min(drag.start.y, end2.y),
+      bottom: Math.max(drag.start.y, end2.y)
+    };
+    const bounds = container.getBoundingClientRect();
+    const rows = [...container.querySelectorAll("[data-selection-id]")].map((row) => {
+      const rect = row.getBoundingClientRect();
+      return {
+        id: Number(row.dataset.selectionId),
+        left: rect.left - bounds.left + container.scrollLeft,
+        right: rect.right - bounds.left + container.scrollLeft,
+        top: rect.top - bounds.top + container.scrollTop,
+        bottom: rect.bottom - bounds.top + container.scrollTop
+      };
+    });
+    setRectangle(box);
+    store.getState().setSelected(selectRectangle(drag.initial, rows, box, drag.pointer.altKey));
+  };
+  const autoScroll = () => {
+    if (!drag?.moved) return;
+    const bounds = container.getBoundingClientRect();
+    const y = drag.pointer.clientY;
+    const previousScrollTop = container.scrollTop;
+    if (y < bounds.top + 32) container.scrollTop -= 12;
+    else if (y > bounds.bottom - 32) container.scrollTop += 12;
+    if (previousScrollTop !== container.scrollTop) update();
+    frame = view.requestAnimationFrame(autoScroll);
+  };
+  const stop = () => {
+    const previous = drag;
+    drag = null;
+    view.cancelAnimationFrame(frame);
+    if (previous && container.hasPointerCapture(previous.pointer.pointerId)) {
+      container.releasePointerCapture(previous.pointer.pointerId);
+    }
+    container.classList.remove("drag-selecting");
+    setRectangle(null);
+    return previous;
+  };
+  const down = (event) => {
+    if (event.button !== 0 || event.isPrimary === false) return;
+    view.clearTimeout(clickTimer);
+    suppressClick(false);
+    if (event.target.closest(
+      '[data-selection-ignore], thead, input, textarea, select, [contenteditable="true"], button:not(.workflow-name-label), video[controls]'
+    )) return;
+    if (event.pointerType === "touch" && !store.getState().active) return;
+    if (!container.querySelector("[data-selection-id]")) return;
+    drag = { start: point(event), pointer: event, initial: store.getState().selected, moved: false };
+  };
+  const move = (event) => {
+    if (!drag || event.pointerId !== drag.pointer.pointerId) return;
+    drag.pointer = event;
+    if (!drag.moved && Math.hypot(point(event).x - drag.start.x, point(event).y - drag.start.y) >= 4) {
+      drag.moved = true;
+      container.setPointerCapture(event.pointerId);
+      container.classList.add("drag-selecting");
+      const selection = view.getSelection();
+      if (selection?.anchorNode && container.contains(selection.anchorNode)) selection.removeAllRanges();
+      store.getState().enable();
+      frame = view.requestAnimationFrame(autoScroll);
+    }
+    if (drag.moved) {
+      event.preventDefault();
+      update();
+    }
+  };
+  const end = (event) => {
+    if (!drag || event.pointerId !== drag.pointer.pointerId) return;
+    if (drag.moved && event.type === "pointerup") {
+      drag.pointer = event;
+      update();
+    }
+    if (event.type === "pointercancel" && store.getState().active) store.getState().setSelected(drag.initial);
+    suppressClick(drag.moved);
+    stop();
+    clickTimer = view.setTimeout(() => suppressClick(false), 0);
+  };
+  const preventNativeDrag = (event) => {
+    if (drag) event.preventDefault();
+  };
+  const unsubscribe = store.subscribe((state, previous) => {
+    if (previous.active && !state.active && drag) {
+      suppressClick(drag.moved);
+      stop();
+    }
+  });
+  container.addEventListener("pointerdown", down);
+  container.addEventListener("dragstart", preventNativeDrag);
+  view.addEventListener("pointermove", move);
+  view.addEventListener("pointerup", end);
+  view.addEventListener("pointercancel", end);
+  return () => {
+    unsubscribe();
+    stop();
+    view.clearTimeout(clickTimer);
+    suppressClick(false);
+    container.removeEventListener("pointerdown", down);
+    container.removeEventListener("dragstart", preventNativeDrag);
+    view.removeEventListener("pointermove", move);
+    view.removeEventListener("pointerup", end);
+    view.removeEventListener("pointercancel", end);
+  };
+}
+function useQueueSelection(containerRef, enabled, ids) {
   const [rectangle, setRectangle] = reactExports.useState(null);
   const suppressClick = reactExports.useRef(false);
   reactExports.useEffect(() => {
     const container = containerRef.current;
-    if (!active || !container) {
+    if (!enabled || !container) {
       setRectangle(null);
       return;
     }
-    let drag = null;
-    let frame;
-    let clickTimer;
-    const point = (event) => {
-      const bounds = container.getBoundingClientRect();
-      return {
-        x: event.clientX - bounds.left + container.scrollLeft,
-        y: event.clientY - bounds.top + container.scrollTop
-      };
-    };
-    const update = () => {
-      if (!drag?.moved) return;
-      const end2 = point(drag.pointer);
-      const box = {
-        left: Math.min(drag.start.x, end2.x),
-        right: Math.max(drag.start.x, end2.x),
-        top: Math.min(drag.start.y, end2.y),
-        bottom: Math.max(drag.start.y, end2.y)
-      };
-      const bounds = container.getBoundingClientRect();
-      const rows = [...container.querySelectorAll("[data-selection-id]")].map((row) => {
-        const rect = row.getBoundingClientRect();
-        return {
-          id: Number(row.dataset.selectionId),
-          left: rect.left - bounds.left + container.scrollLeft,
-          right: rect.right - bounds.left + container.scrollLeft,
-          top: rect.top - bounds.top + container.scrollTop,
-          bottom: rect.bottom - bounds.top + container.scrollTop
-        };
-      });
-      setRectangle(box);
-      useSelectionStore.getState().setSelected(selectRectangle(drag.initial, rows, box, drag.pointer.altKey));
-    };
-    const autoScroll = () => {
-      if (!drag?.moved) return;
-      const bounds = container.getBoundingClientRect();
-      const y = drag.pointer.clientY;
-      const previousScrollTop = container.scrollTop;
-      if (y < bounds.top + 32) container.scrollTop -= 12;
-      else if (y > bounds.bottom - 32) container.scrollTop += 12;
-      if (previousScrollTop !== container.scrollTop) update();
-      frame = requestAnimationFrame(autoScroll);
-    };
-    const down = (event) => {
-      if (event.button !== 0 || event.target.closest("[data-selection-ignore], thead, input, button")) return;
-      suppressClick.current = false;
-      drag = { start: point(event), pointer: event, initial: useSelectionStore.getState().selected, moved: false };
-    };
-    const move = (event) => {
-      if (!drag) return;
-      drag.pointer = event;
-      if (!drag.moved && Math.hypot(point(event).x - drag.start.x, point(event).y - drag.start.y) >= 4) {
-        drag.moved = true;
-        container.setPointerCapture(event.pointerId);
-        frame = requestAnimationFrame(autoScroll);
+    return bindQueueSelectionDrag(
+      container,
+      useSelectionStore,
+      setRectangle,
+      (value) => {
+        suppressClick.current = value;
       }
-      if (drag.moved) {
-        event.preventDefault();
-        update();
-      }
-    };
-    const end = (event) => {
-      if (!drag) return;
-      if (drag.moved && event.type === "pointerup") {
-        drag.pointer = event;
-        update();
-      }
-      if (event.type === "pointercancel") useSelectionStore.getState().setSelected(drag.initial);
-      suppressClick.current = drag.moved;
-      if (container.hasPointerCapture(event.pointerId)) container.releasePointerCapture(event.pointerId);
-      drag = null;
-      cancelAnimationFrame(frame);
-      setRectangle(null);
-      clickTimer = setTimeout(() => {
-        suppressClick.current = false;
-      }, 0);
-    };
-    container.addEventListener("pointerdown", down);
-    container.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", end);
-    window.addEventListener("pointercancel", end);
-    return () => {
-      if (drag && container.hasPointerCapture(drag.pointer.pointerId)) container.releasePointerCapture(drag.pointer.pointerId);
-      cancelAnimationFrame(frame);
-      clearTimeout(clickTimer);
-      suppressClick.current = false;
-      container.removeEventListener("pointerdown", down);
-      container.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", end);
-      window.removeEventListener("pointercancel", end);
-    };
-  }, [active, containerRef]);
+    );
+  }, [enabled, containerRef]);
   const onClickCapture = (event) => {
-    if (!active || event.target.closest("[data-selection-ignore]")) return;
-    const row = event.target.closest("tbody tr");
-    if (!row && !suppressClick.current) return;
-    event.stopPropagation();
+    if (!enabled) return;
     if (suppressClick.current) {
+      event.stopPropagation();
       event.preventDefault();
       return;
     }
-    const id = Number(row?.dataset.selectionId);
+    if (!useSelectionStore.getState().active || event.target.closest("[data-selection-ignore]")) return;
+    const row = event.target.closest("tbody tr");
+    if (!row) return;
+    event.stopPropagation();
+    const id = Number(row.dataset.selectionId);
     if (ids.includes(id)) useSelectionStore.getState().click(ids, id, event);
   };
   return { rectangle, onClickCapture };
@@ -20179,7 +20223,7 @@ const Queue = reactExports.memo(function Queue2({ data, isLoading, error, progre
   const selected = useSelectionStore((state) => state.selected);
   const containerRef = reactExports.useRef(null);
   const ids = reactExports.useMemo(() => (data?.pending ?? []).map((item) => item?.[3]?.db_id).filter(Number.isInteger), [data]);
-  const { rectangle, onClickCapture } = useQueueSelection(containerRef, selecting && !isLoading, ids);
+  const { rectangle, onClickCapture } = useQueueSelection(containerRef, !isLoading, ids);
   const allSelected = ids.length > 0 && ids.every((id) => selected.has(id));
   const coverMode = String(options.CoverThumbMode ?? "Cropped").toLowerCase().replace(/\s+/g, "_");
   const gridMode = String(options.GridThumbMode ?? "Square Fit").toLowerCase().replace(/\s+/g, "_");
@@ -29885,6 +29929,7 @@ function Home() {
     queue: null
   });
   const options = useOptionsStore((state) => state);
+  const showSelectionHints = useOptionsStore((state) => state.Basic.ShowSelectionHints !== false);
   const pageSize = useOptionsStore((state) => state.Basic.PageSize);
   const previousPageSizeRef = reactExports.useRef(pageSize);
   const completedListOrder = useOptionsStore((state) => state.Completed.ListOrder);
@@ -30244,6 +30289,10 @@ function Home() {
         useAppStore.getState().setClientId(event.data.clientId);
         setAllOptions({ ...event.data.settings });
         break;
+      case "QM_SelectionHintsSaveFailed":
+        setOption("Basic", "ShowSelectionHints", true);
+        setSelectionError("Could not save the hints preference. Please try again.");
+        break;
       case "QM_Setting_Changed":
         {
           const settingPath = event.data.message.setting.split(".");
@@ -30487,99 +30536,120 @@ function Home() {
           " Press Run to queue at front"
         ] })
       ] }),
-      selecting && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "selection-help", children: "Click or drag to select · Shift: range · Alt: deselect · Esc: exit" }),
-      selectionError && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "selection-error", role: "alert", children: selectionError }),
-      isFilterOn() && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "filters", children: [
-        workflowFilter && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "workflow-filter-mode", role: "group", "aria-label": "Filter mode", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Filter by:" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "workflow-filter-mode-buttons", children: [
-            ["workflow", "Workflow", "All jobs from this workflow, including renamed jobs"],
-            ["workflow_name", "Workflow name", "Jobs with this exact name, including matching names from other workflows"]
-          ].map(([filterMode, label, description]) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "queue-controls", children: [
+        selecting && showSelectionHints && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "selection-help", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Click or drag to select · Hold Shift to select a range · Hold Alt to deselect a range · Esc: exit" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(
             "button",
             {
               type: "button",
-              "aria-pressed": workflowFilter.mode === filterMode,
-              disabled: selecting || appStatus.loading || filterMode === "workflow" && !workflowFilter.id,
-              title: description,
+              className: "selection-help-dismiss",
+              title: "Hide hints. Re-enable in Settings → Queue Manager → Basic → Show selection mode hints.",
               onClick: () => {
-                if (workflowFilter.mode === filterMode) return;
-                fetchQueueItems({
-                  page: 0,
-                  filters: withWorkflowFilter(filters, workflowFilter, filterMode),
-                  reload: true
-                });
+                setSelectionError("");
+                setOption("Basic", "ShowSelectionHints", false);
+                window.parent.postMessage({ type: "QM_DismissSelectionHints" }, new URL(baseURL, window.location.href).origin);
               },
-              children: label
-            },
-            filterMode
-          )) })
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(CloseIcon, {}),
+                " Don't show again"
+              ]
+            }
+          )
         ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "filters-summary", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { children: "Filters:" }),
-          Object.values(filters).map(
-            (filter) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "filter flex items-center", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                "span",
-                {
-                  className: "inline-flex text-neutral-800 dark:text-neutral-200 close label",
-                  children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                      "span",
+        selectionError && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "selection-error", role: "alert", children: selectionError }),
+        isFilterOn() && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "filters", children: [
+          workflowFilter && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "workflow-filter-mode", role: "group", "aria-label": "Filter mode", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Filter by:" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "workflow-filter-mode-buttons", children: [
+              ["workflow", "Workflow", "All jobs from this workflow, including renamed jobs"],
+              ["workflow_name", "Workflow name", "Jobs with this exact name, including matching names from other workflows"]
+            ].map(([filterMode, label, description]) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
+                "aria-pressed": workflowFilter.mode === filterMode,
+                disabled: selecting || appStatus.loading || filterMode === "workflow" && !workflowFilter.id,
+                title: description,
+                onClick: () => {
+                  if (workflowFilter.mode === filterMode) return;
+                  fetchQueueItems({
+                    page: 0,
+                    filters: withWorkflowFilter(filters, workflowFilter, filterMode),
+                    reload: true
+                  });
+                },
+                children: label
+              },
+              filterMode
+            )) })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "filters-summary", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { children: "Filters:" }),
+            Object.values(filters).map(
+              (filter) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "filter flex items-center", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                  "span",
+                  {
+                    className: "inline-flex text-neutral-800 dark:text-neutral-200 close label",
+                    children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                        "span",
+                        {
+                          className: "type",
+                          children: [
+                            (filter.type === "workflow_name" ? "workflow name" : filter.type) + ": ",
+                            " "
+                          ]
+                        }
+                      ),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "filter-value", title: filter.valueLabel, children: filter.valueLabel })
+                    ]
+                  }
+                ),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    className: "shiny-button close ",
+                    disabled: selecting,
+                    "aria-label": `Remove ${filter.type === "workflow_name" ? "workflow name" : filter.type} filter`,
+                    onClick: () => {
+                      const prev2 = useAppStore.getState().filters;
+                      const newFilters = (({ [filter.type]: _, ...f }) => f)(prev2);
+                      fetchQueueItems({ filters: newFilters });
+                    },
+                    children: /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { viewBox: "0 0 24 24", width: "1.2em", height: "1.2em", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "path",
                       {
-                        className: "type",
-                        children: [
-                          (filter.type === "workflow_name" ? "workflow name" : filter.type) + ": ",
-                          " "
-                        ]
+                        fill: "currentColor",
+                        d: "M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z"
                       }
-                    ),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "filter-value", title: filter.valueLabel, children: filter.valueLabel })
-                  ]
-                }
-              ),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "button",
-                {
-                  className: "shiny-button close ",
-                  disabled: selecting,
-                  "aria-label": `Remove ${filter.type === "workflow_name" ? "workflow name" : filter.type} filter`,
-                  onClick: () => {
-                    const prev2 = useAppStore.getState().filters;
-                    const newFilters = (({ [filter.type]: _, ...f }) => f)(prev2);
-                    fetchQueueItems({ filters: newFilters });
-                  },
-                  children: /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { viewBox: "0 0 24 24", width: "1.2em", height: "1.2em", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    ) })
+                  }
+                )
+              ] }, filter.type)
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "button",
+              {
+                className: "close close-all ml-auto shiny-button",
+                disabled: selecting,
+                onClick: () => {
+                  fetchQueueItems({ filters: {} });
+                },
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { viewBox: "0 0 24 24", width: "1.2em", height: "1.2em", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
                     "path",
                     {
                       fill: "currentColor",
                       d: "M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z"
                     }
-                  ) })
-                }
-              )
-            ] }, filter.type)
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs(
-            "button",
-            {
-              className: "close close-all ml-auto shiny-button",
-              disabled: selecting,
-              onClick: () => {
-                fetchQueueItems({ filters: {} });
-              },
-              children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { viewBox: "0 0 24 24", width: "1.2em", height: "1.2em", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  "path",
-                  {
-                    fill: "currentColor",
-                    d: "M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z"
-                  }
-                ) }),
-                "Clear filters"
-              ]
-            }
-          )
+                  ) }),
+                  "Clear filters"
+                ]
+              }
+            )
+          ] })
         ] })
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "queue-table", children: /* @__PURE__ */ jsxRuntimeExports.jsx(

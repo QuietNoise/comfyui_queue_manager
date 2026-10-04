@@ -124,7 +124,7 @@ const executionTimeLabel = useMemo(() => {
         *
         */}
         <tr className={(className ?? "") + (selected ? " selected" : "")}
-            data-selection-id={selecting && selectable ? dbId : undefined}
+            data-selection-id={selectable ? dbId : undefined}
             aria-selected={selecting && selectable ? selected : undefined}>
           <td className="px-3 py-1 serial">
             <span>{rowIndex}</span>
@@ -258,7 +258,7 @@ const executionTimeLabel = useMemo(() => {
         */}
         {showGrid ? (
           <tr className={"dark:odd:bg-neutral-900 odd:bg-neutral-100 gallery" + (selected ? " selected" : "")}
-              data-selection-id={selecting && selectable ? dbId : undefined}>
+              data-selection-id={selectable ? dbId : undefined}>
             <td colSpan={4} className="px-3 py-1">
               <div className="flex flex-wrap gap-2 items">
                 {mediaOutputs?.files?.length

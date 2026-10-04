@@ -138,7 +138,9 @@ Once filtered out the group actions on the bottom of the window (like `Archive A
 Asterisk `*` next to the button label indicates that the action will be applied to the filtered items only.
 
 ### Select queue items
-Click the checkbox icon to the right of the Queue / Archive / Completed tabs to enter selection mode. The count beside it shows how many jobs are selected. Running and external jobs have disabled checkboxes.
+Click the checkbox icon to the right of the Queue / Archive / Completed tabs, or start dragging across the job list with your mouse, to enter selection mode. Outside selection mode, a normal click still filters the list or opens the gallery; dragging across rows selects them instead.
+
+The hints below the tabs can be dismissed with **Don't show again**. To restore them, enable **Settings → Queue Manager → Basic → Show selection mode hints**.
 
 - Click a row or its checkbox to select or deselect it. All individual action buttons stay available: **Archive**, **Delete**, **Run**, **Load**, and **View** work on that row without toggling its selection.
 - **Shift-click** selects a range from the last row clicked without Shift; **Shift+Alt-click** deselects that range.

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 export const useOptionsStore = create((set) => ({
-  Basic:{},
+  Basic:{ShowSelectionHints: true},
   Completed:{
     CoverThumbMode: "Cropped",
     GridThumbMode: "Square Fit",

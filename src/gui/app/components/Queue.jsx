@@ -74,7 +74,7 @@ export const Queue = memo(function Queue({ data, isLoading, error, progress }) {
   const selected = useSelectionStore((state) => state.selected);
   const containerRef = useRef(null);
   const ids = useMemo(() => (data?.pending ?? []).map((item) => item?.[3]?.db_id).filter(Number.isInteger), [data]);
-  const {rectangle, onClickCapture} = useQueueSelection(containerRef, selecting && !isLoading, ids);
+  const {rectangle, onClickCapture} = useQueueSelection(containerRef, !isLoading, ids);
   const allSelected = ids.length > 0 && ids.every((id) => selected.has(id));
 
   const coverMode = String(options.CoverThumbMode ?? "Cropped")

@@ -306,6 +306,21 @@ export function handleIframeMessages() {
       if (event.origin !== QueueManagerOrigin) return;
       const { type, workflow, number } = event.data;
 
+      if (type === "QM_DismissSelectionHints" && event.source === theIframe()?.contentWindow) {
+        try {
+          await app.extensionManager.setting.set('QueueManager.Basic.ShowSelectionHints', false);
+        } catch (error) {
+          console.error("Error saving selection hints preference:", error);
+          // ComfyUI updates its local value before saving; restore it so a retry works.
+          try {
+            await app.extensionManager.setting.set('QueueManager.Basic.ShowSelectionHints', true);
+          } catch {
+            // The local value is restored even if persistence is still unavailable.
+          }
+          event.source.postMessage({type: "QM_SelectionHintsSaveFailed"}, event.origin);
+        }
+      }
+
       // When workflow is received from iframe then load it into ComfyUI
       if (type === "QM_LoadWorkflow" && workflow) {
         // e.g. forward into ComfyUI’s API

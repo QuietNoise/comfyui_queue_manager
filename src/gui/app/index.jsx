@@ -10,6 +10,7 @@ import ViewModuleSharpIcon from '@mui/icons-material/ViewModuleSharp';
 import UploadSharpIcon from '@mui/icons-material/UploadSharp';
 import Inventory2SharpIcon from '@mui/icons-material/Inventory2Sharp';
 import CheckBoxOutlinedIcon from '@mui/icons-material/CheckBoxOutlined';
+import CloseIcon from '@mui/icons-material/Close';
 import { styled } from '@mui/material/styles';
 
 import TopMenu from "./components/TopMenu";
@@ -61,6 +62,7 @@ export default function Home() {
   });
 
   const options = useOptionsStore((state) => state);
+  const showSelectionHints = useOptionsStore((state) => state.Basic.ShowSelectionHints !== false);
   const pageSize = useOptionsStore((state) => state.Basic.PageSize);
   const previousPageSizeRef = useRef(pageSize);
   const completedListOrder = useOptionsStore((state) => state.Completed.ListOrder);
@@ -503,6 +505,10 @@ export default function Home() {
         useAppStore.getState().setClientId(event.data.clientId);
         setAllOptions({...event.data.settings});
         break;
+      case "QM_SelectionHintsSaveFailed":
+        setOption("Basic", "ShowSelectionHints", true);
+        setSelectionError("Could not save the hints preference. Please try again.");
+        break;
       case "QM_Setting_Changed": {
           // check if path like "Gallery.ShowImages" in event.data.message.setting represent an existing object path in options
           const settingPath = event.data.message.setting.split('.');
@@ -805,7 +811,19 @@ export default function Home() {
             </div>
           }
         </div>
-        {selecting && <div className="selection-help">Click or drag to select · Shift: range · Alt: deselect · Esc: exit</div>}
+        <div className="queue-controls">
+        {selecting && showSelectionHints && <div className="selection-help">
+          <span>Click or drag to select · Hold Shift to select a range · Hold Alt to deselect a range · Esc: exit</span>
+          <button type="button" className="selection-help-dismiss"
+            title="Hide hints. Re-enable in Settings → Queue Manager → Basic → Show selection mode hints."
+            onClick={() => {
+              setSelectionError("");
+              setOption("Basic", "ShowSelectionHints", false);
+              window.parent.postMessage({type: "QM_DismissSelectionHints"}, new URL(baseURL, window.location.href).origin);
+            }}>
+            <CloseIcon /> Don't show again
+          </button>
+        </div>}
         {selectionError && <div className="selection-error" role="alert">{selectionError}</div>}
 
         {/*
@@ -887,6 +905,8 @@ export default function Home() {
             </div>
           </div>
         }
+
+        </div>
 
         {/*
         *
