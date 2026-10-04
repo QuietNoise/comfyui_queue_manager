@@ -29,6 +29,8 @@ header.header {
   }
 
   .table-wrapper {
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
     height: 100%;
     &.loading { pointer-events: none; }
@@ -45,6 +47,36 @@ header.header {
     .row-selection { margin: 0 5px; flex-shrink: 0; }
     input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: #60a5fa; }
     input:disabled { cursor: default; opacity: 0.4; }
+  }
+
+  .selection-move-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    flex-shrink: 0;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-top: 1px solid #444;
+    font-size: 12px;
+    .selection-move-label { text-align: center; white-space: nowrap; }
+    .selection-move-start, .selection-move-end {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+    }
+    .selection-move-start { justify-content: flex-start; }
+    .selection-move-end { justify-content: flex-end; }
+    button {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      margin: 0;
+      font-size: inherit;
+      white-space: nowrap;
+      svg { width: 16px; height: 16px; }
+    }
   }
 
   .selection-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
@@ -99,6 +131,8 @@ header.header {
   .table-container.drag-selecting { user-select: none; }
 
   .table-container {
+    flex: 1;
+    min-height: 0;
     width: 100%;
     overflow: auto;
     height: 100%;

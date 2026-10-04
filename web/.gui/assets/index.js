@@ -20323,6 +20323,16 @@ function reorderChangesOrder(ids, moving, target) {
   remaining.splice(index + (target.position === "after" ? 1 : 0), 0, ...moving);
   return remaining.some((id, i) => id !== ids[i]);
 }
+function moveSelectionTo(ids, selected, destination) {
+  const moving = ids.filter((id) => selected.has(id));
+  if (!moving.length) return null;
+  if (destination === "start" || destination === "end") return { ids: moving, destination };
+  if (destination !== "page_top" && destination !== "page_bottom") return null;
+  const remaining = ids.filter((id) => !selected.has(id));
+  if (!remaining.length) return null;
+  const target = destination === "page_top" ? { target_id: remaining[0], position: "before" } : { target_id: remaining.at(-1), position: "after" };
+  return reorderChangesOrder(ids, moving, target) ? { ids: moving, ...target } : null;
+}
 function bindQueueReorder(container, store, onPreview, onDrop) {
   const view = container.ownerDocument.defaultView;
   let drag = null, frame, clickTimer;
@@ -20482,25 +20492,93 @@ function useQueueReorder(containerRef, enabled, data, route) {
   reactExports.useEffect(() => {
     setError("");
   }, [route]);
-  reactExports.useEffect(() => {
-    if (!enabled || busy || !containerRef.current) return;
-    return bindQueueReorder(containerRef.current, useSelectionStore, setPreview, async (move) => {
-      if (busyRef.current) return;
-      busyRef.current = true;
-      setBusy(true);
-      setError("");
+  const move = reactExports.useCallback(async (request) => {
+    if (!enabled || !request || busyRef.current || useSelectionStore.getState().rename) return;
+    busyRef.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await apiCall("queue_manager/reorder", { ...request, route });
+    } catch (error2) {
+      if (routeRef.current === route) setError(error2.message === "Request failed (404)" ? "Restart ComfyUI to enable queue reordering." : error2.message || "Could not reorder. Try again.");
+    } finally {
       try {
-        await apiCall("queue_manager/reorder", { ...move, route });
-      } catch (error2) {
-        if (routeRef.current === route) setError(error2.message === "Request failed (404)" ? "Restart ComfyUI to enable queue reordering." : error2.message || "Could not reorder. Try again.");
-      } finally {
         await refreshRef.current();
+      } finally {
         busyRef.current = false;
         setBusy(false);
       }
-    });
-  }, [enabled, busy, data, route, containerRef]);
-  return { preview, busy, error };
+    }
+  }, [enabled, route]);
+  reactExports.useEffect(() => {
+    if (!enabled || busy || !containerRef.current) return;
+    return bindQueueReorder(containerRef.current, useSelectionStore, setPreview, move);
+  }, [enabled, busy, data, route, containerRef, move]);
+  return { preview, busy, error, move };
+}
+const VerticalAlignTopIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("path", {
+  d: "M8 11h3v10h2V11h3l-4-4zM4 3v2h16V3z"
+}));
+const KeyboardArrowUpIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("path", {
+  d: "M7.41 15.41 12 10.83l4.59 4.58L18 14l-6-6-6 6z"
+}));
+const KeyboardArrowDownIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("path", {
+  d: "M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"
+}));
+const VerticalAlignBottomIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("path", {
+  d: "M16 13h-3V3h-2v10H8l4 4zM4 19v2h16v-2z"
+}));
+function QueueMoveButtons({ ids, selected, route, disabled, onMove }) {
+  const list = route === "archive" ? "archive" : "queue";
+  const actions = [
+    {
+      destination: "start",
+      label: `Start of ${list}`,
+      Icon: VerticalAlignTopIcon,
+      title: `Move selected jobs to the start of the full ${list}, including jobs hidden by filters`
+    },
+    {
+      destination: "page_top",
+      label: "Top of page",
+      Icon: KeyboardArrowUpIcon,
+      title: "Move selected jobs before the first unselected job on this page"
+    },
+    {
+      destination: "page_bottom",
+      label: "Bottom of page",
+      Icon: KeyboardArrowDownIcon,
+      title: "Move selected jobs after the last unselected job on this page"
+    },
+    {
+      destination: "end",
+      label: `End of ${list}`,
+      Icon: VerticalAlignBottomIcon,
+      title: `Move selected jobs to the end of the full ${list}, including jobs hidden by filters`
+    }
+  ];
+  const renderAction = ({ destination, label, Icon: Icon2, title }) => {
+    const request = moveSelectionTo(ids, selected, destination);
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        type: "button",
+        className: "shiny-button",
+        title,
+        disabled: disabled || !request,
+        onClick: () => onMove(request),
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(Icon2, { fontSize: "small" }),
+          label
+        ]
+      },
+      destination
+    );
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "selection-move-toolbar", role: "group", "aria-label": "Move selected jobs", "data-selection-ignore": true, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "selection-move-start", children: actions.slice(0, 2).map(renderAction) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "selection-move-label", children: "- Move to -" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "selection-move-end", children: actions.slice(2).map(renderAction) })
+  ] });
 }
 const QueueItems = reactExports.memo(function QueueItems2({ running, pending, info, reorderPreview, reorderBusy }) {
   const route = useAppStore((state) => state.route);
@@ -20560,6 +20638,7 @@ const Queue = reactExports.memo(function Queue2({ data, isLoading, error, progre
   const galleryOptions = useOptionsStore((state) => state.Gallery);
   const selecting = useSelectionStore((state) => state.active);
   const selected = useSelectionStore((state) => state.selected);
+  const renaming = useSelectionStore((state) => !!state.rename);
   const containerRef = reactExports.useRef(null);
   const ids = reactExports.useMemo(() => (data?.pending ?? []).map((item) => item?.[3]?.db_id).filter(Number.isInteger), [data]);
   const canReorder = route === "queue" || route === "archive";
@@ -20570,68 +20649,80 @@ const Queue = reactExports.memo(function Queue2({ data, isLoading, error, progre
   const gridMode = String(options.GridThumbMode ?? "Square Fit").toLowerCase().replace(/\s+/g, "_");
   const running = data?.running ?? [];
   const pending = data?.pending ?? [];
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
     "div",
     {
       className: "overflow-x-auto table-wrapper" + (selecting ? " selecting" : "") + (isLoading || reorder.busy ? " loading" : "") + " cover-" + coverMode + " grid-" + gridMode + " mode-",
       style: { "--job-progress": progress + "%" },
-      children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "table-container", ref: containerRef, onClickCapture, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("table", { className: "min-w-full border border-0", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("thead", { className: "dark:bg-neutral-800 bg-neutral-200 text-xs uppercase", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("tr", { children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 text-left", children: "#" }),
-            route === "completed" && thumbMode === "cover" && (galleryOptions.ShowImages || galleryOptions.ShowVideos) && /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 cover", children: "Thumbnail" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 text-left workflow-column", children: "Workflow" }),
-            route === "completed" && /* @__PURE__ */ jsxRuntimeExports.jsx("th", {}),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 text-left", children: selecting ? /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "selection-heading", "data-selection-ignore": true, children: [
-              "Actions",
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "input",
-                {
-                  type: "checkbox",
-                  className: "row-selection",
-                  "aria-label": "Select all visible jobs",
-                  checked: allSelected,
-                  disabled: !ids.length || isLoading || reorder.busy,
-                  ref: (input) => {
-                    if (input) input.indeterminate = selected.size > 0 && !allSelected;
-                  },
-                  onChange: () => useSelectionStore.getState().selectAll(ids)
-                }
-              )
-            ] }) : "Actions" }),
-            canReorder && /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "reorder-column", "aria-label": "Reorder jobs", title: "Drag handles to reorder jobs in this tab" })
-          ] }) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("tbody", { children: [
-            canReorder && reorder.error && /* @__PURE__ */ jsxRuntimeExports.jsx("tr", { children: /* @__PURE__ */ jsxRuntimeExports.jsx("td", { colSpan: 100, className: "selection-error", role: "alert", children: reorder.error }) }),
-            error && /* @__PURE__ */ jsxRuntimeExports.jsx("tr", { children: /* @__PURE__ */ jsxRuntimeExports.jsxs("td", { colSpan: 100, className: "text-red-500 text-center info-cell", children: [
-              "Loading failed: ",
-              error
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "table-container", ref: containerRef, onClickCapture, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("table", { className: "min-w-full border border-0", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("thead", { className: "dark:bg-neutral-800 bg-neutral-200 text-xs uppercase", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("tr", { children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 text-left", children: "#" }),
+              route === "completed" && thumbMode === "cover" && (galleryOptions.ShowImages || galleryOptions.ShowVideos) && /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 cover", children: "Thumbnail" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 text-left workflow-column", children: "Workflow" }),
+              route === "completed" && /* @__PURE__ */ jsxRuntimeExports.jsx("th", {}),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 text-left", children: selecting ? /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "selection-heading", "data-selection-ignore": true, children: [
+                "Actions",
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "input",
+                  {
+                    type: "checkbox",
+                    className: "row-selection",
+                    "aria-label": "Select all visible jobs",
+                    checked: allSelected,
+                    disabled: !ids.length || isLoading || reorder.busy,
+                    ref: (input) => {
+                      if (input) input.indeterminate = selected.size > 0 && !allSelected;
+                    },
+                    onChange: () => useSelectionStore.getState().selectAll(ids)
+                  }
+                )
+              ] }) : "Actions" }),
+              canReorder && /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "reorder-column", "aria-label": "Reorder jobs", title: "Drag handles to reorder jobs in this tab" })
             ] }) }),
-            !isLoading && (!data || !running.length && !pending.length) && /* @__PURE__ */ jsxRuntimeExports.jsx("tr", { children: /* @__PURE__ */ jsxRuntimeExports.jsx("td", { colSpan: 100, className: "italic text-center info-cell", children: "No items." }) }),
-            isLoading && !data && /* @__PURE__ */ jsxRuntimeExports.jsxs("tr", { children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-1 serial", children: /* @__PURE__ */ jsxRuntimeExports.jsx(LoaderSpinner, {}) }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("td", { colSpan: 100, className: "italic text-center info-cell", children: "Loading..." })
-            ] }),
-            data && /* @__PURE__ */ jsxRuntimeExports.jsx(QueueItems, { running, pending, info: data.info, reorderPreview: reorder.preview, reorderBusy: reorder.busy || isLoading })
-          ] })
-        ] }),
-        reorder.preview && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-          reorder.preview.line != null && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "reorder-line", style: { top: reorder.preview.line } }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "reorder-label", role: "status", style: { top: reorder.preview.top }, children: [
-            "Move ",
-            reorder.preview.ids.length,
-            " ",
-            reorder.preview.ids.length === 1 ? "job" : "jobs",
-            reorder.preview.position && ` ${reorder.preview.position} highlighted row`
-          ] })
-        ] }),
-        selecting && rectangle && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "selection-rectangle", style: {
-          left: rectangle.left,
-          top: rectangle.top,
-          width: rectangle.right - rectangle.left,
-          height: rectangle.bottom - rectangle.top
-        } })
-      ] }) })
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("tbody", { children: [
+              canReorder && reorder.error && /* @__PURE__ */ jsxRuntimeExports.jsx("tr", { children: /* @__PURE__ */ jsxRuntimeExports.jsx("td", { colSpan: 100, className: "selection-error", role: "alert", children: reorder.error }) }),
+              error && /* @__PURE__ */ jsxRuntimeExports.jsx("tr", { children: /* @__PURE__ */ jsxRuntimeExports.jsxs("td", { colSpan: 100, className: "text-red-500 text-center info-cell", children: [
+                "Loading failed: ",
+                error
+              ] }) }),
+              !isLoading && (!data || !running.length && !pending.length) && /* @__PURE__ */ jsxRuntimeExports.jsx("tr", { children: /* @__PURE__ */ jsxRuntimeExports.jsx("td", { colSpan: 100, className: "italic text-center info-cell", children: "No items." }) }),
+              isLoading && !data && /* @__PURE__ */ jsxRuntimeExports.jsxs("tr", { children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-1 serial", children: /* @__PURE__ */ jsxRuntimeExports.jsx(LoaderSpinner, {}) }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("td", { colSpan: 100, className: "italic text-center info-cell", children: "Loading..." })
+              ] }),
+              data && /* @__PURE__ */ jsxRuntimeExports.jsx(QueueItems, { running, pending, info: data.info, reorderPreview: reorder.preview, reorderBusy: reorder.busy || isLoading })
+            ] })
+          ] }),
+          reorder.preview && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+            reorder.preview.line != null && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "reorder-line", style: { top: reorder.preview.line } }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "reorder-label", role: "status", style: { top: reorder.preview.top }, children: [
+              "Move ",
+              reorder.preview.ids.length,
+              " ",
+              reorder.preview.ids.length === 1 ? "job" : "jobs",
+              reorder.preview.position && ` ${reorder.preview.position} highlighted row`
+            ] })
+          ] }),
+          selecting && rectangle && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "selection-rectangle", style: {
+            left: rectangle.left,
+            top: rectangle.top,
+            width: rectangle.right - rectangle.left,
+            height: rectangle.bottom - rectangle.top
+          } })
+        ] }) }),
+        canReorder && selecting && selected.size > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(
+          QueueMoveButtons,
+          {
+            ids,
+            selected,
+            route,
+            disabled: isLoading || reorder.busy || renaming,
+            onMove: reorder.move
+          }
+        )
+      ]
     }
   );
 });

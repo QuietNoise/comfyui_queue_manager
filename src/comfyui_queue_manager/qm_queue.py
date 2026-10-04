@@ -460,16 +460,22 @@ class QM_Queue:
         fields = ("queue.archive_order IS NULL", "queue.archive_order", "queue.updated_at", "queue.number", "queue.id")
         return ", ".join(f"{field} {direction}" for field in fields)
 
-    def reorder_items(self, ids, target_id, position, route="queue"):
-        """Move jobs together before/after an anchor in their current tab."""
+    def reorder_items(self, ids, target_id=None, position=None, route="queue", destination=None):
+        """Move jobs together relative to an anchor or to the start/end of their tab."""
         if not isinstance(route, str) or route not in ("queue", "archive"):
             raise ValueError("Reordering is only available in Queue or Archive")
         if not isinstance(ids, list) or not 1 <= len(ids) <= 200 or any(type(item) is not int or item <= 0 for item in ids):
             raise ValueError("Select between 1 and 200 valid jobs")
-        if type(target_id) is not int or target_id <= 0 or target_id in ids:
-            raise ValueError("Choose a different job in this tab as the drop target")
-        if position not in ("before", "after"):
-            raise ValueError("Position must be before or after")
+        if destination is not None:
+            if destination not in ("start", "end"):
+                raise ValueError("Destination must be start or end")
+            if target_id is not None or position is not None:
+                raise ValueError("Choose a destination or an anchor, not both")
+        else:
+            if type(target_id) is not int or target_id <= 0 or target_id in ids:
+                raise ValueError("Choose a different job in this tab as the drop target")
+            if position not in ("before", "after"):
+                raise ValueError("Position must be before or after")
 
         with self.native_queue.mutex:
             running = {item[1] for item in self.native_queue.currently_running.values()}
@@ -482,13 +488,18 @@ class QM_Queue:
             requested = set(ids)
             moving = [row for row in rows if row["id"] in requested]
             remaining = [row for row in rows if row["id"] not in requested]
-            target_index = next((i for i, row in enumerate(remaining) if row["id"] == target_id), None)
             expected_status = "archived" if route == "archive" else "pending"
-            if target_index is None:
-                raise RuntimeError(f"The drop target is no longer {expected_status}. Refresh and try again.")
+            if destination is None:
+                target_index = next((i for i, row in enumerate(remaining) if row["id"] == target_id), None)
+                if target_index is None:
+                    raise RuntimeError(f"The drop target is no longer {expected_status}. Refresh and try again.")
+                index = target_index + (position == "after")
+            else:
+                # Resolve the full-list boundary under the lock, including jobs
+                # outside the browser's page/filter and any newly submitted jobs.
+                index = 0 if destination == "start" else len(remaining)
             if not moving:
                 raise RuntimeError(f"These jobs are no longer {expected_status}. Refresh and try again.")
-            index = target_index + (position == "after")
             reordered = remaining[:index] + moving + remaining[index:]
             if [row["id"] for row in reordered] == [row["id"] for row in rows]:
                 return {"ids": [row["id"] for row in moving], "changed": False}

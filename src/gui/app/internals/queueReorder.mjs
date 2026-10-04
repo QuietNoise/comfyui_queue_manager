@@ -32,6 +32,19 @@ export function reorderChangesOrder(ids, moving, target) {
   return remaining.some((id, i) => id !== ids[i]);
 }
 
+export function moveSelectionTo(ids, selected, destination) {
+  const moving = ids.filter((id) => selected.has(id));
+  if (!moving.length) return null;
+  if (destination === 'start' || destination === 'end') return {ids: moving, destination};
+  if (destination !== 'page_top' && destination !== 'page_bottom') return null;
+  const remaining = ids.filter((id) => !selected.has(id));
+  if (!remaining.length) return null;
+  const target = destination === 'page_top'
+    ? {target_id: remaining[0], position: 'before'}
+    : {target_id: remaining.at(-1), position: 'after'};
+  return reorderChangesOrder(ids, moving, target) ? {ids: moving, ...target} : null;
+}
+
 export function bindQueueReorder(container, store, onPreview, onDrop) {
   const view = container.ownerDocument.defaultView;
   let drag = null, frame, clickTimer;

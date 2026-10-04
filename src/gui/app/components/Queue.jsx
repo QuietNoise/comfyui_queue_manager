@@ -10,6 +10,7 @@ import { useOptionsStore } from "../stores/optionsStore";
 import {useSelectionStore} from "../stores/selectionStore";
 import {useQueueSelection} from "./useQueueSelection";
 import {useQueueReorder} from "./useQueueReorder";
+import {QueueMoveButtons} from "./QueueMoveButtons";
 
 const QueueItems = memo(function QueueItems({ running, pending, info, reorderPreview, reorderBusy }) {
   // Read global state ONCE here (parent of many rows)
@@ -77,6 +78,7 @@ export const Queue = memo(function Queue({ data, isLoading, error, progress }) {
   const galleryOptions = useOptionsStore((state) => state.Gallery);
   const selecting = useSelectionStore((state) => state.active);
   const selected = useSelectionStore((state) => state.selected);
+  const renaming = useSelectionStore((state) => !!state.rename);
   const containerRef = useRef(null);
   const ids = useMemo(() => (data?.pending ?? []).map((item) => item?.[3]?.db_id).filter(Number.isInteger), [data]);
   const canReorder = route === "queue" || route === "archive";
@@ -182,6 +184,10 @@ export const Queue = memo(function Queue({ data, isLoading, error, progress }) {
           }} />}
         </>
       </div>
+      {canReorder && selecting && selected.size > 0 && <QueueMoveButtons
+        ids={ids} selected={selected} route={route} disabled={isLoading || reorder.busy || renaming}
+        onMove={reorder.move}
+      />}
     </div>
   );
 });

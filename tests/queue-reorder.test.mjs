@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {bindQueueReorder, reorderGroup, reorderTarget, keyboardReorder, reorderChangesOrder} from '../src/gui/app/internals/queueReorder.mjs';
+import {bindQueueReorder, reorderGroup, reorderTarget, keyboardReorder, reorderChangesOrder, moveSelectionTo} from '../src/gui/app/internals/queueReorder.mjs';
 
 const ids = [1, 2, 3, 4];
 
@@ -258,4 +258,34 @@ test('invalid/no-op drops remove the highlighted anchor as well as the insertion
   assert.equal(h.preview.anchorId, undefined); // Already before the first remaining row.
   h.dispose();
   assert.equal(h.preview, null);
+});
+
+
+test('full-list move buttons send a boundary destination and only visible selected IDs', () => {
+  const visible = [10, 20, 30, 40];
+  const selected = new Set([99, 30, 10]);
+  assert.deepEqual(moveSelectionTo(visible, selected, 'start'), {ids: [10, 30], destination: 'start'});
+  assert.deepEqual(moveSelectionTo(visible, selected, 'end'), {ids: [10, 30], destination: 'end'});
+  assert.equal(moveSelectionTo(visible, new Set([99]), 'start'), null);
+});
+
+test('page moves use the outer unselected rows, retaining displayed group order', () => {
+  const visible = [10, 20, 30, 40, 50];
+  const selected = new Set([40, 20]);
+  assert.deepEqual(moveSelectionTo(visible, selected, 'page_top'),
+    {ids: [20, 40], target_id: 10, position: 'before'});
+  assert.deepEqual(moveSelectionTo(visible, selected, 'page_bottom'),
+    {ids: [20, 40], target_id: 50, position: 'after'});
+});
+
+test('page moves are disabled at the boundary or when the whole page is selected', () => {
+  assert.equal(moveSelectionTo(ids, new Set([1, 2]), 'page_top'), null);
+  assert.equal(moveSelectionTo(ids, new Set([3, 4]), 'page_bottom'), null);
+  assert.equal(moveSelectionTo(ids, new Set(ids), 'page_top'), null);
+  assert.equal(moveSelectionTo(ids, new Set(ids), 'page_bottom'), null);
+  // Selecting the entire page can still move it beyond that page.
+  assert.deepEqual(moveSelectionTo(ids, new Set(ids), 'start'), {ids, destination: 'start'});
+  assert.deepEqual(moveSelectionTo(ids, new Set(ids), 'end'), {ids, destination: 'end'});
+  assert.equal(moveSelectionTo(ids, new Set(), 'page_top'), null);
+  assert.equal(moveSelectionTo(ids, new Set([2]), 'unknown'), null);
 });

@@ -400,3 +400,83 @@ def test_archive_schema_upgrade_preserves_existing_rows(monkeypatch):
         after = dict(conn.execute("SELECT * FROM queue").fetchone())
         assert after.pop("archive_order") is None
         assert after == before
+
+
+@pytest.mark.parametrize("route,status", [("queue", 0), ("archive", 3)])
+@pytest.mark.parametrize("destination", ["start", "end"])
+def test_boundary_moves_use_full_tab_not_visible_filtered_page(reorder_queue, route, status, destination):
+    queue, _ = reorder_queue
+    ids = [job(i, status=status, name="visible" if i % 2 else "hidden")[0] for i in range(10)]
+    filters = {"workflow_name": {"type": "workflow_name", "value": "visible"}}
+    _, page = queue.get_current_queue(route=route, filters=filters, page=1, page_size=2)
+    assert [item[3]["db_id"] for item in page] == [ids[5], ids[7]]
+    selected = [ids[5], ids[7]]
+    # A job submitted after the page fetch also counts towards the current boundary.
+    newer, _ = job(20, status=status)
+    remaining = [item for item in ids if item not in selected] + [newer]
+    result = queue.reorder_items(list(reversed(selected)), route=route, destination=destination)
+    assert result == {"ids": selected, "changed": True}
+    expected = selected + remaining if destination == "start" else remaining + selected
+    assert (archive_ids(queue) if route == "archive" else order()) == expected
+    if route == "queue":
+        first = queue.queue_get()[0]
+        assert qm_db.read_single("SELECT id FROM queue WHERE prompt_id = ?", (first[1],))[0] == expected[0]
+
+
+@pytest.mark.parametrize("route,status", [("queue", 0), ("archive", 3)])
+def test_boundary_moves_respect_existing_manual_order_and_skip_ineligible_jobs(reorder_queue, route, status):
+    queue, _ = reorder_queue
+    ids = [job(i, status=status)[0] for i in range(5)]
+    foreign, _ = job(10, status=3 if status == 0 else 0)
+    running, prompt = job(11, status=status)
+    queue.native_queue.currently_running[8] = tuple(prompt)
+    fixed_before = [dict(row) for row in qm_db.read_query("SELECT * FROM queue WHERE id IN (?, ?)", (foreign, running))]
+    queue.reorder_items([ids[4]], ids[0], "before", route)
+    result = queue.reorder_items([ids[1], ids[4], foreign, running, 999], route=route, destination="end")
+    assert result["ids"] == [ids[4], ids[1]]
+    actual = archive_ids(queue) if route == "archive" else order()
+    assert [item for item in actual if item != running] == [ids[0], ids[2], ids[3], ids[4], ids[1]]
+    assert [dict(row) for row in qm_db.read_query("SELECT * FROM queue WHERE id IN (?, ?)", (foreign, running))] == fixed_before
+
+
+@pytest.mark.parametrize("route,status", [("queue", 0), ("archive", 3)])
+@pytest.mark.parametrize("destination", ["start", "end"])
+def test_boundary_noop_for_entire_tab_does_not_write(reorder_queue, route, status, destination):
+    queue, server = reorder_queue
+    ids = [job(i, status=status)[0] for i in range(3)]
+    before = snapshot()
+    assert queue.reorder_items(list(reversed(ids)), route=route, destination=destination) == {"ids": ids, "changed": False}
+    assert snapshot() == before
+    server.send_sync.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "move_args",
+    [
+        {"ids": [], "destination": "start"},
+        {"ids": [True], "destination": "end"},
+        {"ids": [1], "destination": "page_top"},
+        {"ids": [1], "destination": []},
+        {"ids": [1], "destination": "start", "target_id": 2},
+        {"ids": [1], "destination": "end", "position": "after"},
+    ],
+)
+def test_invalid_boundary_request_cannot_broaden_selection(reorder_queue, move_args):
+    queue, server = reorder_queue
+    job(0)
+    job(1)
+    before = snapshot()
+    with pytest.raises(ValueError):
+        queue.reorder_items(**move_args)
+    assert snapshot() == before
+    server.send_sync.assert_not_called()
+
+
+def test_vanished_boundary_selection_is_not_a_move_all(reorder_queue):
+    queue, server = reorder_queue
+    job(0)
+    before = snapshot()
+    with pytest.raises(RuntimeError, match="no longer pending"):
+        queue.reorder_items([999], destination="start")
+    assert snapshot() == before
+    server.send_sync.assert_not_called()
