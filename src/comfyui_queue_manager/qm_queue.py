@@ -89,7 +89,7 @@ class QM_Queue:
             pending = []
             total_rows = 0
             last_page = 0
-            order_string = "ORDER BY number"
+            order_string = "ORDER BY number, queue.id"
             join_string = ""
             select_string = "SELECT queue.id as id, prompt, number"
 
@@ -97,7 +97,7 @@ class QM_Queue:
                 case "queue":
                     running.extend(self.native_queue.currently_running.values())
                 case "archive":
-                    order_string = "ORDER BY queue.updated_at, number"
+                    order_string = f"ORDER BY {self._archive_order()}"
                 case "completed":
                     order_string = "ORDER BY queue.updated_at ASC" if order == "asc" else "ORDER BY queue.updated_at DESC"
                     order_string += (
@@ -377,24 +377,17 @@ class QM_Queue:
                 # get item from database which has highest priority and higher than this
                 item = read_single(
                     """
-                    SELECT number, prompt
+                    SELECT number, prompt, updated_at
                     FROM queue
                     WHERE status = 0 AND number <= ?
-                    ORDER BY number
+                    ORDER BY number, id
                     LIMIT 1
                 """,
                     (item[0],),
                 )
 
                 if item is not None:
-                    # Convert the item to a tuple
-                    item = tuple(json.loads(item[1]))
-
-                    # Backwards compatibility: if item[5] does not exist, create it with empty dict
-                    if len(item) < 6:
-                        item = item + ({},)
-
-                    self.original_put(item)
+                    self.original_put(self._pending_prompt(item))
             else:  # just notify frontend that we have a new item
                 PromptServer.instance.queue_updated()
 
@@ -416,26 +409,12 @@ class QM_Queue:
                     SELECT number, prompt, updated_at
                     FROM queue
                     WHERE status = 0
-                    ORDER BY number
+                    ORDER BY number, id
                     LIMIT 1
                 """)
 
                 if item_db is not None:
-                    item = json.loads(item_db[1])
-
-                    # SIML: TODO: Perhaps use different column to check timestamp? i.e. queued_at since item might be updated for other reasons?
-                    # If we have takeover client then we need to set the client_id in the prompt
-                    if self.takeover_client and self.takeover_client["timestamp"] > item_db[2]:
-                        item[3]["client_id"] = self.takeover_client["client_id"]
-
-                    # Native format is a tuple
-                    item = tuple(item)
-
-                    # Backwards compatibility: if item[5] does not exist, create it with empty dict
-                    if len(item) < 6:
-                        item = item + ({},)
-
-                    heapq.heappush(self.native_queue.queue, item)
+                    heapq.heappush(self.native_queue.queue, self._pending_prompt(item_db))
 
             queue_item = self.original_get(
                 timeout
@@ -464,6 +443,112 @@ class QM_Queue:
     # ===========================================================
     # ================== NON-HIJACK METHODS =====================
     # ===========================================================
+
+    def _pending_prompt(self, row):
+        # Saved prompt[0] can predate a reorder, archive replay or restoration.
+        item = json.loads(row["prompt"])
+        item[0] = row["number"]
+        if self.takeover_client and self.takeover_client["timestamp"] > row["updated_at"]:
+            item[3]["client_id"] = self.takeover_client["client_id"]
+        if len(item) < 6:
+            item.append({})
+        return tuple(item)
+
+    @staticmethod
+    def _archive_order(reverse=False):
+        direction = "DESC" if reverse else "ASC"
+        fields = ("queue.archive_order IS NULL", "queue.archive_order", "queue.updated_at", "queue.number", "queue.id")
+        return ", ".join(f"{field} {direction}" for field in fields)
+
+    def reorder_items(self, ids, target_id, position, route="queue"):
+        """Move jobs together before/after an anchor in their current tab."""
+        if not isinstance(route, str) or route not in ("queue", "archive"):
+            raise ValueError("Reordering is only available in Queue or Archive")
+        if not isinstance(ids, list) or not 1 <= len(ids) <= 200 or any(type(item) is not int or item <= 0 for item in ids):
+            raise ValueError("Select between 1 and 200 valid jobs")
+        if type(target_id) is not int or target_id <= 0 or target_id in ids:
+            raise ValueError("Choose a different job in this tab as the drop target")
+        if position not in ("before", "after"):
+            raise ValueError("Position must be before or after")
+
+        with self.native_queue.mutex:
+            running = {item[1] for item in self.native_queue.currently_running.values()}
+            sort = self._archive_order() if route == "archive" else "number, id"
+            rows = read_query(
+                f"SELECT id, prompt_id, number, updated_at, archive_order FROM queue WHERE status = ? ORDER BY {sort}",
+                (3 if route == "archive" else 0,),
+            )
+            rows = [row for row in rows if row["prompt_id"] not in running]
+            requested = set(ids)
+            moving = [row for row in rows if row["id"] in requested]
+            remaining = [row for row in rows if row["id"] not in requested]
+            target_index = next((i for i, row in enumerate(remaining) if row["id"] == target_id), None)
+            expected_status = "archived" if route == "archive" else "pending"
+            if target_index is None:
+                raise RuntimeError(f"The drop target is no longer {expected_status}. Refresh and try again.")
+            if not moving:
+                raise RuntimeError(f"These jobs are no longer {expected_status}. Refresh and try again.")
+            index = target_index + (position == "after")
+            reordered = remaining[:index] + moving + remaining[index:]
+            if [row["id"] for row in reordered] == [row["id"] for row in rows]:
+                return {"ids": [row["id"] for row in moving], "changed": False}
+
+            if route == "archive":
+                # Archive positions are independent of execution priorities and timestamps.
+                with get_conn():
+                    for archive_order, row in enumerate(reordered):
+                        if row["archive_order"] == archive_order:
+                            continue
+                        write_query("UPDATE queue SET archive_order = ? WHERE id = ?", (archive_order, row["id"]), False)
+                        write_query(
+                            "UPDATE queue SET updated_at = ? WHERE id = ? AND updated_at != ?",
+                            (row["updated_at"], row["id"], row["updated_at"]),
+                            False,
+                        )
+                moved_ids = [row["id"] for row in moving]
+                PromptServer.instance.send_sync("queue-manager-queue-updated", {"reordered": moved_ids})
+                return {"ids": moved_ids, "changed": True}
+
+            # Reuse existing priority slots, keeping the range compatible with new
+            # submissions and Run at front. Old/imported queues can contain ties.
+            numbers = [row["number"] for row in rows]
+            if len(set(numbers)) != len(numbers):
+                start = min(0, numbers[0])
+                numbers = list(range(start, start + len(rows)))
+
+            # Prepare the new native heap before writing anything. Keep external
+            # API jobs intact, but replace managed prefetches with the new head.
+            managed_ids = {row["prompt_id"] for row in rows}
+            native = [item for item in self.native_queue.queue if item[1] not in managed_ids]
+            if not self.paused:
+                head = reordered[0]
+                cached = next((item for item in self.native_queue.queue if item[1] == head["prompt_id"]), None)
+                if cached is not None:
+                    item = (numbers[0], *cached[1:])
+                else:
+                    saved = read_single("SELECT prompt FROM queue WHERE id = ?", (head["id"],))
+                    item = self._pending_prompt({**dict(head), "number": numbers[0], "prompt": saved["prompt"]})
+                native.append(item)
+            heapq.heapify(native)
+
+            with get_conn():
+                for row, number in zip(reordered, numbers):
+                    if row["number"] == number:
+                        continue
+                    write_query("UPDATE queue SET number = ? WHERE id = ?", (number, row["id"]), False)
+                    # Ordering must not change archive age or the takeover cutoff.
+                    write_query(
+                        "UPDATE queue SET updated_at = ? WHERE id = ? AND updated_at != ?",
+                        (row["updated_at"], row["id"], row["updated_at"]),
+                        False,
+                    )
+            PromptServer.instance.number = max(PromptServer.instance.number, abs(numbers[0]), abs(numbers[-1]))
+            self.native_queue.queue = native
+            self.native_queue.not_empty.notify()
+            moved_ids = [row["id"] for row in moving]
+            PromptServer.instance.send_sync("queue-manager-queue-updated", {"reordered": moved_ids})
+            PromptServer.instance.queue_updated()
+            return {"ids": moved_ids, "changed": True}
 
     def rename_item(self, db_id, name):
         """Rename a pending or archived job, including its saved workflow metadata."""
@@ -737,11 +822,8 @@ class QM_Queue:
             # Play the item from the database
             where_string, params = self.get_filters(filters, ["status = 3"])
 
-            # If front we queue from last to first to retain order after applying negative priority
-            if front:
-                order = "DESC"
-            else:
-                order = "ASC"
+            # Reverse the full archive order when assigning negative front priorities.
+            order = self._archive_order(reverse=front)
 
             # Get the archived items from the database
             rows = read_query(
@@ -749,7 +831,7 @@ class QM_Queue:
                 SELECT id, prompt
                 FROM queue
                 WHERE {where_string}
-                ORDER BY updated_at {order}, `number` {order}
+                ORDER BY {order}
             """,
                 params,
             )
@@ -781,6 +863,12 @@ class QM_Queue:
             )
 
             if moved > 0:
+                if front:
+                    # Run All and Run Selected must both honor the new first job.
+                    self.native_queue.queue = [
+                        item for item in self.native_queue.queue if "workflow" not in item[3].get("extra_pnginfo", {})
+                    ]
+                    heapq.heapify(self.native_queue.queue)
                 # Notify native queue lock so if it's waiting it can move on and go for next iteration
                 PromptServer.instance.prompt_queue.not_empty.notify()
 
@@ -810,14 +898,7 @@ class QM_Queue:
             if not rows:
                 return 0
             if action == "play":
-                moved = self.play_archive(client_id, filters, front)
-                if front and moved:
-                    # Discard prefetched managed jobs so the new priority is used.
-                    self.native_queue.queue = [
-                        item for item in self.native_queue.queue if "workflow" not in item[3].get("extra_pnginfo", {})
-                    ]
-                    heapq.heapify(self.native_queue.queue)
-                return moved
+                return self.play_archive(client_id, filters, front)
 
             sql = "UPDATE queue SET status = 3" if action == "archive" else "DELETE FROM queue"
             affected = write_query(f"{sql} WHERE {where}", params)

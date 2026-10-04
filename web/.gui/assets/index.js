@@ -19542,58 +19542,8 @@ const MediaItem = reactExports.memo(function MediaItem2({ file, onClick, autopla
     }
   ) }) });
 });
-class MediaOutputs {
-  files = null;
-  cover = null;
-  total = 0;
-  hasVideos = false;
-  ShowImages = false;
-  ShowVideos = false;
-  constructor(item, settings) {
-    const nodes = item?.outputs;
-    this.hasVideos = hasVideos(nodes);
-    const showImages = Boolean(settings?.ShowImages);
-    const showVideos = Boolean(settings?.ShowVideos);
-    const hideImagesWhenVideoExists = Boolean(settings?.HideImagesWhenVideoExists);
-    this.ShowImages = showImages && (!this.hasVideos || !hideImagesWhenVideoExists);
-    this.ShowVideos = showVideos;
-    if (!nodes) return;
-    let images = null;
-    let videos = null;
-    Object.keys(nodes).forEach((nodeID) => {
-      const outputs = nodes[nodeID];
-      const files = outputs.images || outputs.gifs || outputs.files || [];
-      if (!files.length) return;
-      const { isImage, isVideo } = mediaType(outputs);
-      if (isImage && this.ShowImages) {
-        if (images === null) images = [];
-        images.push(...files);
-      } else if (isVideo && this.ShowVideos) {
-        if (videos === null) videos = [];
-        videos.push(...files);
-      }
-    });
-    this.files = [];
-    if (images?.length) {
-      this.files.push(...images);
-    }
-    if (videos?.length) {
-      this.files.push(...videos);
-    }
-    if (this.files?.length) {
-      this.cover = this.files[0];
-      this.total = this.files.length;
-    }
-  }
-}
-const EditOutlinedIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("path", {
-  d: "m14.06 9.02.92.92L5.92 19H5v-.92zM17.66 3c-.25 0-.51.1-.7.29l-1.83 1.83 3.75 3.75 1.83-1.83c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.71-.29m-3.6 3.19L3 17.25V21h3.75L17.81 9.94z"
-}));
-const CheckOutlinedIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("path", {
-  d: "M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
-}));
-const CloseOutlinedIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("path", {
-  d: "M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+const DragIndicatorIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("path", {
+  d: "M11 18c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2m-2-8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2m0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2m6 4c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2m0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2m0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2"
 }));
 function reconcileSelection(state, ids) {
   if (!state.active) return state;
@@ -19667,6 +19617,59 @@ const useSelectionStore = create((set) => ({
     anchor: null
   }),
   click: (ids, id, modifiers) => set((state) => state.active && !state.rename ? selectRow(state.selected, state.anchor, ids, id, modifiers) : state)
+}));
+class MediaOutputs {
+  files = null;
+  cover = null;
+  total = 0;
+  hasVideos = false;
+  ShowImages = false;
+  ShowVideos = false;
+  constructor(item, settings) {
+    const nodes = item?.outputs;
+    this.hasVideos = hasVideos(nodes);
+    const showImages = Boolean(settings?.ShowImages);
+    const showVideos = Boolean(settings?.ShowVideos);
+    const hideImagesWhenVideoExists = Boolean(settings?.HideImagesWhenVideoExists);
+    this.ShowImages = showImages && (!this.hasVideos || !hideImagesWhenVideoExists);
+    this.ShowVideos = showVideos;
+    if (!nodes) return;
+    let images = null;
+    let videos = null;
+    Object.keys(nodes).forEach((nodeID) => {
+      const outputs = nodes[nodeID];
+      const files = outputs.images || outputs.gifs || outputs.files || [];
+      if (!files.length) return;
+      const { isImage, isVideo } = mediaType(outputs);
+      if (isImage && this.ShowImages) {
+        if (images === null) images = [];
+        images.push(...files);
+      } else if (isVideo && this.ShowVideos) {
+        if (videos === null) videos = [];
+        videos.push(...files);
+      }
+    });
+    this.files = [];
+    if (images?.length) {
+      this.files.push(...images);
+    }
+    if (videos?.length) {
+      this.files.push(...videos);
+    }
+    if (this.files?.length) {
+      this.cover = this.files[0];
+      this.total = this.files.length;
+    }
+  }
+}
+const EditOutlinedIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("path", {
+  d: "m14.06 9.02.92.92L5.92 19H5v-.92zM17.66 3c-.25 0-.51.1-.7.29l-1.83 1.83 3.75 3.75 1.83-1.83c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.71-.29m-3.6 3.19L3 17.25V21h3.75L17.81 9.94z"
+}));
+const CheckOutlinedIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("path", {
+  d: "M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
+}));
+const CloseOutlinedIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("path", {
+  d: "M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
 }));
 function consumeRenameGesture(event, document2) {
   const view = document2.defaultView;
@@ -19869,12 +19872,17 @@ const QueueItemRow = reactExports.memo(
     filters,
     workflowFilterMode,
     selecting,
-    selected
+    selected,
+    reorderBusy,
+    dragging,
+    reorderAnchor
   }) {
     const { onMediaItemClick, fetchQueueItems, refreshQueueItems } = reactExports.useContext(AppContext);
+    const renaming = useSelectionStore((state) => !!state.rename);
     const dbId = item?.[3]?.db_id;
     const workflow = item?.[3]?.extra_pnginfo?.workflow;
     const selectable = !!dbId && mode !== "running" && mode !== "external";
+    const canReorder = route === "queue" || route === "archive";
     const mediaOutputs = reactExports.useMemo(() => {
       if (item?.[3]?.outputs && route === "completed") {
         return new MediaOutputs(item[3], galleryOptions);
@@ -19934,7 +19942,9 @@ const QueueItemRow = reactExports.memo(
       /* @__PURE__ */ jsxRuntimeExports.jsxs(
         "tr",
         {
-          className: (className ?? "") + (selected ? " selected" : ""),
+          className: (className ?? "") + (selected ? " selected" : "") + (dragging ? " reorder-moving" : ""),
+          "data-reorder-anchor": reorderAnchor,
+          "data-reorder-id": canReorder && selectable ? dbId : void 0,
           "data-selection-id": selectable ? dbId : void 0,
           "aria-selected": selecting && selectable ? selected : void 0,
           children: [
@@ -20045,7 +20055,19 @@ const QueueItemRow = reactExports.memo(
                   }
                 }
               )
-            ] }) })
+            ] }) }),
+            canReorder && /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "reorder-column", "data-selection-ignore": true, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
+                className: "reorder-handle",
+                "data-reorder-handle": selectable ? dbId : void 0,
+                disabled: !selectable || reorderBusy || renaming,
+                "aria-label": `Reorder ${workflow?.workflow_name || "job"}`,
+                title: !selectable ? "Running jobs cannot be reordered" : renaming ? "Finish renaming first" : selecting ? "Drag to move the selected group (or use Up/Down arrow keys)" : "Drag to reorder (or use Up/Down arrow keys)",
+                children: /* @__PURE__ */ jsxRuntimeExports.jsx(DragIndicatorIcon, { fontSize: "small" })
+              }
+            ) })
           ]
         }
       ),
@@ -20072,7 +20094,7 @@ const QueueItemRow = reactExports.memo(
     const prevId = prev2.item?.[3]?.db_id;
     const nextId = next2.item?.[3]?.db_id;
     if (prevId !== nextId) return false;
-    return prev2.loader === next2.loader && prev2.index === next2.index && prev2.mode === next2.mode && prev2.route === next2.route && prev2.thumbMode === next2.thumbMode && prev2.galleryOptions === next2.galleryOptions && prev2.filters === next2.filters && prev2.workflowFilterMode === next2.workflowFilterMode && prev2.selecting === next2.selecting && prev2.selected === next2.selected && prev2.info?.page === next2.info?.page && prev2.info?.page_size === next2.info?.page_size && prev2.item?.[3]?.extra_pnginfo?.workflow?.workflow_name === next2.item?.[3]?.extra_pnginfo?.workflow?.workflow_name;
+    return prev2.loader === next2.loader && prev2.index === next2.index && prev2.mode === next2.mode && prev2.route === next2.route && prev2.thumbMode === next2.thumbMode && prev2.galleryOptions === next2.galleryOptions && prev2.filters === next2.filters && prev2.workflowFilterMode === next2.workflowFilterMode && prev2.selecting === next2.selecting && prev2.selected === next2.selected && prev2.reorderBusy === next2.reorderBusy && prev2.dragging === next2.dragging && prev2.reorderAnchor === next2.reorderAnchor && prev2.info?.page === next2.info?.page && prev2.info?.page_size === next2.info?.page_size && prev2.item?.[0] === next2.item?.[0] && prev2.item?.[3]?.extra_pnginfo?.workflow?.workflow_name === next2.item?.[3]?.extra_pnginfo?.workflow?.workflow_name;
   }
 );
 const useOptionsStore = create((set) => ({
@@ -20274,7 +20296,213 @@ function useQueueSelection(containerRef, enabled, ids) {
   };
   return { rectangle, onClickCapture };
 }
-const QueueItems = reactExports.memo(function QueueItems2({ running, pending, info }) {
+function reorderGroup(ids, sourceId, selection) {
+  if (!ids.includes(sourceId)) return [];
+  return ids.filter((id) => id === sourceId || selection.active && selection.selected.has(id));
+}
+function reorderTarget(rows, moving, y, direction = "down") {
+  const remaining = rows.filter((row) => !moving.includes(row.id));
+  if (!remaining.length) return null;
+  const nextIndex = remaining.findIndex((row) => y < (row.top + row.bottom) / 2);
+  if (nextIndex === -1 || direction === "up" && nextIndex > 0) {
+    const previous = nextIndex === -1 ? remaining.at(-1) : remaining[nextIndex - 1];
+    return { target_id: previous.id, position: "after", line: previous.bottom, anchorSide: "top" };
+  }
+  const next2 = remaining[nextIndex];
+  return { target_id: next2.id, position: "before", line: next2.top, anchorSide: "bottom" };
+}
+function keyboardReorder(ids, moving, direction) {
+  const index = direction === "up" ? ids.indexOf(moving[0]) - 1 : ids.indexOf(moving.at(-1)) + 1;
+  return ids[index] == null ? null : { ids: moving, target_id: ids[index], position: direction === "up" ? "before" : "after" };
+}
+function reorderChangesOrder(ids, moving, target) {
+  if (!target) return false;
+  const remaining = ids.filter((id) => !moving.includes(id));
+  const index = remaining.indexOf(target.target_id);
+  if (index < 0) return false;
+  remaining.splice(index + (target.position === "after" ? 1 : 0), 0, ...moving);
+  return remaining.some((id, i) => id !== ids[i]);
+}
+function bindQueueReorder(container, store, onPreview, onDrop) {
+  const view = container.ownerDocument.defaultView;
+  let drag = null, frame, clickTimer;
+  const rows = () => [...container.querySelectorAll("[data-reorder-id]")].map((row) => {
+    const { top, bottom } = row.getBoundingClientRect();
+    return { id: Number(row.dataset.reorderId), top, bottom };
+  });
+  const stop = () => {
+    const previous = drag;
+    if (previous?.moved) suppressRelease();
+    drag = null;
+    view.cancelAnimationFrame(frame);
+    if (previous && container.hasPointerCapture(previous.pointerId)) container.releasePointerCapture(previous.pointerId);
+    container.classList.remove("reordering");
+    onPreview(null);
+    return previous;
+  };
+  const blockClick = (event) => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  };
+  const clearClickGuard = () => {
+    view.clearTimeout(clickTimer);
+    view.removeEventListener("click", blockClick, { capture: true });
+    view.removeEventListener("pointerup", releaseClickGuard);
+    view.removeEventListener("pointercancel", releaseClickGuard);
+    view.removeEventListener("pointerdown", clearClickGuard, { capture: true });
+  };
+  const releaseClickGuard = () => {
+    clickTimer = view.setTimeout(clearClickGuard, 0);
+  };
+  const suppressRelease = () => {
+    view.addEventListener("click", blockClick, { capture: true });
+    view.addEventListener("pointerup", releaseClickGuard);
+    view.addEventListener("pointercancel", releaseClickGuard);
+    view.addEventListener("pointerdown", clearClickGuard, { capture: true });
+  };
+  const update = () => {
+    if (!drag?.moved) return;
+    const bounds = container.getBoundingClientRect();
+    const inside = drag.pointer.clientX >= bounds.left && drag.pointer.clientX <= bounds.right && drag.pointer.clientY >= bounds.top && drag.pointer.clientY <= bounds.bottom;
+    const target = inside ? reorderTarget(rows(), drag.ids, drag.pointer.clientY, drag.direction) : null;
+    drag.target = reorderChangesOrder(drag.order, drag.ids, target) ? target : null;
+    onPreview({
+      ids: drag.ids,
+      anchorId: drag.target?.target_id,
+      anchorSide: drag.target?.anchorSide,
+      position: drag.target?.position,
+      line: drag.target ? target.line - bounds.top + container.scrollTop : null,
+      top: Math.max(0, Math.min(bounds.height - 28, drag.pointer.clientY - bounds.top)) + container.scrollTop
+    });
+  };
+  const scroll = () => {
+    if (!drag?.moved) return;
+    const bounds = container.getBoundingClientRect();
+    if (drag.pointer.clientX >= bounds.left && drag.pointer.clientX <= bounds.right) {
+      if (drag.pointer.clientY < bounds.top + 40) container.scrollTop -= 12;
+      else if (drag.pointer.clientY > bounds.bottom - 32) container.scrollTop += 12;
+    }
+    update();
+    frame = view.requestAnimationFrame(scroll);
+  };
+  const down = (event) => {
+    const handle = event.target.closest("[data-reorder-handle]");
+    if (!handle || handle.disabled || event.button !== 0 || event.isPrimary === false || store.getState().rename) return;
+    event.preventDefault();
+    const order = rows().map((row) => row.id);
+    const ids = reorderGroup(order, Number(handle.dataset.reorderHandle), store.getState());
+    if (!ids.length) return;
+    handle.focus({ preventScroll: true });
+    drag = { ids, order, pointerId: event.pointerId, pointer: event, direction: "down", startY: event.clientY, startX: event.clientX, moved: false };
+    container.setPointerCapture(event.pointerId);
+  };
+  const trackPointer = (event) => {
+    if (event.clientY < drag.pointer.clientY) drag.direction = "up";
+    else if (event.clientY > drag.pointer.clientY) drag.direction = "down";
+    drag.pointer = event;
+  };
+  const move = (event) => {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    trackPointer(event);
+    if (!drag.moved && Math.hypot(event.clientY - drag.startY, event.clientX - drag.startX) >= 4) {
+      if (store.getState().active) store.getState().setSelected(new Set(drag.ids));
+      drag.moved = true;
+      container.classList.add("reordering");
+      frame = view.requestAnimationFrame(scroll);
+    }
+    if (drag.moved) {
+      event.preventDefault();
+      update();
+    }
+  };
+  const end = (event) => {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    trackPointer(event);
+    if (drag.moved) update();
+    const previous = stop();
+    if (event.type === "pointerup" || event.type === "pointercancel") releaseClickGuard();
+    if (event.type === "pointerup" && previous.moved && previous.target) {
+      onDrop({ ids: previous.ids, target_id: previous.target.target_id, position: previous.target.position });
+    }
+  };
+  const key = (event) => {
+    if (drag && event.key === "Escape") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      suppressRelease();
+      stop();
+      return;
+    }
+    if (drag) return;
+    const handle = event.target.closest?.("[data-reorder-handle]");
+    if (!handle || handle.disabled || store.getState().rename || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
+    event.preventDefault();
+    const order = rows().map((row) => row.id);
+    const ids = reorderGroup(order, Number(handle.dataset.reorderHandle), store.getState());
+    const target = keyboardReorder(order, ids, event.key === "ArrowUp" ? "up" : "down");
+    if (!target) return;
+    if (store.getState().active) store.getState().setSelected(new Set(ids));
+    onDrop(target);
+  };
+  const nativeDrag = (event) => {
+    if (drag) event.preventDefault();
+  };
+  const unsubscribe = store.subscribe((state, previous) => {
+    if (drag && (state.active !== previous.active || state.rename)) stop();
+  });
+  container.addEventListener("pointerdown", down);
+  container.addEventListener("dragstart", nativeDrag);
+  container.addEventListener("lostpointercapture", end);
+  view.addEventListener("pointermove", move);
+  view.addEventListener("pointerup", end);
+  view.addEventListener("pointercancel", end);
+  view.addEventListener("keydown", key, { capture: true });
+  return () => {
+    unsubscribe();
+    stop();
+    container.removeEventListener("pointerdown", down);
+    container.removeEventListener("dragstart", nativeDrag);
+    container.removeEventListener("lostpointercapture", end);
+    view.removeEventListener("pointermove", move);
+    view.removeEventListener("pointerup", end);
+    view.removeEventListener("pointercancel", end);
+    view.removeEventListener("keydown", key, { capture: true });
+  };
+}
+function useQueueReorder(containerRef, enabled, data, route) {
+  const { refreshQueueItems } = reactExports.useContext(AppContext);
+  const [preview, setPreview] = reactExports.useState(null);
+  const [busy, setBusy] = reactExports.useState(false);
+  const [error, setError] = reactExports.useState("");
+  const busyRef = reactExports.useRef(false);
+  const refreshRef = reactExports.useRef(refreshQueueItems);
+  const routeRef = reactExports.useRef(route);
+  refreshRef.current = refreshQueueItems;
+  routeRef.current = route;
+  reactExports.useEffect(() => {
+    setError("");
+  }, [route]);
+  reactExports.useEffect(() => {
+    if (!enabled || busy || !containerRef.current) return;
+    return bindQueueReorder(containerRef.current, useSelectionStore, setPreview, async (move) => {
+      if (busyRef.current) return;
+      busyRef.current = true;
+      setBusy(true);
+      setError("");
+      try {
+        await apiCall("queue_manager/reorder", { ...move, route });
+      } catch (error2) {
+        if (routeRef.current === route) setError(error2.message === "Request failed (404)" ? "Restart ComfyUI to enable queue reordering." : error2.message || "Could not reorder. Try again.");
+      } finally {
+        await refreshRef.current();
+        busyRef.current = false;
+        setBusy(false);
+      }
+    });
+  }, [enabled, busy, data, route, containerRef]);
+  return { preview, busy, error };
+}
+const QueueItems = reactExports.memo(function QueueItems2({ running, pending, info, reorderPreview, reorderBusy }) {
   const route = useAppStore((state) => state.route);
   const filters = useAppStore((state) => state.filters);
   const workflowFilterMode = useAppStore((state) => state.workflowFilterMode);
@@ -20298,7 +20526,8 @@ const QueueItems = reactExports.memo(function QueueItems2({ running, pending, in
         filters,
         workflowFilterMode,
         selecting,
-        selected: false
+        selected: false,
+        reorderBusy
       },
       item?.[3]?.db_id ?? item?.[1]
     )),
@@ -20315,7 +20544,10 @@ const QueueItems = reactExports.memo(function QueueItems2({ running, pending, in
         filters,
         workflowFilterMode,
         selecting,
-        selected: selected.has(item?.[3]?.db_id)
+        selected: selected.has(item?.[3]?.db_id),
+        reorderBusy,
+        dragging: reorderPreview?.ids.includes(item?.[3]?.db_id) ?? false,
+        reorderAnchor: reorderPreview?.anchorId === item?.[3]?.db_id ? reorderPreview.anchorSide : void 0
       },
       item?.[3]?.db_id ?? `${item?.[1]}-${index}`
     ))
@@ -20330,7 +20562,9 @@ const Queue = reactExports.memo(function Queue2({ data, isLoading, error, progre
   const selected = useSelectionStore((state) => state.selected);
   const containerRef = reactExports.useRef(null);
   const ids = reactExports.useMemo(() => (data?.pending ?? []).map((item) => item?.[3]?.db_id).filter(Number.isInteger), [data]);
-  const { rectangle, onClickCapture } = useQueueSelection(containerRef, !isLoading, ids);
+  const canReorder = route === "queue" || route === "archive";
+  const reorder = useQueueReorder(containerRef, canReorder && !isLoading, data, route);
+  const { rectangle, onClickCapture } = useQueueSelection(containerRef, !isLoading && !reorder.busy, ids);
   const allSelected = ids.length > 0 && ids.every((id) => selected.has(id));
   const coverMode = String(options.CoverThumbMode ?? "Cropped").toLowerCase().replace(/\s+/g, "_");
   const gridMode = String(options.GridThumbMode ?? "Square Fit").toLowerCase().replace(/\s+/g, "_");
@@ -20339,7 +20573,7 @@ const Queue = reactExports.memo(function Queue2({ data, isLoading, error, progre
   return /* @__PURE__ */ jsxRuntimeExports.jsx(
     "div",
     {
-      className: "overflow-x-auto table-wrapper" + (selecting ? " selecting" : "") + (isLoading ? " loading" : "") + " cover-" + coverMode + " grid-" + gridMode + " mode-",
+      className: "overflow-x-auto table-wrapper" + (selecting ? " selecting" : "") + (isLoading || reorder.busy ? " loading" : "") + " cover-" + coverMode + " grid-" + gridMode + " mode-",
       style: { "--job-progress": progress + "%" },
       children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "table-container", ref: containerRef, onClickCapture, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
         /* @__PURE__ */ jsxRuntimeExports.jsxs("table", { className: "min-w-full border border-0", children: [
@@ -20348,24 +20582,27 @@ const Queue = reactExports.memo(function Queue2({ data, isLoading, error, progre
             route === "completed" && thumbMode === "cover" && (galleryOptions.ShowImages || galleryOptions.ShowVideos) && /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 cover", children: "Thumbnail" }),
             /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 text-left workflow-column", children: "Workflow" }),
             route === "completed" && /* @__PURE__ */ jsxRuntimeExports.jsx("th", {}),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2", align: "right", children: selecting ? /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "selection-heading", "data-selection-ignore": true, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2 text-left", children: selecting ? /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "selection-heading", "data-selection-ignore": true, children: [
               "Actions",
               /* @__PURE__ */ jsxRuntimeExports.jsx(
                 "input",
                 {
                   type: "checkbox",
+                  className: "row-selection",
                   "aria-label": "Select all visible jobs",
                   checked: allSelected,
-                  disabled: !ids.length || isLoading,
+                  disabled: !ids.length || isLoading || reorder.busy,
                   ref: (input) => {
                     if (input) input.indeterminate = selected.size > 0 && !allSelected;
                   },
                   onChange: () => useSelectionStore.getState().selectAll(ids)
                 }
               )
-            ] }) : "Actions" })
+            ] }) : "Actions" }),
+            canReorder && /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "reorder-column", "aria-label": "Reorder jobs", title: "Drag handles to reorder jobs in this tab" })
           ] }) }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("tbody", { children: [
+            canReorder && reorder.error && /* @__PURE__ */ jsxRuntimeExports.jsx("tr", { children: /* @__PURE__ */ jsxRuntimeExports.jsx("td", { colSpan: 100, className: "selection-error", role: "alert", children: reorder.error }) }),
             error && /* @__PURE__ */ jsxRuntimeExports.jsx("tr", { children: /* @__PURE__ */ jsxRuntimeExports.jsxs("td", { colSpan: 100, className: "text-red-500 text-center info-cell", children: [
               "Loading failed: ",
               error
@@ -20375,7 +20612,17 @@ const Queue = reactExports.memo(function Queue2({ data, isLoading, error, progre
               /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-1 serial", children: /* @__PURE__ */ jsxRuntimeExports.jsx(LoaderSpinner, {}) }),
               /* @__PURE__ */ jsxRuntimeExports.jsx("td", { colSpan: 100, className: "italic text-center info-cell", children: "Loading..." })
             ] }),
-            data && /* @__PURE__ */ jsxRuntimeExports.jsx(QueueItems, { running, pending, info: data.info })
+            data && /* @__PURE__ */ jsxRuntimeExports.jsx(QueueItems, { running, pending, info: data.info, reorderPreview: reorder.preview, reorderBusy: reorder.busy || isLoading })
+          ] })
+        ] }),
+        reorder.preview && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+          reorder.preview.line != null && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "reorder-line", style: { top: reorder.preview.line } }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "reorder-label", role: "status", style: { top: reorder.preview.top }, children: [
+            "Move ",
+            reorder.preview.ids.length,
+            " ",
+            reorder.preview.ids.length === 1 ? "job" : "jobs",
+            reorder.preview.position && ` ${reorder.preview.position} highlighted row`
           ] })
         ] }),
         selecting && rectangle && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "selection-rectangle", style: {

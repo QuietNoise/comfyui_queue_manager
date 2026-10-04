@@ -9,8 +9,9 @@ import { useAppStore } from "../stores/appStore";
 import { useOptionsStore } from "../stores/optionsStore";
 import {useSelectionStore} from "../stores/selectionStore";
 import {useQueueSelection} from "./useQueueSelection";
+import {useQueueReorder} from "./useQueueReorder";
 
-const QueueItems = memo(function QueueItems({ running, pending, info }) {
+const QueueItems = memo(function QueueItems({ running, pending, info, reorderPreview, reorderBusy }) {
   // Read global state ONCE here (parent of many rows)
   const route = useAppStore((state) => state.route);
   const filters = useAppStore((state) => state.filters);
@@ -41,6 +42,7 @@ const QueueItems = memo(function QueueItems({ running, pending, info }) {
           workflowFilterMode={workflowFilterMode}
           selecting={selecting}
           selected={false}
+          reorderBusy={reorderBusy}
         />
       ))}
 
@@ -58,6 +60,9 @@ const QueueItems = memo(function QueueItems({ running, pending, info }) {
           workflowFilterMode={workflowFilterMode}
           selecting={selecting}
           selected={selected.has(item?.[3]?.db_id)}
+          reorderBusy={reorderBusy}
+          dragging={reorderPreview?.ids.includes(item?.[3]?.db_id) ?? false}
+          reorderAnchor={reorderPreview?.anchorId === item?.[3]?.db_id ? reorderPreview.anchorSide : undefined}
         />
       ))}
     </>
@@ -74,7 +79,9 @@ export const Queue = memo(function Queue({ data, isLoading, error, progress }) {
   const selected = useSelectionStore((state) => state.selected);
   const containerRef = useRef(null);
   const ids = useMemo(() => (data?.pending ?? []).map((item) => item?.[3]?.db_id).filter(Number.isInteger), [data]);
-  const {rectangle, onClickCapture} = useQueueSelection(containerRef, !isLoading, ids);
+  const canReorder = route === "queue" || route === "archive";
+  const reorder = useQueueReorder(containerRef, canReorder && !isLoading, data, route);
+  const {rectangle, onClickCapture} = useQueueSelection(containerRef, !isLoading && !reorder.busy, ids);
   const allSelected = ids.length > 0 && ids.every((id) => selected.has(id));
 
   const coverMode = String(options.CoverThumbMode ?? "Cropped")
@@ -91,7 +98,7 @@ export const Queue = memo(function Queue({ data, isLoading, error, progress }) {
     <div
       className={
         "overflow-x-auto table-wrapper" + (selecting ? " selecting" : "") +
-        (isLoading ? " loading" : "") +
+        (isLoading || reorder.busy ? " loading" : "") +
         " cover-" +
         coverMode +
         " grid-" +
@@ -117,19 +124,21 @@ export const Queue = memo(function Queue({ data, isLoading, error, progress }) {
                 {route === "completed" &&
                   <th></th>
                 }
-                <th className="px-3 py-2" align="right">
+                <th className="px-3 py-2 text-left">
                   {selecting ? <label className="selection-heading" data-selection-ignore>
                     Actions
-                    <input type="checkbox" aria-label="Select all visible jobs"
-                      checked={allSelected} disabled={!ids.length || isLoading}
+                    <input type="checkbox" className="row-selection" aria-label="Select all visible jobs"
+                      checked={allSelected} disabled={!ids.length || isLoading || reorder.busy}
                       ref={(input) => {if (input) input.indeterminate = selected.size > 0 && !allSelected;}}
                       onChange={() => useSelectionStore.getState().selectAll(ids)} />
                   </label> : "Actions"}
                 </th>
+                {canReorder && <th className="reorder-column" aria-label="Reorder jobs" title="Drag handles to reorder jobs in this tab" />}
               </tr>
             </thead>
 
             <tbody>
+              {canReorder && reorder.error && <tr><td colSpan={100} className="selection-error" role="alert">{reorder.error}</td></tr>}
               {error && (
                 <tr>
                   <td colSpan={100} className="text-red-500 text-center info-cell">
@@ -157,9 +166,16 @@ export const Queue = memo(function Queue({ data, isLoading, error, progress }) {
                 </tr>
               )}
 
-              {data && <QueueItems running={running} pending={pending} info={data.info} />}
+              {data && <QueueItems running={running} pending={pending} info={data.info} reorderPreview={reorder.preview} reorderBusy={reorder.busy || isLoading} />}
             </tbody>
           </table>
+          {reorder.preview && <>
+            {reorder.preview.line != null && <div className="reorder-line" style={{top: reorder.preview.line}} />}
+            <div className="reorder-label" role="status" style={{top: reorder.preview.top}}>
+              Move {reorder.preview.ids.length} {reorder.preview.ids.length === 1 ? "job" : "jobs"}
+              {reorder.preview.position && ` ${reorder.preview.position} highlighted row`}
+            </div>
+          </>}
           {selecting && rectangle && <div className="selection-rectangle" style={{
             left: rectangle.left, top: rectangle.top, width: rectangle.right - rectangle.left,
             height: rectangle.bottom - rectangle.top,

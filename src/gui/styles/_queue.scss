@@ -42,18 +42,58 @@ header.header {
     .name-cell { min-height: 1.5rem; }
     .workflow-name-label { overflow-wrap: anywhere; font-size: 0.8rem; }
     .buttons { align-items: center; gap: 5px; }
-    .row-selection { margin: 0 5px; }
+    .row-selection { margin: 0 5px; flex-shrink: 0; }
     input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: #60a5fa; }
     input:disabled { cursor: default; opacity: 0.4; }
   }
 
-  .selection-heading { display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
+  .selection-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
   .selection-rectangle {
     position: absolute;
     pointer-events: none;
     z-index: 4;
     border: 1px solid #60a5fa;
     background: #60a5fa22;
+  }
+
+  .reorder-column { width: 28px; min-width: 28px; padding: 0 3px; text-align: center; }
+  .reorder-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    margin: 0;
+    cursor: grab;
+    touch-action: none;
+    color: inherit;
+    border-radius: 3px;
+    &:hover:not(:disabled) { color: #60a5fa; }
+    &:focus-visible { outline: 2px solid #60a5fa; }
+  }
+  .reordering { user-select: none; cursor: grabbing; }
+  .reorder-moving > td { opacity: 0.45; }
+  tr[data-reorder-anchor] {
+    > td { background-color: #60a5fa1a; }
+    > td.name {
+      background-repeat: repeat-x;
+      background-position: center;
+      background-size: 40px 20px;
+    }
+    &[data-reorder-anchor="top"] > td.name {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 20'%3E%3Cpath d='M15 6l5 5 5-5m-10 5l5 5 5-5' fill='none' stroke='%2360a5fa' stroke-opacity='.2' stroke-width='2'/%3E%3C/svg%3E");
+    }
+    &[data-reorder-anchor="bottom"] > td.name {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 20'%3E%3Cpath d='M15 9l5-5 5 5m-10 5l5-5 5 5' fill='none' stroke='%2360a5fa' stroke-opacity='.2' stroke-width='2'/%3E%3C/svg%3E");
+    }
+  }
+  .reorder-line { position: absolute; left: 0; right: 0; height: 2px; background: #60a5fa; z-index: 5; pointer-events: none; }
+  .reorder-label {
+    position: absolute; right: 34px; z-index: 6; pointer-events: none;
+    background: #1e3a5f; color: #fff; border: 1px solid #60a5fa;
+    padding: 3px 8px; border-radius: 4px; font-size: 12px;
+    max-width: calc(100% - 48px);
   }
 
   .table-container.drag-selecting { user-select: none; }

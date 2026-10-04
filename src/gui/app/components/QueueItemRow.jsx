@@ -5,6 +5,8 @@ import React, { memo, useCallback, useContext, useMemo } from "react";
 import { apiCall, msgLoadWorkflow } from "../internals/functions";
 import { AppContext } from "../internals/app-context";
 import { MediaItem } from "../components/MediaItem";
+import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+import {useSelectionStore} from "../stores/selectionStore";
 import PlayArrowOutlinedIcon from "@mui/icons-material/PlayArrowOutlined";
 import { MediaOutputs } from "../models/MediaOutputs";
 import { LoaderSpinner } from "../components/LoaderSpinner";
@@ -28,12 +30,17 @@ export const QueueItemRow = memo(
     workflowFilterMode,
     selecting,
     selected,
+    reorderBusy,
+    dragging,
+    reorderAnchor,
   }) {
     const { onMediaItemClick, fetchQueueItems, refreshQueueItems } = useContext(AppContext);
 
+    const renaming = useSelectionStore((state) => !!state.rename);
     const dbId = item?.[3]?.db_id;
     const workflow = item?.[3]?.extra_pnginfo?.workflow;
     const selectable = !!dbId && mode !== "running" && mode !== "external";
+    const canReorder = route === "queue" || route === "archive";
 
     const mediaOutputs = useMemo(() => {
       if (item?.[3]?.outputs && route === "completed") {
@@ -123,7 +130,9 @@ const executionTimeLabel = useMemo(() => {
         * Queue Item Details
         *
         */}
-        <tr className={(className ?? "") + (selected ? " selected" : "")}
+        <tr className={(className ?? "") + (selected ? " selected" : "") + (dragging ? " reorder-moving" : "")}
+            data-reorder-anchor={reorderAnchor}
+            data-reorder-id={canReorder && selectable ? dbId : undefined}
             data-selection-id={selectable ? dbId : undefined}
             aria-selected={selecting && selectable ? selected : undefined}>
           <td className="px-3 py-1 serial">
@@ -247,6 +256,15 @@ const executionTimeLabel = useMemo(() => {
                 disabled={!selectable} checked={selected} onChange={() => {}} />}
             </div>
           </td>
+          {canReorder && <td className="reorder-column" data-selection-ignore>
+            <button type="button" className="reorder-handle" data-reorder-handle={selectable ? dbId : undefined}
+              disabled={!selectable || reorderBusy || renaming}
+              aria-label={`Reorder ${workflow?.workflow_name || "job"}`}
+              title={!selectable ? "Running jobs cannot be reordered" : renaming ? "Finish renaming first" :
+                selecting ? "Drag to move the selected group (or use Up/Down arrow keys)" : "Drag to reorder (or use Up/Down arrow keys)"}>
+              <DragIndicatorIcon fontSize="small" />
+            </button>
+          </td>}
         </tr>
 
         {/*
@@ -294,8 +312,12 @@ const executionTimeLabel = useMemo(() => {
       prev.workflowFilterMode === next.workflowFilterMode &&
       prev.selecting === next.selecting &&
       prev.selected === next.selected &&
+      prev.reorderBusy === next.reorderBusy &&
+      prev.dragging === next.dragging &&
+      prev.reorderAnchor === next.reorderAnchor &&
       prev.info?.page === next.info?.page &&
       prev.info?.page_size === next.info?.page_size &&
+      prev.item?.[0] === next.item?.[0] &&
       prev.item?.[3]?.extra_pnginfo?.workflow?.workflow_name === next.item?.[3]?.extra_pnginfo?.workflow?.workflow_name
     );
   }

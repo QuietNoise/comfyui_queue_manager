@@ -62,6 +62,19 @@ class QM_Server:
             # Return the archive object as JSON
             return web.json_response({"running": running, "pending": pending, "info": info})
 
+        @PromptServer.instance.routes.post("/queue_manager/reorder")
+        async def reorder_items(request):
+            data = await requestJson(request)
+            if not isinstance(data, dict):
+                return web.json_response({"error": "Expected a JSON object"}, status=400)
+            try:
+                result = self.queue.reorder_items(data.get("ids"), data.get("target_id"), data.get("position"), data.get("route", "queue"))
+            except ValueError as error:
+                return web.json_response({"error": str(error)}, status=400)
+            except RuntimeError as error:
+                return web.json_response({"error": str(error)}, status=409)
+            return web.json_response(result)
+
         @PromptServer.instance.routes.post("/queue_manager/rename")
         async def rename_item(request):
             json_data = await requestJson(request)
