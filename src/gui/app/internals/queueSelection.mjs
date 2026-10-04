@@ -4,6 +4,8 @@ export function reconcileSelection(state, ids) {
   return {
     selected: new Set([...state.selected].filter((id) => visible.has(id))),
     anchor: visible.has(state.anchor) ? state.anchor : null,
+    rename: state.rename && visible.has(state.rename.sourceId)
+      ? {...state.rename, ids: state.rename.ids.filter((id) => visible.has(id))} : null,
   };
 }
 
@@ -30,4 +32,21 @@ export function selectRectangle(selected, rows, rectangle, deselect = false) {
     }
   }
   return next;
+}
+
+export function beginGroupRename(state, sourceId, name, route, sessionId) {
+  if (!state.active || state.rename) return state;
+  const selected = new Set(state.selected).add(sourceId);
+  return {selected, rename: {
+    sessionId, sourceId, ids: [...selected], route,
+    initialName: name, draftName: name, saving: false, error: "",
+  }};
+}
+
+export function updateGroupRename(state, sessionId, patch) {
+  return state.rename?.sessionId === sessionId ? {rename: {...state.rename, ...patch}} : state;
+}
+
+export function finishGroupRename(state, sessionId) {
+  return state.rename?.sessionId === sessionId ? {rename: null} : state;
 }

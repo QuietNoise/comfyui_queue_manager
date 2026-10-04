@@ -40,7 +40,7 @@ header.header {
     tbody tr { cursor: pointer; }
     tr.selected > td { background-color: #4b9efb38; }
     .name-cell { min-height: 1.5rem; }
-    .selection-name { overflow-wrap: anywhere; font-size: 0.8rem; }
+    .workflow-name-label { overflow-wrap: anywhere; font-size: 0.8rem; }
     .buttons { align-items: center; gap: 5px; }
     .row-selection { margin: 0 5px; }
     input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: #60a5fa; }
@@ -238,6 +238,7 @@ header.header {
   }
 
   .pending {
+    td.name:has(.group-renaming) > .name-cell { opacity: 1; }
     td {
       &:not(.actions):not(.cover) {
         > * {
@@ -284,7 +285,8 @@ header.header {
           overflow-wrap: anywhere;
         }
 
-        .workflow-name-input {
+        .workflow-name-input,
+        .workflow-name-preview {
           box-sizing: border-box;
           flex: 1;
           width: 0;
@@ -293,18 +295,37 @@ header.header {
           padding: 0 0.4rem;
           border: 1px solid var(--color-neutral-500);
           border-radius: 4px;
-          background-color: var(--background);
           color: var(--foreground);
           font: inherit;
           font-size: 0.8rem;
 
-          @media (prefers-color-scheme: light) {
-            background-color: var(--background-light);
-          }
-
           &:focus,
           &:focus-visible {
             outline: none;
+          }
+        }
+
+        .workflow-name-input {
+          background-color: var(--background);
+          @media (prefers-color-scheme: light) {
+            background-color: var(--background-light);
+          }
+        }
+
+        .workflow-name-preview {
+          background: transparent;
+          cursor: default;
+          display: block;
+          line-height: 1.4rem;
+          overflow: hidden;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+        }
+
+        .group-renaming {
+          .workflow-name-input, .workflow-name-preview {
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 1px #60a5fa;
           }
         }
 

@@ -51,6 +51,7 @@ const VisuallyHiddenInput = styled('input')({
 export default function Home() {
   const selecting = useSelectionStore((state) => state.active);
   const selected = useSelectionStore((state) => state.selected);
+  const groupRename = useSelectionStore((state) => state.rename);
   const [selectionBusy, setSelectionBusy] = useState(false);
   const [selectionError, setSelectionError] = useState("");
   const selectionBusyRef = useRef(false);
@@ -654,9 +655,10 @@ export default function Home() {
     setShowSplash(true);
   });
 
+  const refreshQueueItems = useEvent(() => fetchQueueItems({...latestViewRef.current, preserveSelection: true}));
   const appContextValue = useMemo(() => {
-    return { onMediaItemClick, openSplash, fetchQueueItems };
-  }, [onMediaItemClick, openSplash, fetchQueueItems]);
+    return { onMediaItemClick, openSplash, fetchQueueItems, refreshQueueItems };
+  }, [onMediaItemClick, openSplash, fetchQueueItems, refreshQueueItems]);
 
   const closeSplash = useEvent(event => {
     setShowSplash(false);
@@ -795,7 +797,7 @@ export default function Home() {
           </button>
 
           <div className="selection-toolbar">
-            {selecting && <span className="selection-count" role="status">{selected.size} selected</span>}
+            {selecting && <span className="selection-count" role="status">{groupRename ? `Renaming ${groupRename.ids.length}` : `${selected.size} selected`}</span>}
             <button type="button" className="selection-toggle shiny-button"
               aria-label="Select queue items" aria-pressed={selecting}
               title={selecting ? "Exit selection mode (Escape)" : "Select queue items"}

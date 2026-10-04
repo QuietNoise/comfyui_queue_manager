@@ -482,26 +482,58 @@ class QM_Queue:
             if row["status"] not in (0, 3) or any(item[1] == row["prompt_id"] for item in self.native_queue.currently_running.values()):
                 raise RuntimeError("Only pending or archived jobs can be renamed")
 
+            self._rename_rows([row], name, [db_id])
+            PromptServer.instance.send_sync("queue-manager-queue-updated", {"renamed": db_id})
+            return name
+
+    def rename_items(self, ids, name, route):
+        """Rename the selected jobs still pending in this tab in one transaction."""
+        if not isinstance(route, str) or route not in ("queue", "archive"):
+            raise ValueError("Only pending or archived jobs can be renamed")
+        if not isinstance(ids, list) or not 1 <= len(ids) <= 200 or any(type(item) is not int or item <= 0 for item in ids):
+            raise ValueError("Select between 1 and 200 valid jobs")
+        if not isinstance(name, str):
+            raise ValueError("Name must be a string")
+        name = resolve_workflow_name(name)
+        if not name:
+            raise ValueError("Name cannot be empty")
+
+        with self.native_queue.mutex:
+            ids = list(dict.fromkeys(ids))
+            placeholders = ",".join("?" for _ in ids)
+            rows = read_query(
+                f"SELECT id, prompt_id, prompt, updated_at FROM queue WHERE id IN ({placeholders}) AND status = ?",
+                [*ids, 0 if route == "queue" else 3],
+            )
+            running = {item[1] for item in self.native_queue.currently_running.values()}
+            rows = [row for row in rows if row["prompt_id"] not in running]
+            renamed = [row["id"] for row in rows]
+            if rows:
+                self._rename_rows(rows, name, renamed)
+                PromptServer.instance.send_sync("queue-manager-queue-updated", {"renamed": renamed})
+            return {"ids": renamed, "name": name}
+
+    def _rename_rows(self, rows, name, ids):
+        # Prepare every prompt before writing; malformed metadata must not leave a partial batch.
+        prompts = []
+        for row in rows:
             prompt = json.loads(row["prompt"])
             prompt[3]["extra_pnginfo"]["workflow"]["workflow_name"] = name
-            with get_conn():
-                write_query("UPDATE queue SET name = ?, prompt = ? WHERE id = ?", (name, json.dumps(prompt), db_id), False)
-                # The update trigger changes this timestamp, but a rename should not
-                # reorder the archive or change the client-takeover cutoff.
+            prompts.append(json.dumps(prompt))
+        with get_conn():
+            for row, db_id, prompt in zip(rows, ids, prompts):
+                write_query("UPDATE queue SET name = ?, prompt = ? WHERE id = ?", (name, prompt, db_id), False)
+                # Preserve archive ordering and the client-takeover cutoff after the update trigger.
                 write_query(
                     "UPDATE queue SET updated_at = ? WHERE id = ? AND updated_at != ?",
                     (row["updated_at"], db_id, row["updated_at"]),
                     False,
                 )
-
-            # The next job may already have a separate copy in ComfyUI's pending heap.
-            # Keep it in sync without replacing node inputs, priority, or sensitive data.
-            for item in self.native_queue.queue:
-                if item[1] == row["prompt_id"]:
-                    item[3]["extra_pnginfo"]["workflow"]["workflow_name"] = name
-
-            PromptServer.instance.send_sync("queue-manager-queue-updated", {"renamed": db_id})
-            return name
+        # Preserve node inputs, heap priority and sensitive data in prefetched native copies.
+        prompt_ids = {row["prompt_id"] for row in rows}
+        for item in self.native_queue.queue:
+            if item[1] in prompt_ids:
+                item[3]["extra_pnginfo"]["workflow"]["workflow_name"] = name
 
     def toggle_playback(self):
         with self.pause_lock:

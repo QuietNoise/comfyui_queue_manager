@@ -19595,71 +19595,213 @@ const CheckOutlinedIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("p
 const CloseOutlinedIcon = createSvgIcon(/* @__PURE__ */ jsxRuntimeExports.jsx("path", {
   d: "M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
 }));
-function QueueItemName({ name, dbId, canRename, onFilter, onRenamed, filterTitle = "Filter view by the workflow" }) {
+function reconcileSelection(state, ids) {
+  if (!state.active) return state;
+  const visible = new Set(ids);
+  return {
+    selected: new Set([...state.selected].filter((id) => visible.has(id))),
+    anchor: visible.has(state.anchor) ? state.anchor : null,
+    rename: state.rename && visible.has(state.rename.sourceId) ? { ...state.rename, ids: state.rename.ids.filter((id) => visible.has(id)) } : null
+  };
+}
+function selectRow(selected, anchor, ids, id, { shiftKey = false, altKey = false } = {}) {
+  const end = ids.indexOf(id);
+  if (end < 0) return { selected, anchor };
+  const start = shiftKey ? ids.indexOf(anchor) : -1;
+  const affected = start < 0 ? [id] : ids.slice(Math.min(start, end), Math.max(start, end) + 1);
+  const next2 = new Set(selected);
+  const remove = altKey || !shiftKey && next2.has(id);
+  for (const value of affected) {
+    if (remove) next2.delete(value);
+    else next2.add(value);
+  }
+  return { selected: next2, anchor: start < 0 ? id : anchor };
+}
+function selectRectangle(selected, rows, rectangle, deselect = false) {
+  const next2 = new Set(selected);
+  for (const { id, left, right, top, bottom } of rows) {
+    if (left <= rectangle.right && right >= rectangle.left && top <= rectangle.bottom && bottom >= rectangle.top) {
+      if (deselect) next2.delete(id);
+      else next2.add(id);
+    }
+  }
+  return next2;
+}
+function beginGroupRename(state, sourceId, name, route, sessionId) {
+  if (!state.active || state.rename) return state;
+  const selected = new Set(state.selected).add(sourceId);
+  return { selected, rename: {
+    sessionId,
+    sourceId,
+    ids: [...selected],
+    route,
+    initialName: name,
+    draftName: name,
+    saving: false,
+    error: ""
+  } };
+}
+function updateGroupRename(state, sessionId, patch) {
+  return state.rename?.sessionId === sessionId ? { rename: { ...state.rename, ...patch } } : state;
+}
+function finishGroupRename(state, sessionId) {
+  return state.rename?.sessionId === sessionId ? { rename: null } : state;
+}
+let renameSessionId = 0;
+const useSelectionStore = create((set) => ({
+  active: false,
+  selected: /* @__PURE__ */ new Set(),
+  anchor: null,
+  rename: null,
+  toggle: () => set((state) => ({ active: !state.active, selected: /* @__PURE__ */ new Set(), anchor: null, rename: null })),
+  enable: () => set({ active: true }),
+  reset: () => set({ active: false, selected: /* @__PURE__ */ new Set(), anchor: null, rename: null }),
+  clear: () => set({ selected: /* @__PURE__ */ new Set(), anchor: null, rename: null }),
+  beginRename: (id, name, route) => set((state) => beginGroupRename(state, id, name, route, ++renameSessionId)),
+  updateRename: (sessionId, patch) => set((state) => updateGroupRename(state, sessionId, patch)),
+  finishRename: (sessionId) => set((state) => finishGroupRename(state, sessionId)),
+  reconcile: (ids) => set((state) => reconcileSelection(state, ids)),
+  setSelected: (selected) => set((state) => state.rename ? state : { selected }),
+  selectAll: (ids) => set((state) => state.rename ? state : {
+    selected: ids.every((id) => state.selected.has(id)) ? /* @__PURE__ */ new Set() : new Set(ids),
+    anchor: null
+  }),
+  click: (ids, id, modifiers) => set((state) => state.active && !state.rename ? selectRow(state.selected, state.anchor, ids, id, modifiers) : state)
+}));
+function consumeRenameGesture(event, document2) {
+  const view = document2.defaultView;
+  let timer;
+  const capture = { capture: true };
+  const cleanup = () => {
+    view.clearTimeout(timer);
+    document2.removeEventListener("click", click, capture);
+    document2.removeEventListener("pointerup", release, capture);
+    document2.removeEventListener("pointercancel", release, capture);
+    document2.removeEventListener("pointerdown", nextGesture, capture);
+  };
+  const click = (next2) => {
+    next2.preventDefault();
+    next2.stopImmediatePropagation();
+    cleanup();
+  };
+  const release = (next2) => {
+    if (next2.pointerId !== event.pointerId) return;
+    timer = view.setTimeout(cleanup, 0);
+  };
+  const nextGesture = (next2) => {
+    if (next2 !== event) cleanup();
+  };
+  event.preventDefault();
+  event.stopPropagation();
+  document2.addEventListener("click", click, capture);
+  document2.addEventListener("pointerup", release, capture);
+  document2.addEventListener("pointercancel", release, capture);
+  document2.addEventListener("pointerdown", nextGesture, capture);
+}
+function QueueItemName({ name, dbId, canRename, selecting = false, route, onFilter, onRenamed, filterTitle = "Filter view by the workflow" }) {
   const [editing, setEditing] = reactExports.useState(false);
   const [draftName, setDraftName] = reactExports.useState(name);
   const [saving, setSaving] = reactExports.useState(false);
   const [error, setError] = reactExports.useState("");
   const [editorHeight, setEditorHeight] = reactExports.useState(0);
   const contentRef = reactExports.useRef(null);
+  const formRef = reactExports.useRef(null);
+  const inputRef = reactExports.useRef(null);
   const savingRef = reactExports.useRef(false);
+  const saveRef = reactExports.useRef(null);
+  const group = useSelectionStore((state) => state.rename);
+  const groupSource = selecting && group?.sourceId === dbId;
+  const groupAffected = selecting && group?.ids.includes(dbId);
+  const isEditing = canRename && (groupSource || !selecting && editing);
+  const value = groupSource ? group.draftName : draftName;
+  const busy = groupSource ? group.saving : saving;
+  const message = groupSource ? group.error : error;
+  reactExports.useEffect(() => {
+    if (!isEditing) return;
+    const blurOutside = (event) => {
+      if (formRef.current?.contains(event.target)) return;
+      if (groupSource) consumeRenameGesture(event, document);
+      const commit = saveRef.current;
+      inputRef.current?.blur();
+      commit?.();
+    };
+    document.addEventListener("pointerdown", blurOutside, true);
+    return () => document.removeEventListener("pointerdown", blurOutside, true);
+  }, [isEditing, groupSource]);
   const cancel = () => {
-    if (savingRef.current) return;
+    if (savingRef.current || busy) return;
+    if (groupSource) useSelectionStore.getState().finishRename(group.sessionId);
     setEditing(false);
     setError("");
   };
   const save = async (event) => {
     event?.preventDefault();
-    if (savingRef.current) return;
-    if (draftName === name) {
+    if (savingRef.current || busy) return;
+    const batch = groupSource ? useSelectionStore.getState().rename : null;
+    if (groupSource && batch?.sessionId !== group.sessionId) return;
+    const newName = batch ? batch.draftName : draftName;
+    if (batch ? newName === batch.initialName && event?.type !== "submit" : newName === name) {
       cancel();
       return;
     }
-    if (!draftName.trim()) {
-      setError("Name cannot be empty");
+    if (!newName.trim()) {
+      if (batch) useSelectionStore.getState().updateRename(batch.sessionId, { error: "Name cannot be empty" });
+      else setError("Name cannot be empty");
       return;
     }
     savingRef.current = true;
-    setSaving(true);
-    setError("");
+    if (batch) useSelectionStore.getState().updateRename(batch.sessionId, { saving: true, error: "" });
+    else {
+      setSaving(true);
+      setError("");
+    }
     try {
-      await apiCall("queue_manager/rename", { id: dbId, name: draftName });
+      await apiCall("queue_manager/rename", batch ? { ids: batch.ids, name: newName, route: batch.route } : { id: dbId, name: newName });
+      if (batch) useSelectionStore.getState().finishRename(batch.sessionId);
       setEditing(false);
       onRenamed();
     } catch (error2) {
-      setError(error2.message || "Could not rename this job. Try again.");
+      const message2 = error2.message || "Could not rename. Try again.";
+      if (batch) useSelectionStore.getState().updateRename(batch.sessionId, { saving: false, error: message2 });
+      else setError(message2);
     } finally {
       savingRef.current = false;
       setSaving(false);
     }
   };
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "workflow-name", children: [
-    editing && canRename ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
+  saveRef.current = save;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "workflow-name" + (groupAffected ? " group-renaming" : ""), children: [
+    isEditing ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
       "form",
       {
+        ref: formRef,
+        "data-selection-ignore": true,
         className: "workflow-name-content",
         style: { minHeight: editorHeight },
         onSubmit: save,
         onBlur: (event) => {
-          if (!event.currentTarget.contains(event.relatedTarget)) {
-            save();
-          }
+          if (!event.currentTarget.contains(event.relatedTarget)) save();
         },
-        "aria-busy": saving,
+        "aria-busy": busy,
         children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "input",
             {
+              ref: inputRef,
               className: "workflow-name-input",
-              "aria-label": "Workflow name",
-              "aria-invalid": !!error,
-              value: draftName,
-              disabled: saving,
+              "aria-label": groupSource ? `Name for ${group.ids.length} selected workflows` : "Workflow name",
+              "aria-invalid": !!message,
+              title: groupSource ? `Renaming ${group.ids.length} selected workflows together` : void 0,
+              value,
+              disabled: busy,
               autoFocus: true,
               onFocus: (event) => event.target.select(),
               onChange: (event) => {
-                setDraftName(event.target.value);
-                setError("");
+                if (groupSource) useSelectionStore.getState().updateRename(group.sessionId, { draftName: event.target.value, error: "" });
+                else {
+                  setDraftName(event.target.value);
+                  setError("");
+                }
               },
               onKeyDown: (event) => {
                 if (event.nativeEvent.isComposing) {
@@ -19674,30 +19816,43 @@ function QueueItemName({ name, dbId, canRename, onFilter, onRenamed, filterTitle
               }
             }
           ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "submit", className: "plain workflow-name-action", title: "Save name (Enter)", "aria-label": "Save name", disabled: saving, children: /* @__PURE__ */ jsxRuntimeExports.jsx(CheckOutlinedIcon, { fontSize: "small" }) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "plain workflow-name-action", onClick: cancel, title: "Cancel (Escape)", "aria-label": "Cancel rename", disabled: saving, children: /* @__PURE__ */ jsxRuntimeExports.jsx(CloseOutlinedIcon, { fontSize: "small" }) })
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "submit", className: "plain workflow-name-action", title: "Save name (Enter)", "aria-label": "Save name", disabled: busy, children: /* @__PURE__ */ jsxRuntimeExports.jsx(CheckOutlinedIcon, { fontSize: "small" }) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "plain workflow-name-action", onClick: cancel, title: "Cancel (Escape)", "aria-label": "Cancel rename", disabled: busy, children: /* @__PURE__ */ jsxRuntimeExports.jsx(CloseOutlinedIcon, { fontSize: "small" }) })
         ]
       }
     ) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "workflow-name-content", ref: contentRef, children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "plain workflow-name-label", onClick: onFilter, title: filterTitle, children: name }),
+      selecting ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "span",
+        {
+          className: groupAffected ? "workflow-name-preview" : "workflow-name-label",
+          title: groupAffected ? `Will be renamed with ${group.ids.length} selected workflows` : void 0,
+          children: groupAffected ? group.draftName : name
+        }
+      ) : /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "plain workflow-name-label", onClick: onFilter, title: filterTitle, children: name }),
       canRename && /* @__PURE__ */ jsxRuntimeExports.jsx(
         "button",
         {
           type: "button",
+          "data-selection-ignore": true,
           className: "plain workflow-name-action",
-          title: "Rename workflow",
+          title: group ? "Finish the current rename first" : selecting ? "Rename selected workflows (adds this job if unselected)" : "Rename workflow",
           "aria-label": "Rename workflow",
+          disabled: !!group,
           onClick: () => {
+            if (useSelectionStore.getState().rename) return;
             setEditorHeight(contentRef.current?.getBoundingClientRect().height ?? 0);
-            setDraftName(name);
             setError("");
-            setEditing(true);
+            if (selecting) useSelectionStore.getState().beginRename(dbId, name, route);
+            else {
+              setDraftName(name);
+              setEditing(true);
+            }
           },
           children: /* @__PURE__ */ jsxRuntimeExports.jsx(EditOutlinedIcon, { fontSize: "small" })
         }
       )
     ] }),
-    error && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "workflow-name-error", role: "alert", children: error })
+    message && isEditing && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "workflow-name-error", role: "alert", children: message })
   ] });
 }
 const QueueItemRow = reactExports.memo(
@@ -19716,7 +19871,7 @@ const QueueItemRow = reactExports.memo(
     selecting,
     selected
   }) {
-    const { onMediaItemClick, fetchQueueItems } = reactExports.useContext(AppContext);
+    const { onMediaItemClick, fetchQueueItems, refreshQueueItems } = reactExports.useContext(AppContext);
     const dbId = item?.[3]?.db_id;
     const workflow = item?.[3]?.extra_pnginfo?.workflow;
     const selectable = !!dbId && mode !== "running" && mode !== "external";
@@ -19808,19 +19963,17 @@ const QueueItemRow = reactExports.memo(
                   children: mediaOutputs.total
                 }
               ) : null,
-              selecting ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "selection-name", children: mode === "external" ? "External job" : workflow?.workflow_name ?? "" }) : /* @__PURE__ */ jsxRuntimeExports.jsx(
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
                 QueueItemName,
                 {
                   name: mode === "external" ? "External job" : workflow?.workflow_name ?? "",
                   dbId,
+                  selecting,
+                  route,
                   canRename: !!dbId && mode !== "running" && mode !== "external" && (route === "queue" || route === "archive"),
                   onFilter: filterByWorkflow,
                   filterTitle: workflowFilterMode === "workflow_name" ? "Filter view by this exact workflow name" : "Filter view by the workflow",
-                  onRenamed: () => {
-                    if (useAppStore.getState().route === route) {
-                      fetchQueueItems({ page: info?.page });
-                    }
-                  }
+                  onRenamed: refreshQueueItems
                 }
               )
             ] }) }),
@@ -19965,53 +20118,6 @@ const useOptionsStore = create((set) => ({
     [key]: value
   }))
 }));
-function reconcileSelection(state, ids) {
-  if (!state.active) return state;
-  const visible = new Set(ids);
-  return {
-    selected: new Set([...state.selected].filter((id) => visible.has(id))),
-    anchor: visible.has(state.anchor) ? state.anchor : null
-  };
-}
-function selectRow(selected, anchor, ids, id, { shiftKey = false, altKey = false } = {}) {
-  const end = ids.indexOf(id);
-  if (end < 0) return { selected, anchor };
-  const start = shiftKey ? ids.indexOf(anchor) : -1;
-  const affected = start < 0 ? [id] : ids.slice(Math.min(start, end), Math.max(start, end) + 1);
-  const next2 = new Set(selected);
-  const remove = altKey || !shiftKey && next2.has(id);
-  for (const value of affected) {
-    if (remove) next2.delete(value);
-    else next2.add(value);
-  }
-  return { selected: next2, anchor: start < 0 ? id : anchor };
-}
-function selectRectangle(selected, rows, rectangle, deselect = false) {
-  const next2 = new Set(selected);
-  for (const { id, left, right, top, bottom } of rows) {
-    if (left <= rectangle.right && right >= rectangle.left && top <= rectangle.bottom && bottom >= rectangle.top) {
-      if (deselect) next2.delete(id);
-      else next2.add(id);
-    }
-  }
-  return next2;
-}
-const useSelectionStore = create((set) => ({
-  active: false,
-  selected: /* @__PURE__ */ new Set(),
-  anchor: null,
-  toggle: () => set((state) => ({ active: !state.active, selected: /* @__PURE__ */ new Set(), anchor: null })),
-  enable: () => set({ active: true }),
-  reset: () => set({ active: false, selected: /* @__PURE__ */ new Set(), anchor: null }),
-  clear: () => set({ selected: /* @__PURE__ */ new Set(), anchor: null }),
-  reconcile: (ids) => set((state) => reconcileSelection(state, ids)),
-  setSelected: (selected) => set({ selected }),
-  selectAll: (ids) => set((state) => ({
-    selected: ids.every((id) => state.selected.has(id)) ? /* @__PURE__ */ new Set() : new Set(ids),
-    anchor: null
-  })),
-  click: (ids, id, modifiers) => set((state) => state.active ? selectRow(state.selected, state.anchor, ids, id, modifiers) : state)
-}));
 function bindQueueSelectionDrag(container, store, setRectangle, suppressClick) {
   const view = container.ownerDocument.defaultView;
   let drag = null;
@@ -20072,6 +20178,7 @@ function bindQueueSelectionDrag(container, store, setRectangle, suppressClick) {
     if (event.button !== 0 || event.isPrimary === false) return;
     view.clearTimeout(clickTimer);
     suppressClick(false);
+    if (store.getState().rename) return;
     if (event.target.closest(
       '[data-selection-ignore], thead, input, textarea, select, [contenteditable="true"], button:not(.workflow-name-label), video[controls]'
     )) return;
@@ -29919,6 +30026,7 @@ const VisuallyHiddenInput = styled("input")({
 function Home() {
   const selecting = useSelectionStore((state) => state.active);
   const selected = useSelectionStore((state) => state.selected);
+  const groupRename = useSelectionStore((state) => state.rename);
   const [selectionBusy, setSelectionBusy] = reactExports.useState(false);
   const [selectionError, setSelectionError] = reactExports.useState("");
   const selectionBusyRef = reactExports.useRef(false);
@@ -30401,9 +30509,10 @@ function Home() {
   const openSplash = useEvent(() => {
     setShowSplash(true);
   });
+  const refreshQueueItems = useEvent(() => fetchQueueItems({ ...latestViewRef.current, preserveSelection: true }));
   const appContextValue = reactExports.useMemo(() => {
-    return { onMediaItemClick, openSplash, fetchQueueItems };
-  }, [onMediaItemClick, openSplash, fetchQueueItems]);
+    return { onMediaItemClick, openSplash, fetchQueueItems, refreshQueueItems };
+  }, [onMediaItemClick, openSplash, fetchQueueItems, refreshQueueItems]);
   const closeSplash = useEvent((event) => {
     setShowSplash(false);
     if (!options.splash_screen || options.splash_screen !== options.__version__) {
@@ -30510,10 +30619,7 @@ function Home() {
           }
         ),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "selection-toolbar", children: [
-          selecting && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "selection-count", role: "status", children: [
-            selected.size,
-            " selected"
-          ] }),
+          selecting && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "selection-count", role: "status", children: groupRename ? `Renaming ${groupRename.ids.length}` : `${selected.size} selected` }),
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "button",
             {

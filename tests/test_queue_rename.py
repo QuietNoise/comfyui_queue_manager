@@ -34,6 +34,7 @@ def rename_queue(monkeypatch):
     with sqlite3.connect(":memory:") as conn:
         conn.row_factory = sqlite3.Row
         monkeypatch.setattr(qm_db, "get_conn", lambda: conn)
+        monkeypatch.setattr(module, "get_conn", lambda: conn)
         qm_db.init_schema()
         queue = module.QM_Queue.__new__(module.QM_Queue)
         queue.native_queue = SimpleNamespace(mutex=threading.RLock(), queue=[], currently_running={})
@@ -136,4 +137,88 @@ def test_rename_rejects_invalid_input(rename_queue, db_id, name):
     queue, server = rename_queue
     with pytest.raises(ValueError):
         queue.rename_item(db_id, name)
+    server.send_sync.assert_not_called()
+
+
+@pytest.mark.parametrize("route,status", [("queue", 0), ("archive", 3)])
+def test_batch_rename_updates_only_eligible_selected_jobs(rename_queue, route, status):
+    queue, server = rename_queue
+    first, prompt = add_job("first", status=status)
+    second, second_prompt = add_job("second", status=status)
+    other, _ = add_job("unselected", status=status)
+    moved, _ = add_job("moved", status=3 if status == 0 else 0)
+    completed, _ = add_job("completed", status=2)
+    running, running_prompt = add_job("running", status=status)
+    queue.native_queue.currently_running[7] = tuple(running_prompt)
+    native = tuple(copy.deepcopy(prompt))
+    queue.native_queue.queue = [native, tuple(copy.deepcopy(second_prompt))]
+    for db_id in (first, second):
+        qm_db.write_query("UPDATE queue SET updated_at = '2000-01-01' WHERE id = ?", (db_id,))
+
+    result = queue.rename_items([second, first, first, moved, completed, running, 999], "my:name  ", route)
+
+    assert set(result["ids"]) == {first, second}
+    assert result["name"] == "my_name__"
+    for db_id in (first, second):
+        row = qm_db.read_single("SELECT * FROM queue WHERE id = ?", (db_id,))
+        assert row["name"] == "my_name__"
+        assert row["updated_at"] == "2000-01-01"
+        assert row["status"] == status
+        assert json.loads(row["prompt"])[3]["extra_pnginfo"]["workflow"]["workflow_name"] == "my_name__"
+    for db_id in (other, moved, completed, running):
+        assert qm_db.read_single("SELECT name FROM queue WHERE id = ?", (db_id,))[0] == "old name"
+    assert native[3]["extra_pnginfo"]["workflow"]["workflow_name"] == "my_name__"
+    assert native[2] == prompt[2]
+    assert native[5] == prompt[5]
+    assert native[0] == prompt[0]
+    server.send_sync.assert_called_once_with("queue-manager-queue-updated", {"renamed": result["ids"]})
+
+
+@pytest.mark.parametrize(
+    "ids,name,route",
+    [
+        ([], "name", "queue"),
+        (None, "name", "queue"),
+        ([True], "name", "queue"),
+        ([0], "name", "queue"),
+        (["1"], "name", "queue"),
+        (list(range(1, 202)), "name", "queue"),
+        ([1], None, "queue"),
+        ([1], " ", "queue"),
+        ([1], "name", "completed"),
+        ([1], "name", None),
+    ],
+)
+def test_batch_rename_rejects_invalid_scope(rename_queue, ids, name, route):
+    queue, server = rename_queue
+    db_id, _ = add_job()
+    with pytest.raises(ValueError):
+        queue.rename_items(ids, name, route)
+    assert qm_db.read_single("SELECT name FROM queue WHERE id = ?", (db_id,))[0] == "old name"
+    server.send_sync.assert_not_called()
+
+
+def test_batch_rename_with_no_remaining_jobs_does_not_broaden(rename_queue):
+    queue, server = rename_queue
+    db_id, _ = add_job()
+    assert queue.rename_items([999], "name", "queue") == {"ids": [], "name": "name"}
+    assert qm_db.read_single("SELECT name FROM queue WHERE id = ?", (db_id,))[0] == "old name"
+    server.send_sync.assert_not_called()
+
+
+def test_batch_rename_rolls_back_on_write_failure(rename_queue):
+    queue, server = rename_queue
+    first, first_prompt = add_job("first")
+    second, _ = add_job("second")
+    native = tuple(copy.deepcopy(first_prompt))
+    queue.native_queue.queue = [native]
+    qm_db.get_conn().executescript("""
+        CREATE TRIGGER reject_second_name BEFORE UPDATE OF name ON queue
+        WHEN NEW.prompt_id = 'second'
+        BEGIN SELECT RAISE(ABORT, 'simulated failure'); END;
+    """)
+    with pytest.raises(sqlite3.IntegrityError, match="simulated failure"):
+        queue.rename_items([first, second], "new name", "queue")
+    assert all(row["name"] == "old name" for row in qm_db.read_query("SELECT name FROM queue"))
+    assert list(native) == first_prompt
     server.send_sync.assert_not_called()

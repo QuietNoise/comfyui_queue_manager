@@ -68,14 +68,18 @@ class QM_Server:
             if not isinstance(json_data, dict):
                 return web.json_response({"error": "Expected a JSON object"}, status=400)
             try:
-                name = self.queue.rename_item(json_data.get("id"), json_data.get("name"))
+                if "ids" in json_data:
+                    result = self.queue.rename_items(json_data["ids"], json_data.get("name"), json_data.get("route"))
+                else:
+                    name = self.queue.rename_item(json_data.get("id"), json_data.get("name"))
+                    result = {"id": json_data["id"], "name": name}
             except ValueError as error:
                 return web.json_response({"error": str(error)}, status=400)
             except LookupError as error:
                 return web.json_response({"error": str(error)}, status=404)
             except RuntimeError as error:
                 return web.json_response({"error": str(error)}, status=409)
-            return web.json_response({"id": json_data["id"], "name": name})
+            return web.json_response(result)
 
         @PromptServer.instance.routes.post("/queue_manager/selection")
         async def selection_action(request):

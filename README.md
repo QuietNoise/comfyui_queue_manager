@@ -147,7 +147,7 @@ The hints below the tabs can be dismissed with **Don't show again**. To restore 
 - Drag a rectangle to add every row it touches. Hold **Alt** while dragging to deselect those rows. The list scrolls when you drag near its top or bottom edge.
 - Use the checkbox in the column header to select or clear the visible page. Press **Escape** or click the selection toggle again to exit.
 
-While selecting, filters are disabled. Paging stays available; changing pages clears the selected items but keeps selection mode on. Footer actions become **Archive Selected**, **Run Selected**, **Export Selected**, and **Delete Selected**, as appropriate for the current tab. They stay disabled until at least one job is selected. Renaming is hidden during selection.
+While selecting, filters are disabled. Paging stays available; changing pages clears the selected items but keeps selection mode on. Footer actions become **Archive Selected**, **Run Selected**, **Export Selected**, and **Delete Selected**, as appropriate for the current tab. They stay disabled until at least one job is selected. Rename pencils stay available for pending and archived jobs.
 
 ![Dark-mode Queue selection with individual actions, three selected jobs, and enabled paging](readme-img/selection-queue-dark.jpg)
 
@@ -162,7 +162,11 @@ Click the pencil at the right edge of a pending or archived job's Workflow cell 
 
 ![Dark-mode Queue Manager with arrows pointing to the rename pencil and inline name editor](readme-img/rename-queue-items-dark.jpg)
 
-The change applies to that saved job, including its workflow-name metadata, and survives a restart or queue export/import. Names use the same filename sanitization as the Workflow Name node. Node text inputs and connections remain unchanged; a Workflow Name node with empty text uses the renamed metadata as its fallback during execution.
+Outside selection mode, the change applies to that saved job, including its workflow-name metadata, and survives a restart or queue export/import. Names use the same filename sanitization as the Workflow Name node. Node text inputs and connections remain unchanged; a Workflow Name node with empty text uses the renamed metadata as its fallback during execution.
+
+In selection mode, clicking a pencil renames the selected group. If that row was not selected, it is added to the group. All affected names show the same draft with matching blue outlines; the preview names retain the row background, and the toolbar shows how many jobs are being renamed. Clicking outside the input saves a changed name and closes the editor without selecting/deselecting that row or triggering its action; **Enter** or the checkmark also saves. **Escape** or the cross cancels the whole edit. Enter/checkmark can also apply the source name unchanged to the group.
+
+The selected group stays fixed while editing. Every other rename pencil is disabled until the edit closes, so the editor cannot jump to another row. Jobs that have started running, disappeared, or moved to another tab are skipped. A same-page refresh keeps the remaining targets; changing pages/tabs or exiting selection clears the editor. As with an individual rename, jobs may leave an exact-name filtered view after saving.
 
 ### Restore client focus
 When you restart ComfyUI or browser, you might lose the client focus. When that happens the progress of running renders in ComfyUI will no longer update (no progress view, no previews, no highlights which nodes is being executed).

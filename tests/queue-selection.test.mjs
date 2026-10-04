@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {consumeRenameGesture} from '../src/gui/app/internals/renameGesture.mjs';
 import {bindQueueSelectionDrag} from '../src/gui/app/internals/queueSelectionDrag.mjs';
-import {reconcileSelection, selectRow, selectRectangle} from '../src/gui/app/internals/queueSelection.mjs';
+import {beginGroupRename, updateGroupRename, finishGroupRename, reconcileSelection, selectRow, selectRectangle} from '../src/gui/app/internals/queueSelection.mjs';
 
 test('refresh retains visible selected jobs, drops missing IDs and does not select new rows', () => {
   const state = {active: true, selected: new Set([1, 3, 5]), anchor: 3};
@@ -174,4 +175,112 @@ test('explicit exit during dragging stays off, and disposing listeners stops lat
   assert.deepEqual([...h.state.selected], before);
   assert.equal(h.captured, false);
   assert.equal(h.rectangle, null);
+});
+
+
+test('group rename adds the edited row and freezes the target IDs for the shared draft', () => {
+  const initial = {active: true, selected: new Set([1, 2]), rename: null};
+  let state = {...initial, ...beginGroupRename(initial, 3, 'source', 'queue', 7)};
+  assert.deepEqual([...state.selected], [1, 2, 3]);
+  assert.deepEqual(state.rename.ids, [1, 2, 3]);
+  assert.deepEqual([...initial.selected], [1, 2]);
+  state = {...state, ...updateGroupRename(state, 7, {draftName: 'shared name'})};
+  assert.equal(state.rename.draftName, 'shared name');
+  assert.equal(state.rename.initialName, 'source');
+  state.selected = new Set([2, 4]);
+  assert.deepEqual(state.rename.ids, [1, 2, 3]);
+});
+
+test('group rename prunes vanished targets on refresh and cancels if its editor disappears', () => {
+  const initial = {active: true, selected: new Set([1, 2, 3])};
+  const state = {...initial, ...beginGroupRename(initial, 1, 'name', 'archive', 8)};
+  assert.deepEqual(reconcileSelection(state, [1, 3, 4]).rename.ids, [1, 3]);
+  assert.equal(reconcileSelection(state, [2, 3, 4]).rename, null);
+});
+
+test('finishing, cancelling and late save responses cannot overwrite a newer group edit', () => {
+  const initial = {active: true, selected: new Set([1])};
+  const state = {...initial, ...beginGroupRename(initial, 1, 'name', 'queue', 9)};
+  assert.equal(updateGroupRename(state, 8, {error: 'old response'}), state);
+  assert.equal(finishGroupRename(state, 8), state);
+  const cancelled = {...state, ...finishGroupRename(state, 9)};
+  assert.equal(cancelled.rename, null);
+  assert.deepEqual([...cancelled.selected], [1]);
+  assert.equal(cancelled.active, true);
+  const saving = {...state, ...updateGroupRename(state, 9, {saving: true})};
+  assert.equal(beginGroupRename(saving, 2, 'other', 'queue', 10), saving);
+});
+
+
+test('another rename pencil cannot move an active editor, even before saving', () => {
+  const initial = {active: true, selected: new Set([1, 2])};
+  const state = {...initial, ...beginGroupRename(initial, 1, 'first', 'queue', 21)};
+  assert.equal(beginGroupRename(state, 3, 'third', 'queue', 22), state);
+  assert.deepEqual([...state.selected], [1, 2]);
+  const finished = {...state, ...finishGroupRename(state, 21)};
+  assert.deepEqual([...beginGroupRename(finished, 3, 'third', 'queue', 22).selected], [1, 2, 3]);
+});
+
+test('dragging outside a group editor cannot change the selected group', () => {
+  const h = dragHarness();
+  h.change({active: true, selected: new Set([1, 3]), rename: {sourceId: 1}});
+  h.fire('container:pointerdown');
+  h.fire('window:pointermove', {clientY: 65});
+  h.fire('window:pointerup', {clientY: 65});
+  assert.deepEqual([...h.state.selected], [1, 3]);
+  assert.equal(h.rectangle, null);
+  assert.equal(h.captured, false);
+  h.dispose();
+});
+
+function renameGestureHarness() {
+  const document = new EventTarget();
+  const timers = new Map();
+  let nextTimer = 0;
+  document.defaultView = {
+    setTimeout(fn) {timers.set(++nextTimer, fn); return nextTimer;},
+    clearTimeout(id) {timers.delete(id);},
+  };
+  const fire = (type) => {
+    const event = new Event(type, {cancelable: true});
+    Object.defineProperty(event, 'pointerId', {value: 1});
+    document.dispatchEvent(event);
+    return event;
+  };
+  const begin = () => {
+    const down = fire('pointerdown');
+    consumeRenameGesture(down, document);
+    assert.equal(down.defaultPrevented, true);
+  };
+  const settle = () => {for (const fn of [...timers.values()]) fn();};
+  return {document, fire, begin, settle};
+}
+
+test('the outside gesture is consumed after a fast rename closes the editor; the next click works', () => {
+  const h = renameGestureHarness();
+  h.begin();
+  let rowClicks = 0;
+  h.document.addEventListener('click', () => {rowClicks++;});
+  h.fire('pointerup');
+  assert.equal(h.fire('click').defaultPrevented, true);
+  assert.equal(rowClicks, 0);
+  h.settle();
+  h.fire('pointerdown');
+  assert.equal(h.fire('click').defaultPrevented, false);
+  assert.equal(rowClicks, 1);
+});
+
+test('a disabled pencil or cancelled pointer cannot leave the next gesture blocked', () => {
+  const h = renameGestureHarness();
+  h.begin();
+  h.fire('pointerup'); // Disabled controls may never emit click.
+  h.settle();
+  assert.equal(h.fire('click').defaultPrevented, false);
+  h.begin();
+  h.fire('pointercancel');
+  h.settle();
+  assert.equal(h.fire('click').defaultPrevented, false);
+  h.begin();
+  h.fire('pointerdown'); // Also recover if release occurred outside this document.
+  assert.equal(h.fire('click').defaultPrevented, false);
 });

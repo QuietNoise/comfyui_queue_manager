@@ -50,6 +50,7 @@ export function bindQueueSelectionDrag(container, store, setRectangle, suppressC
     if (event.button !== 0 || event.isPrimary === false) return;
     view.clearTimeout(clickTimer);
     suppressClick(false);
+    if (store.getState().rename) return;
     if (event.target.closest(
       '[data-selection-ignore], thead, input, textarea, select, [contenteditable="true"], button:not(.workflow-name-label), video[controls]'
     )) return;

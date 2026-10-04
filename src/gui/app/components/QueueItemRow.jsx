@@ -29,7 +29,7 @@ export const QueueItemRow = memo(
     selecting,
     selected,
   }) {
-    const { onMediaItemClick, fetchQueueItems } = useContext(AppContext);
+    const { onMediaItemClick, fetchQueueItems, refreshQueueItems } = useContext(AppContext);
 
     const dbId = item?.[3]?.db_id;
     const workflow = item?.[3]?.extra_pnginfo?.workflow;
@@ -160,18 +160,16 @@ const executionTimeLabel = useMemo(() => {
                 </span>
               ) : null}
 
-              {selecting ? <span className="selection-name">{mode === "external" ? "External job" : workflow?.workflow_name ?? ""}</span> : <QueueItemName
+              <QueueItemName
                 name={mode === "external" ? "External job" : workflow?.workflow_name ?? ""}
                 dbId={dbId}
+                selecting={selecting}
+                route={route}
                 canRename={!!dbId && mode !== "running" && mode !== "external" && (route === "queue" || route === "archive")}
                 onFilter={filterByWorkflow}
                 filterTitle={workflowFilterMode === "workflow_name" ? "Filter view by this exact workflow name" : "Filter view by the workflow"}
-                onRenamed={() => {
-                  if (useAppStore.getState().route === route) {
-                    fetchQueueItems({page: info?.page});
-                  }
-                }}
-              />}
+                onRenamed={refreshQueueItems}
+              />
             </div>
           </td>
 
