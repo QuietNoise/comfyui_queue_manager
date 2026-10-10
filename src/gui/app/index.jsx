@@ -296,7 +296,7 @@ export default function Home() {
 
   async function archiveAll() {
     try {
-      let queryArgs = appendFilters("");
+      let queryArgs = appendFilters(`?front=${useAppStore.getState().shiftDown === true}`);
 
       const response = await fetch(`${baseURL}queue_manager/archive-queue${queryArgs}`);
     } catch (error) {
@@ -797,9 +797,10 @@ export default function Home() {
             </button>
           </div>
 
-          {shiftDown && route === "archive" &&
+          {shiftDown && (route === "archive" || route === "queue") &&
             <div className={"play-first"}>
-              <UploadSharpIcon/> Press Run to queue at front
+              <UploadSharpIcon/>
+              {route === "queue" ? "Press Archive to add at start of Archive" : "Press Run to queue at front"}
             </div>
           }
         </div>

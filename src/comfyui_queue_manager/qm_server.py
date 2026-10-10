@@ -121,7 +121,7 @@ class QM_Server:
             # Get the archived items
             json_data = await request.json()
             if "archive" in json_data:
-                archived = self.queue.archive_items(json_data["archive"])
+                archived = self.queue.archive_items(json_data["archive"], front=json_data.get("front") is True)
                 return web.json_response({"archived": archived})
             else:
                 return web.json_response({"error": "No items to archive"}, status=400)
@@ -172,7 +172,7 @@ class QM_Server:
         @PromptServer.instance.routes.get("/queue_manager/archive-queue")
         async def archive_queue(request):
             filters = self.get_filters(request)
-            total = self.queue.archive_queue(filters)
+            total = self.queue.archive_queue(filters, front=request.query.get("front") == "true")
             return web.json_response({"archived": total})
 
         # Play item from archive

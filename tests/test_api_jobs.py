@@ -34,6 +34,7 @@ def api_queue(monkeypatch):
     with sqlite3.connect(":memory:") as conn:
         conn.row_factory = sqlite3.Row
         monkeypatch.setattr(qm_db, "get_conn", lambda: conn)
+        monkeypatch.setattr(module, "get_conn", lambda: conn)
         qm_db.init_schema()
         queue = module.QM_Queue.__new__(module.QM_Queue)
         queue.paused = False

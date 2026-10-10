@@ -19916,7 +19916,10 @@ const QueueItemRow = reactExports.memo(
       }
     }, [workflow, item]);
     const archiveQueueItem = reactExports.useCallback(async () => {
-      await apiCall(`queue_manager/archive`, { archive: [dbId] });
+      await apiCall(`queue_manager/archive`, {
+        archive: [dbId],
+        front: useAppStore.getState().shiftDown === true
+      });
     }, [dbId]);
     const playItem = reactExports.useCallback(async () => {
       const { shiftDown, clientId } = useAppStore.getState();
@@ -20031,7 +20034,7 @@ const QueueItemRow = reactExports.memo(
                 {
                   className: "archive yellow-button shiny-button",
                   onClick: archiveQueueItem,
-                  title: "Move to the archive",
+                  title: "Move to the archive (Shift: add at the start)",
                   "data-selection-ignore": true,
                   children: "Archive"
                 }
@@ -30567,7 +30570,7 @@ function Home() {
   }
   async function archiveAll() {
     try {
-      let queryArgs = appendFilters("");
+      let queryArgs = appendFilters(`?front=${useAppStore.getState().shiftDown === true}`);
       const response = await fetch(`${baseURL}queue_manager/archive-queue${queryArgs}`);
     } catch (error) {
       console.error("Error fetching queue items:", error);
@@ -30983,9 +30986,9 @@ function Home() {
             }
           )
         ] }),
-        shiftDown && route === "archive" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "play-first", children: [
+        shiftDown && (route === "archive" || route === "queue") && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "play-first", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(UploadSharpIcon, {}),
-          " Press Run to queue at front"
+          route === "queue" ? "Press Archive to add at start of Archive" : "Press Run to queue at front"
         ] })
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "queue-controls", children: [

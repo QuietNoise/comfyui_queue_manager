@@ -62,7 +62,10 @@ export const QueueItemRow = memo(
     }, [workflow, item]);
 
     const archiveQueueItem = useCallback(async () => {
-      await apiCall(`queue_manager/archive`, { archive: [dbId] });
+      await apiCall(`queue_manager/archive`, {
+        archive: [dbId],
+        front: useAppStore.getState().shiftDown === true,
+      });
     }, [dbId]);
 
     const playItem = useCallback(async () => {
@@ -219,7 +222,7 @@ const executionTimeLabel = useMemo(() => {
                 <button
                   className="archive yellow-button shiny-button"
                   onClick={archiveQueueItem}
-                  title="Move to the archive"
+                  title="Move to the archive (Shift: add at the start)"
                   data-selection-ignore
                 >
                   Archive

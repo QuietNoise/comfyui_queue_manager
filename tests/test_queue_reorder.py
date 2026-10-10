@@ -1,5 +1,6 @@
 """Queue moves persist atomically and update the job ComfyUI will execute next."""
 
+import asyncio
 import copy
 import heapq
 import importlib.util
@@ -480,3 +481,131 @@ def test_vanished_boundary_selection_is_not_a_move_all(reorder_queue):
         queue.reorder_items([999], destination="start")
     assert snapshot() == before
     server.send_sync.assert_not_called()
+
+
+@pytest.mark.parametrize("front", [False, True])
+@pytest.mark.parametrize("existing", ["empty", "chronological", "reordered"])
+@pytest.mark.parametrize("action", ["items", "selected", "all"])
+def test_archive_actions_preserve_group_order_and_existing_archive(reorder_queue, front, existing, action):
+    queue, _ = reorder_queue
+    archived = [] if existing == "empty" else [job(i, status=3)[0] for i in range(3)]
+    if existing == "reordered":
+        queue.reorder_items([archived[2]], archived[0], "before", "archive")
+        archived = [archived[2], archived[0], archived[1], job(-20, status=3)[0]]
+    jobs = [job(i, name="move") for i in [7, 2, 5]]
+    moving = [jobs[i][0] for i in [1, 2, 0]]
+    untouched, untouched_prompt = job(3, name="keep")
+    running, running_prompt = job(0, status=1, name="move")
+    completed, _ = job(1, status=2, name="move")
+    queue.native_queue.currently_running[1] = tuple(running_prompt)
+    unmanaged = (100, "unmanaged-native", {}, {}, [])
+    queue.native_queue.queue = [tuple(jobs[0][1]), tuple(untouched_prompt), unmanaged]
+    before = {row["id"]: dict(row) for row in qm_db.read_query("SELECT * FROM queue")}
+    requested = [jobs[0][0], jobs[2][0], jobs[1][0], jobs[0][0], running, completed, *archived, 9999]
+    if action == "items":
+        result = queue.archive_items(requested, front=front)
+    elif action == "selected":
+        result = queue.selection_action("archive", "queue", requested, front=front)
+    else:
+        filters = {"workflow_name": {"type": "workflow_name", "value": "move"}}
+        result = queue.archive_queue(filters, front=front)
+    assert result == 3
+    expected = moving + archived if front else archived + moving
+    assert archive_ids(queue) == expected
+    assert {item[1] for item in queue.native_queue.queue} == {untouched_prompt[1], unmanaged[1]}
+    assert queue.native_queue.currently_running[1] == tuple(running_prompt)
+    for row in qm_db.read_query("SELECT * FROM queue"):
+        if row["id"] not in moving:
+            assert dict(row) == before[row["id"]]
+        else:
+            assert row["status"] == 3
+            assert {k: v for k, v in dict(row).items() if k not in {"status", "updated_at", "archive_order"}} == {
+                k: v for k, v in before[row["id"]].items() if k not in {"status", "updated_at", "archive_order"}
+            }
+    qm_db.init_schema()
+    assert archive_ids(queue) == expected
+    assert order() == [untouched]
+
+
+def test_repeated_front_archives_and_rearchiving_use_current_positions(reorder_queue):
+    queue, _ = reorder_queue
+    old, _ = job(20, status=3)
+    first, _ = job(4)
+    second, _ = job(5)
+    queue.archive_items([first], front=True)
+    queue.archive_items([second], front=True)
+    assert archive_ids(queue) == [second, first, old]
+    queue.play_items([first], front=False)
+    queue.archive_items([first], front=True)
+    assert archive_ids(queue) == [first, second, old]
+    queue.play_items([first], front=False)
+    queue.archive_items([first])
+    assert archive_ids(queue) == [second, old, first]
+
+
+def test_front_archive_rollback_preserves_status_positions_and_native_queue(reorder_queue):
+    queue, server = reorder_queue
+    job(0, status=3)
+    jobs = [job(i) for i in [1, 2]]
+    native = [tuple(jobs[0][1])]
+    queue.native_queue.queue = native
+    before = snapshot()
+    qm_db.get_conn().execute(
+        f"CREATE TRIGGER reject_front_archive BEFORE UPDATE OF archive_order ON queue WHEN NEW.id = {jobs[1][0]} AND NEW.archive_order IS NOT NULL BEGIN SELECT RAISE(ABORT, 'test failure'); END"
+    )
+    with pytest.raises(sqlite3.IntegrityError, match="test failure"):
+        queue.archive_queue(front=True)
+    assert snapshot() == before
+    assert queue.native_queue.queue is native
+    server.send_sync.assert_not_called()
+    server.queue_updated.assert_not_called()
+
+
+@pytest.mark.parametrize("items", [None, [], "1", [True], [0], [9999]])
+def test_invalid_or_stale_archive_ids_cannot_archive_all(reorder_queue, items):
+    queue, server = reorder_queue
+    job(0)
+    before = snapshot()
+    assert queue.archive_items(items, front=True) == 0
+    assert snapshot() == before
+    server.send_sync.assert_not_called()
+
+
+@pytest.mark.parametrize("action", ["items", "selected", "all"])
+@pytest.mark.parametrize("front", [None, False, True])
+def test_archive_http_handlers_apply_front_and_default_order(reorder_queue, monkeypatch, action, front):
+    queue, server = reorder_queue
+    handlers = {}
+    register = lambda path: lambda handler: handlers.setdefault(path, handler)
+    server.routes = SimpleNamespace(get=register, post=register, delete=register)
+    server.app = SimpleNamespace(middlewares=[])
+    server.user_manager = SimpleNamespace()
+    aiohttp = ModuleType("aiohttp")
+    aiohttp.web = SimpleNamespace(
+        middleware=lambda handler: handler,
+        json_response=lambda data, status=200: SimpleNamespace(status=status, text=json.dumps(data)),
+    )
+    monkeypatch.setitem(sys.modules, "aiohttp", aiohttp)
+    path = Path(__file__).parents[1] / "src/comfyui_queue_manager/qm_server.py"
+    spec = importlib.util.spec_from_file_location("src.comfyui_queue_manager._archive_server_test", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    module.QM_Server(SimpleNamespace(queue=queue, gallery=None), "test")
+    archived, _ = job(0, status=3)
+    pending, _ = job(1, name="move")
+    untouched, _ = job(2, name="keep")
+    body = {"archive": [pending]} if action == "items" else {"action": "archive", "route": "queue", "ids": [pending]}
+    query = {"filters": json.dumps({"workflow_name": {"value": "move"}})}
+    if front is not None:
+        body["front"] = front
+        query["front"] = str(front).lower()
+
+    async def request_json():
+        return body
+
+    request = SimpleNamespace(query=query, json=request_json)
+    endpoint = {"items": "archive", "selected": "selection", "all": "archive-queue"}[action]
+    response = asyncio.run(handlers[f"/queue_manager/{endpoint}"](request))
+    assert response.status == 200
+    assert archive_ids(queue) == ([pending, archived] if front else [archived, pending])
+    assert order() == [untouched]

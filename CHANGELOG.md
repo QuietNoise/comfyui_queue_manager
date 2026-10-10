@@ -1,9 +1,10 @@
 # Release Notes
 
-## Unreleased
+## v0.2.0
 
 ### Enhancements
 
+- Hold Shift while archiving individual, selected, or all pending jobs to place them at the start of the Archive in queue order. Show a Shift hint in both Queue and Archive headers, and give the active selection toggle a pressed appearance with reversed neutral colors.
 - Manage API-submitted jobs without GUI workflow metadata, including rename, selection, reordering, archive/replay, import/export and completed outputs. Add optional API naming/identity metadata and reconstruct API prompts with ComfyUI's Load support. Fix archived prefetched jobs remaining executable.
 - Add an optional **Clean caches on Pause** setting under Queue Manager → Basic, off by default, to unload models and clear execution caches after the current workflow finishes.
 - Reorder pending and archived jobs using drag handles in the rightmost Queue and Archive column, including selected groups. Includes direction-sensitive, highlighted drop anchors, edge scrolling, keyboard controls and persistent ordering; running jobs stay fixed. Archive playback follows its saved order. Selected jobs also have buttons below the list to move to the start/end of the full list or the top/bottom of the current page.

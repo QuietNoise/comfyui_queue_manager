@@ -43,11 +43,16 @@ An extension supporting more streamlined prompt queue management.
 - New features might appear whenever I deem them useful for managing the queue.
 
 ## Features
-- Persistence. Queue is now saved in a local database and restored on ComfyUI restart.
-- Option to archive queue items to play them later.
-- Export and import queue to / from a file.
-- Pause and resume queue.
-- Filter by workflows and then archive, delete and export filtered view only.
+
+- Persist queues across ComfyUI restarts.
+- Archive jobs and run them later.
+- Export and import queues.
+- Pause and resume the queue.
+- Rename pending and archived jobs individually or as a selected group.
+- Select multiple queued jobs to act on them.
+- Reorder pending and archived jobs individually or as a selection
+- Filter by workflow or by exact workflow name.
+- Gallery mode – easily preview rendered jobs (images and videos) in a comprehensive viewer
 
 ## Compatibility
 - This extension requires the new ComfyUI menu.
@@ -111,6 +116,8 @@ When button on the bottom has a asterisk `*` next to it, it means that the actio
 
 When in the **Queue** tab you can archive individual items by clicking the **Archive** button in the actions columns or you can archive all items in the queue by clicking the **Archive All** button on the bottom of the window.
 
+In Queue mode hold **Shift** while clicking **Archive**, **Archive Selected**, or **Archive All** to place the jobs at the start of the Archive. A hint in the Queue header confirms this while Shift is held.
+
 Similarly, when in **Archive** tab you can play archived items by clicking the **Run** button in the actions column or you can play all archived items by clicking the **Run All** button on the bottom of the window.
 
 #### Run at front of the queue
@@ -172,7 +179,7 @@ The current page stays open after a move. Jobs moved off that page leave the sel
 
 Running jobs stay fixed and have disabled handles. Handles are also disabled while renaming a selected group. Drag reordering is available in Queue and Archive, within the current page; in a filtered view the group is placed before or after the visible drop target in the full queue, preserving the relative order of other jobs. Changing pages or refreshing the list during a drag cancels that drag. Jobs that start running or leave the current tab before the server applies the move are skipped; if the drop target disappears, the list refreshes with an error so you can retry.
 
-Both tabs keep their saved order after a ComfyUI restart. Queue order determines which pending job executes next, including when ComfyUI has already prefetched a job. Archive order is independent of queue priorities and archive timestamps; **Run All** and **Run Selected** follow the order shown in Archive, including when running at the front of the queue. New or re-archived jobs join the end of a manually ordered Archive. Restart ComfyUI and refresh the browser after installing this update to load both the backend and the new handles.
+Both tabs keep their saved order after a ComfyUI restart. Queue order determines which pending job executes next, including when ComfyUI has already prefetched a job. Archive order is independent of queue priorities and archive timestamps; **Run All** and **Run Selected** follow the order shown in Archive, including when running at the front of the queue. New or re-archived jobs join the end of a manually ordered Archive unless Shift is held while archiving. Restart ComfyUI and refresh the browser after installing this update to load both the backend and the new handles.
 
 ### Rename queued workflows
 Click the pencil at the right edge of a pending or archived job's Workflow cell to edit its name. Moving focus outside the editor saves a changed name. You can also press **Enter** or click the checkmark to save; press **Escape** or click the cross to cancel. Empty names are rejected. Running and completed jobs cannot be renamed.
@@ -221,7 +228,7 @@ Queue Manager uses the first active Workflow Name node in the submitted prompt, 
 ### API-submitted jobs
 Jobs submitted through ComfyUI's `/prompt` API are managed alongside jobs from the GUI, even when `extra_data.extra_pnginfo.workflow` is absent or has no name. They respect Pause and support renaming, selection, reordering, archive/replay, export/import, and completed-output previews.
 
-Unnamed submissions receive an **API job <short prompt ID>** label. Each submission has its own workflow identity unless the caller provides one, so filtering by workflow does not combine unrelated API jobs. Renaming or replaying a job retains its identity.
+Unnamed submissions receive an **API job + short prompt ID** label. Each submission has its own workflow identity unless the caller provides one, so filtering by workflow does not combine unrelated API jobs. Renaming or replaying a job retains its identity.
 
 API callers can optionally include this `extra_data` field in their `/prompt` request:
 

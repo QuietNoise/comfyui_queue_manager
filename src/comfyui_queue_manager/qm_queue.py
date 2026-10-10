@@ -699,68 +699,40 @@ class QM_Queue:
                 WHERE status = 0
             """)
 
-    # Set status of pending and running items to 3 (archived)
-    def archive_queue(self, filters=None):
+    def archive_queue(self, filters=None, front=False):
+        """Archive pending jobs in queue order, optionally before the existing archive."""
         with self.native_queue.mutex:
-            where_string, params = self.get_filters(filters, ["status = 0"])
+            where, params = self.get_filters(filters, ["status = 0"])
+            rows = read_query(f"SELECT id, prompt_id FROM queue WHERE {where} ORDER BY number, id", params)
+            running = {item[1] for item in self.native_queue.currently_running.values()}
+            rows = [row for row in rows if row["prompt_id"] not in running]
+            if not rows:
+                return 0
 
-            # Archive the queue from the database
-            total = write_query(
-                f"""
-                UPDATE queue
-                SET status = 3
-                WHERE {where_string}
-            """,
-                params,
-            )
+            if front:
+                first_order = read_single("SELECT MIN(archive_order) FROM queue WHERE status = 3")[0]
+                first_order = (first_order if first_order is not None else 0) - len(rows)
 
-            # remove the items from the native queue and heapify queue
-            self.native_queue.queue = []
+            with get_conn():
+                for offset, row in enumerate(rows):
+                    write_query("UPDATE queue SET status = 3 WHERE id = ?", (row["id"],), False)
+                    if front:
+                        # Set the position after the status trigger clears any old archive slot.
+                        write_query("UPDATE queue SET archive_order = ? WHERE id = ?", (first_order + offset, row["id"]), False)
+
+            # Remove only archived jobs from the native prefetch heap.
+            prompt_ids = {row["prompt_id"] for row in rows}
+            self.native_queue.queue = [item for item in self.native_queue.queue if item[1] not in prompt_ids]
             heapq.heapify(self.native_queue.queue)
-
-            # If affected any rows notify the frontend that the queue and archive have been archived
-            if total > 0:
-                qm_log.info("Queue Archived: %d item(s)", total)
-                PromptServer.instance.queue_updated()
-                PromptServer.instance.send_sync("queue-manager-queue-updated", {"total_moved": total})
-            else:
-                qm_log.info("No items to archive")
-
+            self.native_queue.not_empty.notify()
+            total = len(rows)
+            qm_log.info("Queue Archived: %d item(s)", total)
+            PromptServer.instance.queue_updated()
+            PromptServer.instance.send_sync("queue-manager-queue-updated", {"total_moved": total})
             return total
 
-    def archive_items(self, items):
-        """
-        Archive items to the database
-        """
-        with self.native_queue.mutex:
-            # Archive the item from the database
-
-            archived = 0
-            for item in items:
-                archived += write_query(
-                    """
-                    UPDATE queue
-                    SET status = 3
-                    WHERE id = ?
-                """,
-                    (item,),
-                    False,
-                )
-
-            get_conn().commit()
-
-            if archived > 0:
-                # An archived job may already be prefetched in ComfyUI's native heap.
-                placeholders = ",".join("?" for _ in items)
-                prompt_ids = {row[0] for row in read_query(f"SELECT prompt_id FROM queue WHERE id IN ({placeholders})", items)}
-                self.native_queue.queue = [item for item in self.native_queue.queue if item[1] not in prompt_ids]
-                heapq.heapify(self.native_queue.queue)
-                self.native_queue.not_empty.notify()
-                PromptServer.instance.queue_updated()
-                qm_log.info("Queue Item Archived: %d item(s)", archived)
-                PromptServer.instance.send_sync("queue-manager-queue-updated", {"total_moved": archived})
-
-            return archived
+    def archive_items(self, items, front=False):
+        return self.archive_queue({"items": items}, front=front)
 
     def delete_running(self, prompt_id=None):
         with self.native_queue.mutex:
@@ -925,8 +897,10 @@ class QM_Queue:
             if action == "play":
                 return self.play_archive(client_id, filters, front)
 
-            sql = "UPDATE queue SET status = 3" if action == "archive" else "DELETE FROM queue"
-            affected = write_query(f"{sql} WHERE {where}", params)
+            if action == "archive":
+                return self.archive_queue(filters, front=front)
+
+            affected = write_query(f"DELETE FROM queue WHERE {where}", params)
             prompt_ids = {row["prompt_id"] for row in rows}
             self.native_queue.queue = [item for item in self.native_queue.queue if item[1] not in prompt_ids]
             heapq.heapify(self.native_queue.queue)
