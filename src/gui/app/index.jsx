@@ -35,6 +35,7 @@ import {MenuItem, Pagination, Select} from "@mui/material";
 import {LoaderSpinner} from "@/app/components/LoaderSpinner";
 import {getWorkflowFilter, withWorkflowFilter} from "./internals/workflowFilters.mjs";
 import {useSelectionStore} from "./stores/selectionStore";
+import {queueWorkflow, queueNodeIDs} from "./internals/queueMetadata.mjs";
 
 const VisuallyHiddenInput = styled('input')({
   clip: 'rect(0 0 0 0)',
@@ -271,17 +272,6 @@ export default function Home() {
     }
   }, [pageSize, completedListOrder, route, fetchQueueItems]);
 
-  function getNodeIDs(nodes) {
-    const nodeIDs = {};
-    for (const node of nodes) {
-      if (node.id) {
-        nodeIDs[node.id] = node.id;
-      }
-    }
-
-    return nodeIDs;
-  }
-
   function getTheJob(jobID, queue) {
     if (!queue) {
       return null;
@@ -414,7 +404,7 @@ export default function Home() {
           const theJob = getTheJob(prompt_id, appStatus.queue);
 
           if (theJob) {
-            const nodeIDs = getNodeIDs(theJob[3].extra_pnginfo.workflow.nodes);
+            const nodeIDs = queueNodeIDs(theJob);
             // set the current job
             setProgress(prev => ({
               ...prev,
@@ -608,7 +598,7 @@ export default function Home() {
             dbID: item[3].db_id,
             promptID: item[1],
             number: item[0],
-            workflow: item[3].extra_pnginfo.workflow,
+            workflow: queueWorkflow(item),
             outputs: outputs
           })
         }
@@ -694,7 +684,7 @@ export default function Home() {
     if (currentJob.id && currentJob.integrity === false) {
       const theJob = getTheJob(currentJob.id, appStatus.queue);
       if (theJob) {
-        const nodeIDs = getNodeIDs(theJob[3].extra_pnginfo.workflow.nodes);
+        const nodeIDs = queueNodeIDs(theJob);
 
         // if we already marked some nodes as executed do not overwrite them
         for (const nodeID in currentJob.nodes) {

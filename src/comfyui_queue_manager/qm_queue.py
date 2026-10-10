@@ -13,6 +13,7 @@ from .helpers import reveal_file
 from .qm_db import get_conn, read_query, read_single, write_query, write_many
 from .qm_log import qm_log
 from .nodes import resolve_workflow_name
+from .queue_metadata import prepare_queue_item, queue_metadata, rename_queue_item
 
 
 class QM_Queue:
@@ -348,12 +349,9 @@ class QM_Queue:
         # logging.info(json.dumps(item))
 
         with self.native_queue.mutex:
-            # if item[3]["extra_pnginfo"] is not set then we pass it to original put
-            # It suggests request does not come from ComfyUI but from external source (like API or some app's plugin) - as such they won't benefit from queue manager features
-            if "extra_pnginfo" not in item[3] or "workflow" not in item[3]["extra_pnginfo"]:
-                # item = tuple(item)
-                self.original_put(tuple(item))
-                return
+            # API prompts are fully executable without the GUI's workflow metadata.
+            item = prepare_queue_item(item)
+            metadata = queue_metadata(item)
 
             # Add the item to the database
             write_query(
@@ -364,8 +362,8 @@ class QM_Queue:
                 (
                     item[1],
                     item[0],
-                    item[3]["extra_pnginfo"]["workflow"]["workflow_name"],
-                    item[3]["extra_pnginfo"]["workflow"]["id"],
+                    metadata["name"],
+                    metadata["workflow_id"],
                     json.dumps(item),
                 ),
             )
@@ -436,7 +434,7 @@ class QM_Queue:
                 )
                 qm_log.info(
                     "Executing workflow: \033[33m%s\033[0m at %s",
-                    queue_item[0][3]["extra_pnginfo"]["workflow"]["workflow_name"],
+                    queue_metadata(queue_item[0])["name"],
                     queue_item[0][0],
                 )
                 return queue_item  # (item, task_counter)
@@ -531,8 +529,8 @@ class QM_Queue:
                 start = min(0, numbers[0])
                 numbers = list(range(start, start + len(rows)))
 
-            # Prepare the new native heap before writing anything. Keep external
-            # API jobs intact, but replace managed prefetches with the new head.
+            # Prepare the new native heap before writing anything. Keep unmanaged
+            # native entries intact, but replace managed prefetches with the new head.
             managed_ids = {row["prompt_id"] for row in rows}
             native = [item for item in self.native_queue.queue if item[1] not in managed_ids]
             if not self.paused:
@@ -618,7 +616,7 @@ class QM_Queue:
         prompts = []
         for row in rows:
             prompt = json.loads(row["prompt"])
-            prompt[3]["extra_pnginfo"]["workflow"]["workflow_name"] = name
+            rename_queue_item(prompt, name)
             prompts.append(json.dumps(prompt))
         with get_conn():
             for row, db_id, prompt in zip(rows, ids, prompts):
@@ -633,7 +631,7 @@ class QM_Queue:
         prompt_ids = {row["prompt_id"] for row in rows}
         for item in self.native_queue.queue:
             if item[1] in prompt_ids:
-                item[3]["extra_pnginfo"]["workflow"]["workflow_name"] = name
+                rename_queue_item(item, name)
 
     def toggle_playback(self, clean_caches=False):
         with self.pause_lock:
@@ -752,6 +750,13 @@ class QM_Queue:
             get_conn().commit()
 
             if archived > 0:
+                # An archived job may already be prefetched in ComfyUI's native heap.
+                placeholders = ",".join("?" for _ in items)
+                prompt_ids = {row[0] for row in read_query(f"SELECT prompt_id FROM queue WHERE id IN ({placeholders})", items)}
+                self.native_queue.queue = [item for item in self.native_queue.queue if item[1] not in prompt_ids]
+                heapq.heapify(self.native_queue.queue)
+                self.native_queue.not_empty.notify()
+                PromptServer.instance.queue_updated()
                 qm_log.info("Queue Item Archived: %d item(s)", archived)
                 PromptServer.instance.send_sync("queue-manager-queue-updated", {"total_moved": archived})
 
@@ -886,9 +891,8 @@ class QM_Queue:
             if moved > 0:
                 if front:
                     # Run All and Run Selected must both honor the new first job.
-                    self.native_queue.queue = [
-                        item for item in self.native_queue.queue if "workflow" not in item[3].get("extra_pnginfo", {})
-                    ]
+                    managed_ids = {row[0] for row in read_query("SELECT prompt_id FROM queue WHERE status = 0")}
+                    self.native_queue.queue = [item for item in self.native_queue.queue if item[1] not in managed_ids]
                     heapq.heapify(self.native_queue.queue)
                 # Notify native queue lock so if it's waiting it can move on and go for next iteration
                 PromptServer.instance.prompt_queue.not_empty.notify()
@@ -959,6 +963,8 @@ class QM_Queue:
             query_params = []
 
             for item in items:
+                item = list(prepare_queue_item(item))
+                metadata = queue_metadata(item)
                 # TODO: Check if the item is a list, has the correct length, and contains valid data format
                 # SIML: Check if all prompts in the queue are valid
 
@@ -975,8 +981,8 @@ class QM_Queue:
                     (
                         item[1],
                         PromptServer.instance.number,
-                        item[3]["extra_pnginfo"]["workflow"]["workflow_name"],
-                        item[3]["extra_pnginfo"]["workflow"]["id"],
+                        metadata["name"],
+                        metadata["workflow_id"],
                         json.dumps(item),
                         status,
                     )

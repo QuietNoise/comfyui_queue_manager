@@ -13,6 +13,7 @@ import { LoaderSpinner } from "../components/LoaderSpinner";
 import {useAppStore} from "@/app/stores/appStore";
 import { QueueItemName } from "./QueueItemName";
 import {withWorkflowFilter} from "../internals/workflowFilters.mjs";
+import {queueWorkflow} from "../internals/queueMetadata.mjs";
 
 export const QueueItemRow = memo(
   function QueueItemRow({
@@ -38,8 +39,8 @@ export const QueueItemRow = memo(
 
     const renaming = useSelectionStore((state) => !!state.rename);
     const dbId = item?.[3]?.db_id;
-    const workflow = item?.[3]?.extra_pnginfo?.workflow;
-    const selectable = !!dbId && mode !== "running" && mode !== "external";
+    const workflow = useMemo(() => queueWorkflow(item), [item]);
+    const selectable = !!dbId && mode !== "running";
     const canReorder = route === "queue" || route === "archive";
 
     const mediaOutputs = useMemo(() => {
@@ -50,7 +51,7 @@ export const QueueItemRow = memo(
     }, [item, route, galleryOptions]);
 
     const cancelQueueItem = useCallback(async () => {
-      const cancelRoute = mode === "running" || mode === "external" ? "interrupt" : "queue";
+      const cancelRoute = mode === "running" ? "interrupt" : "queue";
       await apiCall(`api/${cancelRoute}`, { delete: [item[1]] });
     }, [mode, item]);
 
@@ -170,11 +171,11 @@ const executionTimeLabel = useMemo(() => {
               ) : null}
 
               <QueueItemName
-                name={mode === "external" ? "External job" : workflow?.workflow_name ?? ""}
+                name={workflow?.workflow_name ?? ""}
                 dbId={dbId}
                 selecting={selecting}
                 route={route}
-                canRename={!!dbId && mode !== "running" && mode !== "external" && (route === "queue" || route === "archive")}
+                canRename={!!dbId && mode !== "running" && (route === "queue" || route === "archive")}
                 onFilter={filterByWorkflow}
                 filterTitle={workflowFilterMode === "workflow_name" ? "Filter view by this exact workflow name" : "Filter view by the workflow"}
                 onRenamed={refreshQueueItems}
@@ -205,16 +206,14 @@ const executionTimeLabel = useMemo(() => {
                 Delete
               </button>
 
-              {mode !== "external" ? (
-                <button
-                  className="load green-button shiny-button"
-                  onClick={loadQueueItem}
-                  title="Load workflow"
-                  data-selection-ignore
-                >
-                  Load
-                </button>
-              ) : null}
+              <button
+                className="load green-button shiny-button"
+                onClick={loadQueueItem}
+                title={workflow.api_prompt ? "Load API prompt (automatic node layout)" : "Load workflow"}
+                data-selection-ignore
+              >
+                Load
+              </button>
 
               {route === "queue" && mode !== "running" ? (
                 <button
@@ -252,7 +251,7 @@ const executionTimeLabel = useMemo(() => {
               ) : null}
               {selecting && <input type="checkbox" className="row-selection"
                 aria-label={`Select ${workflow?.workflow_name || "job"}`}
-                title={selectable ? "Select job (Shift: range, Alt: deselect)" : "Running and external jobs cannot be selected"}
+                title={selectable ? "Select job (Shift: range, Alt: deselect)" : "Running jobs cannot be selected"}
                 disabled={!selectable} checked={selected} onChange={() => {}} />}
             </div>
           </td>
@@ -318,7 +317,8 @@ const executionTimeLabel = useMemo(() => {
       prev.info?.page === next.info?.page &&
       prev.info?.page_size === next.info?.page_size &&
       prev.item?.[0] === next.item?.[0] &&
-      prev.item?.[3]?.extra_pnginfo?.workflow?.workflow_name === next.item?.[3]?.extra_pnginfo?.workflow?.workflow_name
+      queueWorkflow(prev.item).workflow_name === queueWorkflow(next.item).workflow_name &&
+      queueWorkflow(prev.item).id === queueWorkflow(next.item).id
     );
   }
 );

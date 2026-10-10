@@ -4,6 +4,7 @@
 
 ### Enhancements
 
+- Manage API-submitted jobs without GUI workflow metadata, including rename, selection, reordering, archive/replay, import/export and completed outputs. Add optional API naming/identity metadata and reconstruct API prompts with ComfyUI's Load support. Fix archived prefetched jobs remaining executable.
 - Add an optional **Clean caches on Pause** setting under Queue Manager → Basic, off by default, to unload models and clear execution caches after the current workflow finishes.
 - Reorder pending and archived jobs using drag handles in the rightmost Queue and Archive column, including selected groups. Includes direction-sensitive, highlighted drop anchors, edge scrolling, keyboard controls and persistent ordering; running jobs stay fixed. Archive playback follows its saved order. Selected jobs also have buttons below the list to move to the start/end of the full list or the top/bottom of the current page.
 - Select visible queue items using checkboxes, row clicks, Shift ranges, or a drag rectangle; hold Alt to deselect. Apply footer actions to selected jobs while keeping individual row actions available. Same-page refreshes retain visible selections; changing pages clears selected items while keeping selection mode on until explicitly exited or the browser reloads.

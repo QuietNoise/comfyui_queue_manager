@@ -19858,6 +19858,23 @@ function QueueItemName({ name, dbId, canRename, selecting = false, route, onFilt
     message && isEditing && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "workflow-name-error", role: "alert", children: message })
   ] });
 }
+function queueWorkflow(item) {
+  const saved = item?.[3]?.extra_pnginfo?.workflow;
+  const workflow = saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {};
+  const metadata = item?.[3]?.queue_manager;
+  return {
+    ...workflow,
+    id: metadata?.workflow_id ?? workflow.id ?? `api:${item?.[1]}`,
+    workflow_name: metadata?.name ?? workflow.workflow_name ?? `API job ${String(item?.[1] ?? "").slice(0, 8)}`,
+    // The parent uses ComfyUI's API loader when the original canvas is absent.
+    ...!Array.isArray(workflow.nodes) ? { api_prompt: item?.[2] } : {}
+  };
+}
+function queueNodeIDs(item) {
+  const workflow = queueWorkflow(item);
+  const ids = workflow.api_prompt ? Object.keys(workflow.api_prompt) : (workflow.nodes ?? []).map((node2) => node2.id).filter((id) => id != null);
+  return Object.fromEntries(ids.map((id) => [id, id]));
+}
 const QueueItemRow = reactExports.memo(
   function QueueItemRow2({
     item,
@@ -19880,8 +19897,8 @@ const QueueItemRow = reactExports.memo(
     const { onMediaItemClick, fetchQueueItems, refreshQueueItems } = reactExports.useContext(AppContext);
     const renaming = useSelectionStore((state) => !!state.rename);
     const dbId = item?.[3]?.db_id;
-    const workflow = item?.[3]?.extra_pnginfo?.workflow;
-    const selectable = !!dbId && mode !== "running" && mode !== "external";
+    const workflow = reactExports.useMemo(() => queueWorkflow(item), [item]);
+    const selectable = !!dbId && mode !== "running";
     const canReorder = route === "queue" || route === "archive";
     const mediaOutputs = reactExports.useMemo(() => {
       if (item?.[3]?.outputs && route === "completed") {
@@ -19890,7 +19907,7 @@ const QueueItemRow = reactExports.memo(
       return null;
     }, [item, route, galleryOptions]);
     const cancelQueueItem = reactExports.useCallback(async () => {
-      const cancelRoute = mode === "running" || mode === "external" ? "interrupt" : "queue";
+      const cancelRoute = mode === "running" ? "interrupt" : "queue";
       await apiCall(`api/${cancelRoute}`, { delete: [item[1]] });
     }, [mode, item]);
     const loadQueueItem = reactExports.useCallback(() => {
@@ -19976,11 +19993,11 @@ const QueueItemRow = reactExports.memo(
               /* @__PURE__ */ jsxRuntimeExports.jsx(
                 QueueItemName,
                 {
-                  name: mode === "external" ? "External job" : workflow?.workflow_name ?? "",
+                  name: workflow?.workflow_name ?? "",
                   dbId,
                   selecting,
                   route,
-                  canRename: !!dbId && mode !== "running" && mode !== "external" && (route === "queue" || route === "archive"),
+                  canRename: !!dbId && mode !== "running" && (route === "queue" || route === "archive"),
                   onFilter: filterByWorkflow,
                   filterTitle: workflowFilterMode === "workflow_name" ? "Filter view by this exact workflow name" : "Filter view by the workflow",
                   onRenamed: refreshQueueItems
@@ -19999,16 +20016,16 @@ const QueueItemRow = reactExports.memo(
                   children: "Delete"
                 }
               ),
-              mode !== "external" ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
                 "button",
                 {
                   className: "load green-button shiny-button",
                   onClick: loadQueueItem,
-                  title: "Load workflow",
+                  title: workflow.api_prompt ? "Load API prompt (automatic node layout)" : "Load workflow",
                   "data-selection-ignore": true,
                   children: "Load"
                 }
-              ) : null,
+              ),
               route === "queue" && mode !== "running" ? /* @__PURE__ */ jsxRuntimeExports.jsx(
                 "button",
                 {
@@ -20048,7 +20065,7 @@ const QueueItemRow = reactExports.memo(
                   type: "checkbox",
                   className: "row-selection",
                   "aria-label": `Select ${workflow?.workflow_name || "job"}`,
-                  title: selectable ? "Select job (Shift: range, Alt: deselect)" : "Running and external jobs cannot be selected",
+                  title: selectable ? "Select job (Shift: range, Alt: deselect)" : "Running jobs cannot be selected",
                   disabled: !selectable,
                   checked: selected,
                   onChange: () => {
@@ -20094,7 +20111,7 @@ const QueueItemRow = reactExports.memo(
     const prevId = prev2.item?.[3]?.db_id;
     const nextId = next2.item?.[3]?.db_id;
     if (prevId !== nextId) return false;
-    return prev2.loader === next2.loader && prev2.index === next2.index && prev2.mode === next2.mode && prev2.route === next2.route && prev2.thumbMode === next2.thumbMode && prev2.galleryOptions === next2.galleryOptions && prev2.filters === next2.filters && prev2.workflowFilterMode === next2.workflowFilterMode && prev2.selecting === next2.selecting && prev2.selected === next2.selected && prev2.reorderBusy === next2.reorderBusy && prev2.dragging === next2.dragging && prev2.reorderAnchor === next2.reorderAnchor && prev2.info?.page === next2.info?.page && prev2.info?.page_size === next2.info?.page_size && prev2.item?.[0] === next2.item?.[0] && prev2.item?.[3]?.extra_pnginfo?.workflow?.workflow_name === next2.item?.[3]?.extra_pnginfo?.workflow?.workflow_name;
+    return prev2.loader === next2.loader && prev2.index === next2.index && prev2.mode === next2.mode && prev2.route === next2.route && prev2.thumbMode === next2.thumbMode && prev2.galleryOptions === next2.galleryOptions && prev2.filters === next2.filters && prev2.workflowFilterMode === next2.workflowFilterMode && prev2.selecting === next2.selecting && prev2.selected === next2.selected && prev2.reorderBusy === next2.reorderBusy && prev2.dragging === next2.dragging && prev2.reorderAnchor === next2.reorderAnchor && prev2.info?.page === next2.info?.page && prev2.info?.page_size === next2.info?.page_size && prev2.item?.[0] === next2.item?.[0] && queueWorkflow(prev2.item).workflow_name === queueWorkflow(next2.item).workflow_name && queueWorkflow(prev2.item).id === queueWorkflow(next2.item).id;
   }
 );
 const useOptionsStore = create((set) => ({
@@ -20535,25 +20552,25 @@ function QueueMoveButtons({ ids, selected, route, disabled, onMove }) {
       destination: "start",
       label: `Start of ${list}`,
       Icon: VerticalAlignTopIcon,
-      title: `Move selected jobs to the start of the full ${list}, including jobs hidden by filters`
+      title: `Move selected jobs to the start of the ${list}.`
     },
     {
       destination: "page_top",
       label: "Top of page",
       Icon: KeyboardArrowUpIcon,
-      title: "Move selected jobs before the first unselected job on this page"
+      title: "Move selected jobs to top of this page"
     },
     {
       destination: "page_bottom",
       label: "Bottom of page",
       Icon: KeyboardArrowDownIcon,
-      title: "Move selected jobs after the last unselected job on this page"
+      title: "Move selected jobs to bottom of this page"
     },
     {
       destination: "end",
       label: `End of ${list}`,
       Icon: VerticalAlignBottomIcon,
-      title: `Move selected jobs to the end of the full ${list}, including jobs hidden by filters`
+      title: `Move selected jobs to the end of the queue ${list}.`
     }
   ];
   const renderAction = ({ destination, label, Icon: Icon2, title }) => {
@@ -20576,7 +20593,7 @@ function QueueMoveButtons({ ids, selected, route, disabled, onMove }) {
   };
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "selection-move-toolbar", role: "group", "aria-label": "Move selected jobs", "data-selection-ignore": true, children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "selection-move-start", children: actions.slice(0, 2).map(renderAction) }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "selection-move-label", children: "- Move to -" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "selection-move-label", children: "- Move selection to -" }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "selection-move-end", children: actions.slice(2).map(renderAction) })
   ] });
 }
@@ -20596,7 +20613,7 @@ const QueueItems = reactExports.memo(function QueueItems2({ running, pending, in
         item,
         className: "running",
         loader: true,
-        mode: item?.[3]?.extra_pnginfo ? "running" : "external",
+        mode: "running",
         info,
         route,
         thumbMode,
@@ -30532,15 +30549,6 @@ function Home() {
       fetchQueueItems({ page: 0, reload: true });
     }
   }, [pageSize, completedListOrder, route, fetchQueueItems]);
-  function getNodeIDs(nodes) {
-    const nodeIDs = {};
-    for (const node2 of nodes) {
-      if (node2.id) {
-        nodeIDs[node2.id] = node2.id;
-      }
-    }
-    return nodeIDs;
-  }
   function getTheJob(jobID, queue) {
     if (!queue) {
       return null;
@@ -30661,7 +30669,7 @@ function Home() {
           const { prompt_id } = event.data.message.detail;
           const theJob = getTheJob(prompt_id, appStatus.queue);
           if (theJob) {
-            const nodeIDs = getNodeIDs(theJob[3].extra_pnginfo.workflow.nodes);
+            const nodeIDs = queueNodeIDs(theJob);
             setProgress((prev2) => ({
               ...prev2,
               id: prompt_id,
@@ -30811,7 +30819,7 @@ function Home() {
             dbID: item[3].db_id,
             promptID: item[1],
             number: item[0],
-            workflow: item[3].extra_pnginfo.workflow,
+            workflow: queueWorkflow(item),
             outputs
           });
         }
@@ -30874,7 +30882,7 @@ function Home() {
     if (currentJob.id && currentJob.integrity === false) {
       const theJob = getTheJob(currentJob.id, appStatus.queue);
       if (theJob) {
-        const nodeIDs = getNodeIDs(theJob[3].extra_pnginfo.workflow.nodes);
+        const nodeIDs = queueNodeIDs(theJob);
         for (const nodeID in currentJob.nodes) {
           if (currentJob.nodes[nodeID] === true) {
             nodeIDs[nodeID] = true;

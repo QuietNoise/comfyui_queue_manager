@@ -179,16 +179,16 @@ def test_atomic_rollback_preserves_native_prefetch_and_database(reorder_queue):
     server.send_sync.assert_not_called()
 
 
-def test_native_execution_follows_new_order_and_keeps_external_jobs(reorder_queue):
+def test_native_execution_follows_new_order_and_keeps_unmanaged_jobs(reorder_queue):
     queue, _ = reorder_queue
     first, first_prompt = job(-5)
     second, second_prompt = job(4)
     third, third_prompt = job(9, legacy=True)
-    external = (-20, "external", {}, {}, [], {"private": "external-secret"})
-    queue.native_queue.queue = [external, tuple(first_prompt)]
+    unmanaged = (-20, "unmanaged", {}, {}, [], {"private": "unmanaged-secret"})
+    queue.native_queue.queue = [unmanaged, tuple(first_prompt)]
     queue.reorder_items([third], first, "before")
-    assert external in queue.native_queue.queue
-    assert queue.original_get(None)[0] == external
+    assert unmanaged in queue.native_queue.queue
+    assert queue.original_get(None)[0] == unmanaged
     head = queue.queue_get()[0]
     assert head[1] == third_prompt[1]
     assert head[0] == -5

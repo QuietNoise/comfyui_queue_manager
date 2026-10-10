@@ -326,7 +326,12 @@ export function handleIframeMessages() {
       // When workflow is received from iframe then load it into ComfyUI
       if (type === "QM_LoadWorkflow" && workflow) {
         // e.g. forward into ComfyUI’s API
-        app.loadGraphData(workflow, true, true, workflow.workflow_name + ' ' + number);
+        const filename = workflow.workflow_name + ' ' + number;
+        if (workflow.api_prompt) {
+          await app.loadApiJson(workflow.api_prompt, filename);
+        } else {
+          await app.loadGraphData(workflow, true, true, filename);
+        }
       }
 
       // Handshake message from iframe

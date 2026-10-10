@@ -135,7 +135,7 @@ def test_running_rows_respect_both_modes_and_remain_visible_when_unfiltered(filt
         add_job("match", "dog", "original", 1),
         add_job("renamed", "new name", "original", 1),
         add_job("other-workflow", "dog", "different", 1),
-        [1, "external-job", {}, {}, []],
+        [1, "unmanaged-job", {}, {}, []],
     ]
     filtered_queue.native_queue.currently_running = dict(enumerate(jobs))
     running, _ = filtered_queue.get_current_queue(page_size=100, filters=name_filter("dog"))
@@ -210,16 +210,16 @@ def test_stale_selection_and_wrong_actions_cannot_touch_other_tabs(filtered_queu
     assert len(qm_db.read_query("SELECT id FROM queue")) == 1
 
 
-def test_run_selected_at_front_keeps_order_and_external_native_jobs(filtered_queue):
+def test_run_selected_at_front_keeps_order_and_unmanaged_native_jobs(filtered_queue):
     pending = add_job("prefetched", "pending", "workflow")
     add_job("first", "first", "workflow", 3)
     add_job("second", "second", "workflow", 3)
     qm_db.write_query("UPDATE queue SET number = 2 WHERE prompt_id = 'second'")
     ids = [row[0] for row in qm_db.read_query("SELECT id FROM queue WHERE status = 3 ORDER BY number")]
-    external = [5, "external", {}, {"extra_pnginfo": {"other": "metadata"}}, []]
-    filtered_queue.native_queue.queue = [tuple(pending), tuple(external)]
+    unmanaged = [5, "unmanaged", {}, {"extra_pnginfo": {"other": "metadata"}}, []]
+    filtered_queue.native_queue.queue = [tuple(pending), tuple(unmanaged)]
     assert filtered_queue.selection_action("play", "archive", ids, client_id="client", front=True) == 2
-    assert filtered_queue.native_queue.queue == [tuple(external)]
+    assert filtered_queue.native_queue.queue == [tuple(unmanaged)]
     rows = qm_db.read_query("SELECT prompt_id, prompt FROM queue WHERE status = 0 ORDER BY number")
     assert [row[0] for row in rows] == ["first", "second", "prefetched"]
     assert all(json.loads(row[1])[3]["client_id"] == "client" for row in rows[:2])

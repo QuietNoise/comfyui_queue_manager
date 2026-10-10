@@ -18,7 +18,7 @@ An extension supporting more streamlined prompt queue management.
   - [Rename queued workflows](#rename-queued-workflows)
   - [Restore client focus](#restore-client-focus)
   - [Workflow Name node](#workflow-name-node)
-  - [External jobs](#external-jobs)
+  - [API-submitted jobs](#api-submitted-jobs)
   - [Comfy API / Partner Nodes](#comfy-api--partner-nodes)
   - [Gallery / output previews](#gallery--output-previews)
     - [Gallery view](#gallery-view)
@@ -175,7 +175,7 @@ Running jobs stay fixed and have disabled handles. Handles are also disabled whi
 Both tabs keep their saved order after a ComfyUI restart. Queue order determines which pending job executes next, including when ComfyUI has already prefetched a job. Archive order is independent of queue priorities and archive timestamps; **Run All** and **Run Selected** follow the order shown in Archive, including when running at the front of the queue. New or re-archived jobs join the end of a manually ordered Archive. Restart ComfyUI and refresh the browser after installing this update to load both the backend and the new handles.
 
 ### Rename queued workflows
-Click the pencil at the right edge of a pending or archived job's Workflow cell to edit its name. Moving focus outside the editor saves a changed name. You can also press **Enter** or click the checkmark to save; press **Escape** or click the cross to cancel. Empty names are rejected. Running, completed, and external jobs cannot be renamed.
+Click the pencil at the right edge of a pending or archived job's Workflow cell to edit its name. Moving focus outside the editor saves a changed name. You can also press **Enter** or click the checkmark to save; press **Escape** or click the cross to cancel. Empty names are rejected. Running and completed jobs cannot be renamed.
 
 ![Dark-mode Queue Manager with arrows pointing to the rename pencil and inline name editor](readme-img/rename-queue-items-dark.jpg)
 
@@ -218,14 +218,27 @@ Connect a string to `text` to supply the name from another node. In this example
 
 Queue Manager uses the first active Workflow Name node in the submitted prompt, ignoring muted or bypassed nodes. Connected values are read when available at queue time and may differ from the values produced during rendering. See the [node documentation](web/docs/Workflow%20Name.md) for sanitization and fallback details.
 
-### External jobs
-- Some third parties that queue through API don't supply full ComfyUI workflow context (i.e. ComfyUI plugin for Krita).
-- Since these renders won't benefit from the Queue Manager features we delegate these jobs to native queue handler and mark as external.
-- These jobs will appear in the native queue side bar; and the Queue Manager itself will indicate if such job is currently running.
+### API-submitted jobs
+Jobs submitted through ComfyUI's `/prompt` API are managed alongside jobs from the GUI, even when `extra_data.extra_pnginfo.workflow` is absent or has no name. They respect Pause and support renaming, selection, reordering, archive/replay, export/import, and completed-output previews.
 
-![external-job.png](readme-img/external-job.png)
-- Also any such jobs will always take precedence over items queued in Queue Manager.
-- **IMPORTANT! This accommodation for such external jobs is a workaround measure.** When I have time I will investigate if there is a better way to handle this scenario. To avoid potential conflicts and unexpected behavior it's recommended to avoid using such third party plugins while running jobs from Queue Manager (and vice versa).
+Unnamed submissions receive an **API job <short prompt ID>** label. Each submission has its own workflow identity unless the caller provides one, so filtering by workflow does not combine unrelated API jobs. Renaming or replaying a job retains its identity.
+
+API callers can optionally include this `extra_data` field in their `/prompt` request:
+
+```json
+{
+  "extra_data": {
+    "queue_manager": {
+      "name": "Batch render",
+      "workflow_id": "my-api-workflow"
+    }
+  }
+}
+```
+
+Both fields are optional. Reuse `workflow_id` to group submissions in the workflow filter. These fields describe the Queue Manager entry; they do not change node inputs or the runtime output of a Workflow Name node. Existing GUI workflow metadata is retained, and Queue Manager does not fabricate a canvas workflow in PNG metadata.
+
+**Load** uses the saved GUI workflow when available. Otherwise it uses ComfyUI's API-prompt loader to reconstruct the nodes and connections with an automatic layout. Original positions, groups, and other canvas-only information cannot be recovered from an API prompt.
 
 ### Comfy API / Partner Nodes
 1. This extension supports usage of Comfy API (Partner Nodes) in queued workflows.
