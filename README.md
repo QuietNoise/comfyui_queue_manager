@@ -81,6 +81,8 @@ and other things I forgot about.
 Click the pause button to pause the queue.
 Currently running workflow will finish, but no new workflows will be started until you resume the queue.
 
+Enable **Settings → Queue Manager → Basic → Clean caches on Pause** to request ComfyUI's model and execution-cache cleanup whenever you click Pause. This option is off by default. Cleanup waits for the current workflow to finish; resuming may require models to reload and nodes to recompute.
+
 ![pause.png](readme-img/pause.png)
 
 Click the play button to resume the queue.

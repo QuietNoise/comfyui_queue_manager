@@ -146,8 +146,16 @@ class QM_Server:
         # Toggle Play/Pause of the queue
         @PromptServer.instance.routes.get("/queue_manager/toggle")
         async def toggle_queue(request):
-            # Toggle the status of the queue
-            self.queue.toggle_playback()
+            # Prefer the live browser value; older clients use their saved setting.
+            clean_caches = request.query.get("clean_caches")
+            if clean_caches is None:
+                settings = self.user_manager.settings.get_settings(request)
+                clean_caches = settings.get("QueueManager.Basic.CleanCachesOnPause", False) is True
+            elif clean_caches in ("true", "false"):
+                clean_caches = clean_caches == "true"
+            else:
+                return web.json_response({"error": "Invalid clean_caches value"}, status=400)
+            self.queue.toggle_playback(clean_caches=clean_caches)
             return web.json_response({"paused": self.queue.paused})
 
         # Return the status of the queue's playback

@@ -394,6 +394,10 @@ class QM_Queue:
     def queue_get(self, timeout=None):
         with self.pause_lock:
             while self.paused:
+                # Let ComfyUI process cleanup without waiting for the pause timeout.
+                # Leave the flags intact for the native worker to consume.
+                if self.native_queue.get_flags(reset=False):
+                    return None
                 self.pause_lock.wait(timeout=timeout)
                 if timeout is not None and self.paused:  # if timed out and we are still paused
                     return None  # give up
@@ -631,7 +635,7 @@ class QM_Queue:
             if item[1] in prompt_ids:
                 item[3]["extra_pnginfo"]["workflow"]["workflow_name"] = name
 
-    def toggle_playback(self):
+    def toggle_playback(self, clean_caches=False):
         with self.pause_lock:
             # Toggle the playback of the queue
             self.paused = not self.paused
@@ -653,6 +657,12 @@ class QM_Queue:
                 # remove the pending item from the native queue if we are paused
                 self.native_queue.queue = []
                 PromptServer.instance.queue_updated()
+                if clean_caches:
+                    # Use the same flags as ComfyUI's /free endpoint. The worker
+                    # unloads models and resets node caches after the current job.
+                    self.native_queue.set_flag("unload_models", True)
+                    self.native_queue.set_flag("free_memory", True)
+                    self.pause_lock.notify()
                 # native queue might also be locked waiting for an item to be available
                 # we need to notify it to wake up so it can move on, and so we can reach the pause lock
                 # and avoid executing a new item while we are paused

@@ -69,10 +69,12 @@ export async function AddPlayPauseButton(actionsContainer) {
     buttonIcon = actionsContainer.querySelector('.pause-button .p-button-icon');
     pauseButton.addEventListener('click', async function () {
       try {
-        // POST item[1] as json
-        const response = await fetch(`/queue_manager/toggle`);
+        // Send the live value in case ComfyUI is still saving the setting.
+        const cleanCaches = app.extensionManager.setting.get('QueueManager.Basic.CleanCachesOnPause') === true;
+        const response = await fetch(`/queue_manager/toggle?clean_caches=${cleanCaches}`);
+        if (!response.ok) throw new Error(`Queue playback request failed (${response.status})`);
       } catch (error) {
-        console.error("Error fetching queue items:", error);
+        console.error("Error toggling queue playback:", error);
       }
     });
   }

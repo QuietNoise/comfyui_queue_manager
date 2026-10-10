@@ -1,6 +1,14 @@
 export const settings =  [
   // Basic settings appear in reverse registration order in ComfyUI.
   {
+    id: 'QueueManager.Basic.CleanCachesOnPause',
+    name: 'Clean caches on Pause',
+    category: ['Queue Manager', 'Basic', 'Clean caches on Pause'],
+    tooltip: 'Enabled: clears VRAM / RAM when queue is paused',
+    type: 'boolean',
+    defaultValue: false,
+  },
+  {
     id: 'QueueManager.Basic.ShowSelectionHints',
     name: 'Show selection mode hints',
     category: ['Queue Manager', 'Basic', 'Show selection mode hints'],
