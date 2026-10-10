@@ -151,46 +151,43 @@ Click the checkbox icon to the right of the Queue / Archive / Completed tabs, or
 
 The hints below the tabs can be dismissed with **Don't show again**. To restore them, enable **Settings → Queue Manager → Basic → Show selection mode hints**.
 
-- Click a row or its checkbox to select or deselect it. All individual action buttons stay available: **Archive**, **Delete**, **Run**, **Load**, and **View** work on that row without toggling its selection.
+- Click a row or its checkbox to select or deselect it. 
 - **Shift-click** selects a range from the last row clicked without Shift; **Shift+Alt-click** deselects that range.
-- Drag a rectangle to add every row it touches. Hold **Alt** while dragging to deselect those rows. The list scrolls when you drag near its top or bottom edge.
-- Use the checkbox in the column header to select or clear the visible page. Press **Escape** or click the selection toggle again to exit.
+- Drag a rectangle to add every row it touches. Hold **Alt** while dragging to deselect those rows. 
+- Use the checkbox in the column header to select or clear all items on page. 
+- Press **Escape** or click the selection toggle again to exit.
 
-While selecting, filters are disabled. Paging stays available; changing pages clears the selected items but keeps selection mode on. Footer actions become **Archive Selected**, **Run Selected**, **Export Selected**, and **Delete Selected**, as appropriate for the current tab. They stay disabled until at least one job is selected. Rename pencils stay available for pending and archived jobs.
+While selecting, filters are disabled.  Footer actions become **Archive Selected**, **Run Selected**, **Export Selected**, and **Delete Selected**, as appropriate for the current tab. They stay disabled until at least one job is selected.
 
 ![Dark-mode Queue selection with individual actions, three selected jobs, and enabled paging](readme-img/selection-queue-dark.jpg)
 
-When an item action or automatic queue update refreshes the current page, only selected jobs still displayed on that page remain selected; newly displayed jobs are not selected automatically. Changing pages or tabs, changing the page size or list order, importing jobs, or opening the gallery clears the selected items while keeping selection mode on. Selection mode stays on until you click its toggle, press **Escape**, or reload the browser. Jobs that have started running or moved to another tab before an action reaches the server are skipped.
+Selection mode stays on until you click its toggle, press **Escape**, or reload the browser.
 
 In Archive, **Run** moves an individual job to the queue while the remaining visible selections stay selected. **Run Selected** applies to the selected group.
 
 ![Dark-mode Archive selection after running one job, with two remaining jobs selected and individual Run buttons available](readme-img/selection-archive-dark.jpg)
 
 ### Reorder workflows
-Drag the handle in the far-right column of the **Queue** or **Archive** tab to move a job within that tab. A blue line marks the drop position, and the list scrolls when you drag near its top or bottom edge. Releasing the handle saves the order immediately; press **Escape** while dragging to cancel.
+Drag the handle in the far-right column of the **Queue** or **Archive** tab to move a job within that tab. A blue line marks the drop position. Releasing the handle saves the order immediately; press **Escape** while dragging to cancel.
 
-Dragging **up** places the jobs immediately **after the row above** the drop position; dragging **down** places them immediately **before the row below**. Reversing direction switches the anchor immediately. The anchor row is lightly highlighted with faded arrows: **downward arrows** on the upper anchor and **upward arrows** on the lower anchor. At the very top or bottom, jobs go before the first or after the last available row. In filtered views, the chosen anchor determines which side of any hidden jobs the group lands on.
+Dragging **up** places the jobs immediately **after the row above** the drop position; dragging **down** places them immediately **before the row below**. The anchor row is lightly highlighted with faded arrows: **downward arrows** on the upper anchor and **upward arrows** on the lower anchor. At the very top or bottom, jobs go before the first or after the last available row.
 
-In selection mode, dragging a handle moves the selected jobs together, keeping their existing queue order. Dragging an unselected job adds it to that group. Selection mode and the remaining visible selections stay active after the move. You can also focus a handle and press **Up** or **Down** to move a job or selected group one step.
+In selection mode, dragging a handle moves the selected jobs together, keeping their existing queue order. Dragging an unselected job adds it to that group. You can also focus a handle and press **Up** or **Down** to move a job or selected group one step.
 
-With jobs selected, movement controls appear below the list: **Start of queue / Top of page** on the left, a centered **- Move selection to -** label, and **Bottom of page / End of queue** on the right. In Archive, the start/end buttons refer to the archive. Start/end use the full tab, including jobs hidden by filters and jobs on other pages. Top/bottom of page move the group before the first or after the last unselected job on the visible page; buttons that would leave the page order unchanged are disabled. Every action preserves the group's existing order.
+With jobs selected, a  **- Move selection to -** movement controls appear below the list: **Start of queue / Top of page** on the left, and **Bottom of page / End of queue** on the right. In Archive, the start/end buttons refer to the archive. Start/end use the full tab, including jobs hidden by filters and jobs on other pages. Top/bottom of page move the group before the first or after the last unselected job on the visible page; 
 
-The current page stays open after a move. Jobs moved off that page leave the selection, while selection mode stays on. Movement buttons are disabled while saving or renaming.
-
-Running jobs stay fixed and have disabled handles. Handles are also disabled while renaming a selected group. Drag reordering is available in Queue and Archive, within the current page; in a filtered view the group is placed before or after the visible drop target in the full queue, preserving the relative order of other jobs. Changing pages or refreshing the list during a drag cancels that drag. Jobs that start running or leave the current tab before the server applies the move are skipped; if the drop target disappears, the list refreshes with an error so you can retry.
-
-Both tabs keep their saved order after a ComfyUI restart. Queue order determines which pending job executes next, including when ComfyUI has already prefetched a job. Archive order is independent of queue priorities and archive timestamps; **Run All** and **Run Selected** follow the order shown in Archive, including when running at the front of the queue. New or re-archived jobs join the end of a manually ordered Archive unless Shift is held while archiving. Restart ComfyUI and refresh the browser after installing this update to load both the backend and the new handles.
+Drag reordering is available in Queue and Archive, within the current page; 
 
 ### Rename queued workflows
-Click the pencil at the right edge of a pending or archived job's Workflow cell to edit its name. Moving focus outside the editor saves a changed name. You can also press **Enter** or click the checkmark to save; press **Escape** or click the cross to cancel. Empty names are rejected. Running and completed jobs cannot be renamed.
+Click the pencil at the right edge of a pending or archived job's Workflow cell to edit its name. Moving focus outside the editor saves a changed name. You can also press **Enter** or click the checkmark to save; press **Escape** or click the cross to cancel. Empty names are rejected. 
 
 ![Dark-mode Queue Manager with arrows pointing to the rename pencil and inline name editor](readme-img/rename-queue-items-dark.jpg)
 
-Outside selection mode, the change applies to that saved job, including its workflow-name metadata, and survives a restart or queue export/import. Names use the same filename sanitization as the Workflow Name node. Node text inputs and connections remain unchanged; a Workflow Name node with empty text uses the renamed metadata as its fallback during execution.
+Names use the same filename sanitization as the Workflow Name node. 
 
-In selection mode, clicking a pencil renames the selected group. If that row was not selected, it is added to the group. All affected names show the same draft with matching blue outlines; the preview names retain the row background, and the toolbar shows how many jobs are being renamed. Clicking outside the input saves a changed name and closes the editor without selecting/deselecting that row or triggering its action; **Enter** or the checkmark also saves. **Escape** or the cross cancels the whole edit. Enter/checkmark can also apply the source name unchanged to the group.
+In selection mode, clicking a pencil renames the selected group. If that row was not selected, it is added to the group. Clicking outside the input saves a changed name. **Enter** or the checkmark also saves. **Escape** or the cross cancels the whole edit. Enter/checkmark can also apply the source name unchanged to the group.
 
-The selected group stays fixed while editing. Every other rename pencil is disabled until the edit closes, so the editor cannot jump to another row. Jobs that have started running, disappeared, or moved to another tab are skipped. A same-page refresh keeps the remaining targets; changing pages/tabs or exiting selection clears the editor. As with an individual rename, jobs may leave an exact-name filtered view after saving.
+Jobs that have started running, disappeared, or moved to another tab are skipped. As with an individual rename, jobs may leave an exact-name filtered view after saving.
 
 ### Restore client focus
 When you restart ComfyUI or browser, you might lose the client focus. When that happens the progress of running renders in ComfyUI will no longer update (no progress view, no previews, no highlights which nodes is being executed).
@@ -226,7 +223,7 @@ Connect a string to `text` to supply the name from another node. In this example
 Queue Manager uses the first active Workflow Name node in the submitted prompt, ignoring muted or bypassed nodes. Connected values are read when available at queue time and may differ from the values produced during rendering. See the [node documentation](web/docs/Workflow%20Name.md) for sanitization and fallback details.
 
 ### API-submitted jobs
-Jobs submitted through ComfyUI's `/prompt` API are managed alongside jobs from the GUI, even when `extra_data.extra_pnginfo.workflow` is absent or has no name. They respect Pause and support renaming, selection, reordering, archive/replay, export/import, and completed-output previews.
+Jobs submitted through ComfyUI's `/prompt` API are managed alongside jobs from the GUI. 
 
 Unnamed submissions receive an **API job + short prompt ID** label. Each submission has its own workflow identity unless the caller provides one, so filtering by workflow does not combine unrelated API jobs. Renaming or replaying a job retains its identity.
 
@@ -243,9 +240,9 @@ API callers can optionally include this `extra_data` field in their `/prompt` re
 }
 ```
 
-Both fields are optional. Reuse `workflow_id` to group submissions in the workflow filter. These fields describe the Queue Manager entry; they do not change node inputs or the runtime output of a Workflow Name node. Existing GUI workflow metadata is retained, and Queue Manager does not fabricate a canvas workflow in PNG metadata.
+Both fields are optional. Reuse `workflow_id` to group submissions in the workflow filter. These fields describe the Queue Manager entry; they do not change node inputs or the runtime output of a Workflow Name node. 
 
-**Load** uses the saved GUI workflow when available. Otherwise it uses ComfyUI's API-prompt loader to reconstruct the nodes and connections with an automatic layout. Original positions, groups, and other canvas-only information cannot be recovered from an API prompt.
+**Load** uses the saved GUI workflow when available. Otherwise it uses ComfyUI to reconstruct the nodes and connections with an automatic layout. Original positions, groups, and other canvas-only information cannot be recovered from an API prompt.
 
 ### Comfy API / Partner Nodes
 1. This extension supports usage of Comfy API (Partner Nodes) in queued workflows.
