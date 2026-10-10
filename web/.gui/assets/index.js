@@ -30357,7 +30357,8 @@ function SplashScreen({ onClick }) {
           /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { children: "Clean caches on Pause" }),
           " setting to unload models and clear execution caches when the queue is paused. Off by default."
         ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "Manage API-submitted jobs alongside jobs queued from the GUI." })
+        /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "Manage API-submitted jobs alongside jobs queued from the GUI." }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "Updated docs, added docs for API and custom development / contributing." })
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("br", {}),

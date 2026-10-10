@@ -69,17 +69,7 @@ An extension supporting more streamlined prompt queue management.
 - If there is enough demand for multi-user support I will consider adding it in future releases.
 
 ## Roadmap
-In no particular order, just some ideas I have for the future of this extension.
-- [ ] Queue Manager nodes. On top of Workflow Name node add some other queue related strings you could use to streamline your workflows i.e. custom file names.
-- [ ] Bin. Can't think of a use case for it yet but I feel like it should be there at some stage.
-- [ ] More columns in the queue table. Suggest your favourites.
-- [ ] Better user and dev docs.
-- [x] ~~Ability to rename workflows in the queue.~~
-- [x] ~~Better progress feedback for longer running actions (like import).~~
-- [x] ~~Options. Toggles, big red buttons, levers and valves to control Queue Manager's behavior. Now everything is hardcoded.~~
-- [x] ~~Cover images, thumbnails, previews of rendered images in the queue. In other words what we have in core queue History with some spices added.~~
-
-and other things I forgot about.
+As of October 2026 no new major features are planned. This might change if I come up with a good idea or with something specific while working with ComfyUI
 
 ## Manual
 ### Pause / Resume Queue
@@ -151,10 +141,10 @@ Click the checkbox icon to the right of the Queue / Archive / Completed tabs, or
 
 The hints below the tabs can be dismissed with **Don't show again**. To restore them, enable **Settings → Queue Manager → Basic → Show selection mode hints**.
 
-- Click a row or its checkbox to select or deselect it. 
+- Click a row or its checkbox to select or deselect it.
 - **Shift-click** selects a range from the last row clicked without Shift; **Shift+Alt-click** deselects that range.
-- Drag a rectangle to add every row it touches. Hold **Alt** while dragging to deselect those rows. 
-- Use the checkbox in the column header to select or clear all items on page. 
+- Drag a rectangle to add every row it touches. Hold **Alt** while dragging to deselect those rows.
+- Use the checkbox in the column header to select or clear all items on page.
 - Press **Escape** or click the selection toggle again to exit.
 
 While selecting, filters are disabled.  Footer actions become **Archive Selected**, **Run Selected**, **Export Selected**, and **Delete Selected**, as appropriate for the current tab. They stay disabled until at least one job is selected.
@@ -174,16 +164,16 @@ Dragging **up** places the jobs immediately **after the row above** the drop pos
 
 In selection mode, dragging a handle moves the selected jobs together, keeping their existing queue order. Dragging an unselected job adds it to that group. You can also focus a handle and press **Up** or **Down** to move a job or selected group one step.
 
-With jobs selected, a  **- Move selection to -** movement controls appear below the list: **Start of queue / Top of page** on the left, and **Bottom of page / End of queue** on the right. In Archive, the start/end buttons refer to the archive. Start/end use the full tab, including jobs hidden by filters and jobs on other pages. Top/bottom of page move the group before the first or after the last unselected job on the visible page; 
+With jobs selected, a  **- Move selection to -** movement controls appear below the list: **Start of queue / Top of page** on the left, and **Bottom of page / End of queue** on the right. In Archive, the start/end buttons refer to the archive. Start/end use the full tab, including jobs hidden by filters and jobs on other pages. Top/bottom of page move the group before the first or after the last unselected job on the visible page;
 
-Drag reordering is available in Queue and Archive, within the current page; 
+Drag reordering is available in Queue and Archive, within the current page;
 
 ### Rename queued workflows
-Click the pencil at the right edge of a pending or archived job's Workflow cell to edit its name. Moving focus outside the editor saves a changed name. You can also press **Enter** or click the checkmark to save; press **Escape** or click the cross to cancel. Empty names are rejected. 
+Click the pencil at the right edge of a pending or archived job's Workflow cell to edit its name. Moving focus outside the editor saves a changed name. You can also press **Enter** or click the checkmark to save; press **Escape** or click the cross to cancel. Empty names are rejected.
 
 ![Dark-mode Queue Manager with arrows pointing to the rename pencil and inline name editor](readme-img/rename-queue-items-dark.jpg)
 
-Names use the same filename sanitization as the Workflow Name node. 
+Names use the same filename sanitization as the Workflow Name node.
 
 In selection mode, clicking a pencil renames the selected group. If that row was not selected, it is added to the group. Clicking outside the input saves a changed name. **Enter** or the checkmark also saves. **Escape** or the cross cancels the whole edit. Enter/checkmark can also apply the source name unchanged to the group.
 
@@ -223,7 +213,10 @@ Connect a string to `text` to supply the name from another node. In this example
 Queue Manager uses the first active Workflow Name node in the submitted prompt, ignoring muted or bypassed nodes. Connected values are read when available at queue time and may differ from the values produced during rendering. See the [node documentation](web/docs/Workflow%20Name.md) for sanitization and fallback details.
 
 ### API-submitted jobs
-Jobs submitted through ComfyUI's `/prompt` API are managed alongside jobs from the GUI. 
+
+For available endpoints and request/response examples, see the [API guide](API.md).
+
+Jobs submitted through ComfyUI's `/prompt` API are managed alongside jobs from the GUI.
 
 Unnamed submissions receive an **API job + short prompt ID** label. Each submission has its own workflow identity unless the caller provides one, so filtering by workflow does not combine unrelated API jobs. Renaming or replaying a job retains its identity.
 
@@ -240,7 +233,7 @@ API callers can optionally include this `extra_data` field in their `/prompt` re
 }
 ```
 
-Both fields are optional. Reuse `workflow_id` to group submissions in the workflow filter. These fields describe the Queue Manager entry; they do not change node inputs or the runtime output of a Workflow Name node. 
+Both fields are optional. Reuse `workflow_id` to group submissions in the workflow filter. These fields describe the Queue Manager entry; they do not change node inputs or the runtime output of a Workflow Name node.
 
 **Load** uses the saved GUI workflow when available. Otherwise it uses ComfyUI to reconstruct the nodes and connections with an automatic layout. Original positions, groups, and other canvas-only information cannot be recovered from an API prompt.
 
@@ -306,21 +299,22 @@ Check the error message in the ComfyUI terminal to identify the affected custom 
 - Before updating ComfyUI or custom nodes it's best to finish all queued and archived jobs to avoid potential incompatibility issues with new versions of ComfyUI or custom nodes.
 - While the ComfyUI Queue Manager offers data persistence between restarts and crashes as well as import/export functionality, it's not intended to provide a long term storage for queue jobs. Updates to ComfyUI and custom nodes might introduce breaking changes that will affect queued and archived jobs and make them unplayable. Run your queued and archived jobs as soon as possible to avoid such issues.
 
+## Queue Manager API
+See [API.md](API.md) for more details about all available endpoints and parameters.
 
 ## Development
-Don't lol. Things will change and move around a lot.
-Nevertheless, here are some pointers if you have some PR ideas for critical fixes or features:
+TLDR:
 - `/web` is the front end part of the extension.
-  - Inside is `.gui` folder which is hidden from default ComfyUI UI, but it's where the build version of the Queue Manager is.
+  - The `.gui` folder holds the built Queue Manager app. Its leading dot prevents ComfyUI from loading it automatically; the sidebar iframe loads it explicitly when opened.
 - The core front end functionality of the Queue Manager is a React web app loaded in an iframe (from  `.gui` folder). It communicates with loading part of the extension by postMessage API.
 - Server side (python) part of the extension is in `/src/comfyui_queue_manager`
 - Source code for the React app is in `/src/gui`. I use bun to build it but you can as well use npm.
 - database is in `/data/` (sqlite files are created automatically on first run after installation)
 
-Better docs will come later.
-
-## Have fun!
-Queue all the way to the moon.
+See [DEVELOPMENT.md](DEVELOPMENT.md) for more detailed setup, builds, checks and contribution steps.
 
 ## Release Notes
 For detailed release notes please see [CHANGELOG.md](CHANGELOG.md).
+
+## Have fun!
+Queue all the way to the moon.

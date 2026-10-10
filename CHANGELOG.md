@@ -2,16 +2,17 @@
 
 ## v0.2.0
 
-_Oct 8, 2026_
+_Oct 10, 2026_
 ### Enhancements
 
-- Reorder pending and archived jobs. 
-- Select queue items and apply actions to selected group.
+- Reorder pending and archived jobs.
 - Rename pending and archived jobs directly in the Workflow column. In selection mode, rename the selected group all at once.
+- Select queue items and apply actions to selected group (incl. running, archiving, deleting, exporting reordering and renaming).
 - Switch filtered views between workflow identity and an exact workflow name.
 - Hold Shift while archiving pending jobs to place them at the start of the Archive.
 - Added an option **Clean caches on Pause** to Settings. Off by default. When enabled it unloads models and clears execution caches after queue is Paused.
 - Added support to manage API-submitted jobs
+- Updated docs, added docs for API and custom development / contributing.
 
 ## v0.1.2
 
