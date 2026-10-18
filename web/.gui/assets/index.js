@@ -30348,7 +30348,7 @@ function SplashScreen({ onClick }) {
       /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { children: "Bugfixes" }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "list-disc pl-5 space-y-1", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "Fixed empty image or GIF output lists crashing job completion and stopping further prompt execution." }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "Restored Pause/Resume and Clear pending buttons on ComfyUI 0.41 after the toolbar refactor." })
+        /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "Restored Pause/Resume and Clear pending buttons on ComfyUI 0.41 through its compatibility menu API." })
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("br", {}),

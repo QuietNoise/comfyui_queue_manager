@@ -118,7 +118,7 @@ From the repository root:
 ```sh
 python -m pytest -q tests/
 ruff check .
-node --test tests/workflow-name.test.mjs tests/workflow-filters.test.mjs tests/queue-selection.test.mjs tests/queue-reorder.test.mjs tests/queue-metadata.test.mjs
+node --test tests/*.test.mjs
 ```
 
 These are the checks run for pull requests. For GUI changes, also run `npm run build` from `src/gui` and try the affected behavior in ComfyUI. Automated tests do not replace that browser check.

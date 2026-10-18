@@ -1,3 +1,96 @@
+/* Match Queue Manager's buttons. */
+button.comfyui-button.qm-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin: 0 3px;
+  position: relative;
+  background: linear-gradient(#333, #222);
+  border: 1px solid #444;
+  border-radius: 5px;
+  box-shadow: 0 2px 0 #000;
+  color: var(--qm-button-color);
+  font-size: 18px;
+  line-height: 1;
+  text-shadow: 0 0 3px #000;
+  cursor: pointer;
+  transition: background-color 300ms ease, color 300ms ease;
+}
+button.comfyui-button.qm-toolbar-button.stop-button:has(+ .qm-toolbar-button.pause-button) {
+  margin-right: 0;
+  border-radius: 5px 0 0 5px;
+}
+button.comfyui-button.qm-toolbar-button.stop-button + button.comfyui-button.qm-toolbar-button.pause-button {
+  margin-left: -1px;
+  border-radius: 0 5px 5px 0;
+}
+button.qm-toolbar-button.stop-button {
+  --qm-button-color: #f96;
+  --qm-button-light-color: #b33c00;
+  --qm-button-hover: linear-gradient(#c99, #ad5c5c);
+  --qm-button-light-hover: linear-gradient(#e6cccc, #c78f8f);
+  --qm-button-active: linear-gradient(#964b4b, #be7e7e);
+  --qm-button-light-active: linear-gradient(#b97474, #d8b1b1);
+  --qm-button-glow: 204, 51, 51;
+}
+button.qm-toolbar-button.pause-button {
+  --qm-button-color: #acf;
+  --qm-button-light-color: #0063f7;
+  --qm-button-hover: linear-gradient(#6af, #0a77ff);
+  --qm-button-light-hover: linear-gradient(#b3d5ff, #57a2ff);
+  --qm-button-active: linear-gradient(#0064e0, #3d93ff);
+  --qm-button-light-active: linear-gradient(#2e8bff, #8abeff);
+  --qm-button-glow: 153, 204, 255;
+}
+button.comfyui-button.qm-toolbar-button:hover:not(:disabled) {
+  background: var(--qm-button-hover);
+  color: #000;
+  text-shadow: none;
+  animation: qm-toolbar-glow 800ms ease-out infinite alternate;
+}
+button.comfyui-button.qm-toolbar-button:active:not(:disabled) {
+  top: 1px;
+  background: var(--qm-button-active);
+  box-shadow: 0 1px 0 #000, inset 1px 0 1px #222;
+  animation: none;
+}
+button.comfyui-button.qm-toolbar-button:focus-visible {
+  outline: 2px solid var(--qm-button-color);
+  outline-offset: 2px;
+}
+button.comfyui-button.qm-toolbar-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+@keyframes qm-toolbar-glow {
+  from {
+    box-shadow: 0 0 5px rgba(var(--qm-button-glow), 0.2), inset 0 0 5px rgba(var(--qm-button-glow), 0.1), 0 2px 0 #000;
+  }
+  to {
+    box-shadow: 0 0 20px rgba(var(--qm-button-glow), 0.6), inset 0 0 10px rgba(var(--qm-button-glow), 0.4), 0 2px 0 #000;
+  }
+}
+/* ComfyUI sets dark-theme on html (newer frontends) or body (older ones).
+   Its selected palette can differ from the browser/OS color preference. */
+html:not(.dark-theme) body:not(.dark-theme) button.comfyui-button.qm-toolbar-button {
+  background: linear-gradient(#fff, #eee);
+  border-color: #ccc;
+  box-shadow: 0 2px 1px #eee4;
+  color: var(--qm-button-light-color);
+  text-shadow: none;
+}
+html:not(.dark-theme) body:not(.dark-theme) button.comfyui-button.qm-toolbar-button:hover:not(:disabled) {
+  background: var(--qm-button-light-hover);
+  color: #000;
+}
+html:not(.dark-theme) body:not(.dark-theme) button.comfyui-button.qm-toolbar-button:active:not(:disabled) {
+  background: var(--qm-button-light-active);
+}
+
 .comfyui-queue-manager header.header {
   display: flex;
   align-items: center;

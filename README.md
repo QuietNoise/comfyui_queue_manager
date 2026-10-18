@@ -73,19 +73,19 @@ As of October 2026 no new major features are planned. This might change if I com
 
 ## Manual
 ### Pause / Resume Queue
-Click the pause button to pause the queue.
+Click the blue pause button in ComfyUI's extension controls to pause the queue.
 Currently running workflow will finish, but no new workflows will be started until you resume the queue.
 
 Enable **Settings → Queue Manager → Basic → Clean caches on Pause** to request ComfyUI's model and execution-cache cleanup whenever you click Pause. This option is off by default. Cleanup waits for the current workflow to finish; resuming may require models to reload and nodes to recompute.
 
-![pause.png](readme-img/pause.png)
+![ComfyUI toolbar with a red arrow pointing to the blue Pause button](readme-img/queue-controls-pause.jpg)
 
-Click the play button to resume the queue.
+Click the blue play button to resume the queue.
 
-![resume.png](readme-img/resume.png)
+![ComfyUI toolbar with a red arrow pointing to the blue Resume button](readme-img/queue-controls-resume.jpg)
 
 ### Stop / Clear Queue
-Queue Manager restores the native ComfyUI queue stop / clear queue button that was removed in ComfyUI v0.4.0. Enjoy.
+Click the red square button beside Pause/Resume to clear pending jobs. It is disabled when the queue is empty.
 
 ### Running and main Queue Manager window
 You can start running jobs as usual using the Run button in the main ComfyUI window.

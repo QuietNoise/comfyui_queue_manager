@@ -7,7 +7,7 @@ _Oct 18, 2026_
 ### Bugfixes
 
 - Fixed empty `images` or `gifs` output lists crashing job completion and stopping further prompt execution.
-- Restored Pause/Resume and Clear pending buttons on ComfyUI 0.41 after its toolbar stopped using PrimeVue Panel wrappers.
+- Restored Pause/Resume and Clear pending buttons on ComfyUI 0.41+.
 
 ## v0.2.0
 

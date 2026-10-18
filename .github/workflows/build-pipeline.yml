@@ -35,5 +35,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Test workflow names, filters, selection, reordering and API job metadata
-        run: node --test tests/workflow-name.test.mjs tests/workflow-filters.test.mjs tests/queue-selection.test.mjs tests/queue-reorder.test.mjs tests/queue-metadata.test.mjs
+      - name: Test browser integration and queue controls
+        run: node --test tests/*.test.mjs
