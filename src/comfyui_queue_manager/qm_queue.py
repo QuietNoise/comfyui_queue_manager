@@ -294,9 +294,8 @@ class QM_Queue:
                         elif "gifs" in output:
                             images = output["gifs"]
 
-                        if images is not None:
-                            if images[0]["type"] == "output":
-                                outputs[node_id] = output
+                        if images and images[0]["type"] == "output":
+                            outputs[node_id] = output
 
                     if len(outputs) > 0:
                         # Save outputs to the meta table

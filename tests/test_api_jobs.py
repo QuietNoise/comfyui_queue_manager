@@ -200,6 +200,38 @@ def test_completed_api_job_records_outputs_and_forwards_native_cleanup(api_queue
     assert queue_metadata(completed[0])["name"].startswith("API job ")
 
 
+@pytest.mark.parametrize("media_key", ["images", "gifs"])
+@pytest.mark.parametrize("with_saved_output", [False, True], ids=["empty-only", "mixed-outputs"])
+def test_completion_skips_empty_media_and_allows_next_job(api_queue, media_key, with_saved_output):
+    first, second = api_job(1), api_job(2)
+    api_queue.queue_put(first)
+    api_queue.queue_put(second)
+    queued, item_id = api_queue.queue_get()
+    api_queue.native_queue.currently_running[item_id] = queued
+    outputs = {"empty": {media_key: []}}
+    expected_outputs = {}
+    if with_saved_output:
+        saved_output = {media_key: [{"filename": "saved.png", "subfolder": "", "type": "output"}]}
+        outputs["saved"] = saved_output
+        outputs["preview"] = {media_key: [{"filename": "preview.png", "subfolder": "", "type": "temp"}]}
+        expected_outputs["saved"] = saved_output
+    history = {"outputs": outputs}
+    status = ("success", True, [("execution_start", {"timestamp": 1000}), ("execution_success", {"timestamp": 2500})])
+    cleanup = Mock()
+
+    api_queue.task_done(item_id, history, status, process_item=cleanup)
+
+    api_queue.original_task_done.assert_called_once_with(item_id, history, status, cleanup)
+    assert saved(first[1])["status"] == 2
+    _, completed = api_queue.get_current_queue(page_size=100, route="completed")
+    assert len(completed) == 1
+    metadata = completed[0][3]
+    assert metadata.get("outputs", {}) == expected_outputs
+    assert metadata["total_files"] == int(with_saved_output)
+    assert metadata["execution_time"] == 1.5
+    assert api_queue.queue_get()[0][1] == second[1]
+
+
 def test_interrupted_api_job_restores_from_persisted_prompt(api_queue):
     item = api_job()
     api_queue.queue_put(item)

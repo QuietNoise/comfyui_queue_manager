@@ -30338,27 +30338,17 @@ function SplashScreen({ onClick }) {
     /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { className: "close", onClick, children: /* @__PURE__ */ jsxRuntimeExports.jsx(CloseSharpIcon, {}) }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "splash-content", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { children: "ComfyUI Queue Manager" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "sub", children: "Version: v0.2.0" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h4", { className: "sub", children: "Version: v0.2.1" }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("h4", { className: "sub", children: [
-        "Released: 8",
+        "Released: 18",
         /* @__PURE__ */ jsxRuntimeExports.jsx("sup", { children: "th" }),
         " October 2026"
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { children: "What's new?" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { children: "Enhancements" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { children: "Bugfixes" }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "list-disc pl-5 space-y-1", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "Reorder pending and archived jobs." }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "Select queue items and apply actions to the selected group." }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "Rename pending and archived jobs directly in the Workflow column, individually or as a selected group." }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "Switch filtered views between workflow identity and an exact workflow name." }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "Hold Shift while archiving pending jobs to place them at the start of the Archive." }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { children: [
-          "Optional ",
-          /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { children: "Clean caches on Pause" }),
-          " setting to unload models and clear execution caches when the queue is paused. Off by default."
-        ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "Manage API-submitted jobs alongside jobs queued from the GUI." }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "Updated docs, added docs for API and custom development / contributing." })
+        /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "Fixed empty image or GIF output lists crashing job completion and stopping further prompt execution." }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("li", { children: "Restored Pause/Resume and Clear pending buttons on ComfyUI 0.41 after the toolbar refactor." })
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("br", {}),

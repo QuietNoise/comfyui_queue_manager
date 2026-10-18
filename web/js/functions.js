@@ -206,19 +206,12 @@ async function AddButtons(actionsContainer) {
 }
 
 export async function uiSetup () {
-  let nodeSelector = null;
-
-  const current = typeof __COMFYUI_FRONTEND_VERSION__ !== 'undefined' ? __COMFYUI_FRONTEND_VERSION__  : '0.0.0';
-
-  if (compareVersions(current, '1.33.1') >= 0) {
-    nodeSelector = '.actionbar > .p-panel-content-container > .p-panel-content > div';
-  } else {
-    nodeSelector = '.execution-actions';
-  }
-
   const restoreButtons = () => {
       // Look up the live container: the previous one may have been replaced.
-      const actionsContainer = document.querySelector(nodeSelector);
+      // The drag handle stays in the button row with or without PrimeVue's Panel wrappers.
+      const actionsContainer = document.querySelector('.actionbar .drag-handle')?.parentElement ||
+        document.querySelector('.actionbar > .p-panel-content-container > .p-panel-content > div') ||
+        document.querySelector('.execution-actions');
       if (actionsContainer) {
         AddButtons(actionsContainer);
       }

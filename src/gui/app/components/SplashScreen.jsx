@@ -9,19 +9,13 @@ export function SplashScreen({onClick}) {
       </Button>
       <div className="splash-content">
         <h1>ComfyUI Queue Manager</h1>
-        <h4 className={"sub"}>Version: v0.2.0</h4>
-        <h4 className={"sub"}>Released: 10<sup>th</sup> October 2026</h4>
+        <h4 className={"sub"}>Version: v0.2.1</h4>
+        <h4 className={"sub"}>Released: 18<sup>th</sup> October 2026</h4>
         <h2>What's new?</h2>
-        <h3>Enhancements</h3>
+        <h3>Bugfixes</h3>
         <ul className="list-disc pl-5 space-y-1">
-          <li>Reorder pending and archived jobs.</li>
-          <li>Select queue items and apply actions to the selected group.</li>
-          <li>Rename pending and archived jobs directly in the Workflow column, individually or as a selected group.</li>
-          <li>Switch filtered views between workflow identity and an exact workflow name.</li>
-          <li>Hold Shift while archiving pending jobs to place them at the start of the Archive.</li>
-          <li>Optional <strong>Clean caches on Pause</strong> setting to unload models and clear execution caches when the queue is paused. Off by default.</li>
-          <li>Manage API-submitted jobs alongside jobs queued from the GUI.</li>
-          <li>Updated docs, added docs for API and custom development / contributing.</li>
+          <li>Fixed empty image or GIF output lists crashing job completion and stopping further prompt execution.</li>
+          <li>Restored Pause/Resume and Clear pending buttons on ComfyUI 0.41 after the toolbar refactor.</li>
         </ul>
         <p><br/>
           <i>For more details check the updated manual on Github: <a href={"https://github.com/QuietNoise/comfyui_queue_manager?tab=readme-ov-file#manual"} target={"_blank"}>Queue Manager Manual</a>.</i><br/>
