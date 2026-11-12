@@ -77,6 +77,12 @@ class QM_Queue:
         self.original_task_done = self.native_queue.task_done
         self.native_queue.task_done = self.task_done
 
+        # Hijack PromptQueue.delete_queue_item() so native deletions (POST /queue {"delete": [...]},
+        # POST /api/jobs/{id}/cancel) also remove pending jobs from the database. Without this, a job
+        # deleted through the native API stays pending in the database and still runs.
+        self.original_delete_queue_item = self.native_queue.delete_queue_item
+        self.native_queue.delete_queue_item = self.queue_delete_item
+
     # NOTE: This hijack will make native queue API endpoint to not return pending items.
     # We do this to avoid bottleneck in the native queue when it goes massive
     # and to avoid duplicate bandwidth for requesting queue by execution store and queue manager.
@@ -440,6 +446,27 @@ class QM_Queue:
             else:
                 # No item in the queue
                 return None
+
+    def queue_delete_item(self, function):
+        """Native delete: remove matching pending jobs from the native heap and from the database.
+
+        ComfyUI calls this with a predicate on a queue item, e.g. ``lambda a: a[1] == prompt_id``.
+        Most pending jobs only exist in the database, so the predicate is also tested against the
+        database rows, as ``_DbQueueItem`` views that read the stored prompt only when needed.
+        """
+        with self.native_queue.mutex:
+            deleted = bool(self.original_delete_queue_item(function))
+            rows = read_query("SELECT id, prompt_id, number FROM queue WHERE status = 0 ORDER BY number, id")
+            ids = [row["id"] for row in rows if function(_DbQueueItem(row))]
+            if not ids:
+                return deleted
+            with get_conn():
+                for db_id in ids:
+                    write_query("DELETE FROM queue WHERE id = ?", (db_id,), False)
+            qm_log.info("Deleted %d pending item(s) through the native queue API", len(ids))
+            PromptServer.instance.queue_updated()
+            PromptServer.instance.send_sync("queue-manager-queue-updated", {"deleted": len(ids)})
+            return True
 
     # ===========================================================
     # ================== NON-HIJACK METHODS =====================
@@ -1141,3 +1168,30 @@ class QM_Queue:
         reveal_file(target_path)
 
         return target_path
+
+
+class _DbQueueItem:
+    """A pending database job seen as a native queue item ``(number, prompt_id, prompt, extra_data, outputs, ...)``.
+
+    Index 0 and 1 come from the row; other indexes load the stored prompt on first use.
+    """
+
+    def __init__(self, row):
+        self._row = row
+        self._item = None
+
+    def __getitem__(self, index):
+        if index == 0:
+            return self._row["number"]
+        if index == 1:
+            return self._row["prompt_id"]
+        return self._load()[index]
+
+    def __len__(self):
+        return len(self._load())
+
+    def _load(self):
+        if self._item is None:
+            stored = read_single("SELECT prompt FROM queue WHERE id = ?", (self._row["id"],))
+            self._item = json.loads(stored["prompt"]) if stored else []
+        return self._item
